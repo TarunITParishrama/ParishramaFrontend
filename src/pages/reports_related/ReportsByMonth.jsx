@@ -9,11 +9,29 @@ export default function ReportsByMonth() {
   const [reports, setReports] = useState([]);
   const [solutions, setSolutions] = useState([]);
   const [testName, setTestName] = useState("");
+  const [subjectName, setSubjectName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [studentResults, setStudentResults] = useState([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // Helper function to convert monthYear (e.g. "Mar 2025") to date range
+  const getMonthRange = (monthYear) => {
+    const [monthStr, yearStr] = monthYear.split(' ');
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthIndex = monthNames.indexOf(monthStr);
+    const year = parseInt(yearStr);
+    
+    const startDate = new Date(year, monthIndex, 1);
+    const endDate = new Date(year, monthIndex + 1, 0);
+    
+    return {
+      start: startDate.toISOString(),
+      end: endDate.toISOString()
+    };
+  };
 
   useEffect(() => {
     if (!testId || !monthYear) {
@@ -24,42 +42,60 @@ export default function ReportsByMonth() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError("");
         
-        // 1. First get the test details including name
+        // 1. First get the test details including name and subject
         const reportResponse = await axios.get(`http://localhost:5000/api/getreport/${testId}`);
-        console.log('Report response:', reportResponse.data); // Debug
         
         if (!reportResponse.data?.data) {
           throw new Error("Test details not found");
         }
         
-        setTestName(reportResponse.data.data.testName || "Unknown Test");
+        // Extract test details
+        const testData = reportResponse.data.data;
+        const fetchedTestName = testData.testName || "Unknown Test";
+        const fetchedSubject = testData.subject?.subjectName || testData.subject || "Unknown Subject";
         
-        // 2. Fetch all reports for this test
-        const reportsResponse = await axios.get(`http://localhost:5000/api/getreportbank?reportRef=${testId}`);
-        console.log('Reports response:', reportsResponse.data);
-        // 3. Filter by month
-        const [selectedMonth, selectedYear] = monthYear.split(' ');
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const monthIndex = monthNames.indexOf(selectedMonth);
+        setTestName(fetchedTestName);
+        setSubjectName(fetchedSubject);
         
-        const monthReports = reportsResponse.data.data.filter(report => {
-          if (!report.date) return false;
-          const reportDate = new Date(report.date);
-          return (
-            reportDate.getMonth() === monthIndex && 
-            reportDate.getFullYear() === parseInt(selectedYear)
-          );
+        // 2. Get date range for the selected month
+        const { start, end } = getMonthRange(monthYear);
+        
+        // 3. Fetch reports with proper filtering
+        const reportsResponse = await axios.get("http://localhost:5000/api/getreportbank", {
+          params: {
+            reportRef: testId,
+            testName: fetchedTestName,
+            subject: fetchedSubject,
+            dateFrom: start,
+            dateTo: end
+          }
         });
         
-        if (monthReports.length === 0) {
-          throw new Error(`No reports found for ${monthYear}`);
+        console.log('Filtered reports:', reportsResponse.data);
+        
+        if (!reportsResponse.data?.data || reportsResponse.data.data.length === 0) {
+          throw new Error(`No reports found for:
+            Test: ${fetchedTestName}
+            Subject: ${fetchedSubject}
+            Month: ${monthYear}`);
         }
         
-        setReports(monthReports);
+        // 4. Ensure unique registration numbers
+        const uniqueReports = [];
+        const regNumbers = new Set();
         
-        // 4. Fetch corresponding solutions
+        reportsResponse.data.data.forEach(report => {
+          if (!regNumbers.has(report.regNumber)) {
+            regNumbers.add(report.regNumber);
+            uniqueReports.push(report);
+          }
+        });
+        
+        setReports(uniqueReports);
+        
+        // 5. Fetch corresponding solutions
         const solutionsResponse = await axios.get(
           `http://localhost:5000/api/getsolutionbank?solutionRef=${testId}`
         );
@@ -68,16 +104,20 @@ export default function ReportsByMonth() {
           throw new Error("No solutions found for this test");
         }
         
-        const sortedSolutions = solutionsResponse.data.data.sort((a, b) => a.questionNumber - b.questionNumber);
-        console.log("Sorted Solutions", sortedSolutions);
+        const sortedSolutions = solutionsResponse.data.data.sort((a, b) => 
+          a.questionNumber - b.questionNumber
+        );
         setSolutions(sortedSolutions);
         
-        // 5. Calculate student results
-        calculateResults(monthReports, sortedSolutions, marksType);
+        // 6. Calculate student results
+        calculateResults(uniqueReports, sortedSolutions, marksType);
         
       } catch (err) {
         console.error("Fetch error:", err);
         setError(err.message || "Failed to fetch data");
+        setReports([]);
+        setSolutions([]);
+        setStudentResults([]);
       } finally {
         setLoading(false);
       }
