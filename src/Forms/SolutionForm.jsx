@@ -35,7 +35,7 @@ const SolutionForm = ({ onSuccess }) => {
 
   const fetchSubjects = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/getsubjects");
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`);
       setSubjects(response.data.data);
     } catch (err) {
       setError("Failed to fetch subjects");
@@ -47,7 +47,7 @@ const SolutionForm = ({ onSuccess }) => {
     const fetchChapters = async () => {
       if (formData.subject) {
         try {
-          const response = await axios.get(`http://localhost:5000/api/getchapters?subject=${formData.subject}`);
+          const response = await axios.get(`${process.env.REACT_APP_URL}/api/getchapters?subject=${formData.subject}`);
           setChapters(response.data.data);
           setFormData(prev => ({ ...prev, chapter: "", subtopic: "" }));
         } catch (err) {
@@ -64,7 +64,7 @@ const SolutionForm = ({ onSuccess }) => {
       if (formData.subject && formData.chapter) {
         try {
           const response = await axios.get(
-            `http://localhost:5000/api/getsubtopic?subject=${formData.subject}&chapter=${formData.chapter}`
+            `${process.env.REACT_APP_URL}/api/getsubtopic?subject=${formData.subject}&chapter=${formData.chapter}`
           );
           setSubtopics(response.data.data);
           setFormData(prev => ({ ...prev, subtopic: "" }));
@@ -121,7 +121,7 @@ const SolutionForm = ({ onSuccess }) => {
     if (!newSubject.trim()) return;
     
     try {
-      const response = await axios.post("http://localhost:5000/api/createsubject", {
+      const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsubject`, {
         subjectName: newSubject
       });
       
@@ -138,7 +138,7 @@ const SolutionForm = ({ onSuccess }) => {
     if (!newChapter.trim() || !formData.subject) return;
     
     try {
-      const response = await axios.post("http://localhost:5000/api/createchapter", {
+      const response = await axios.post(`${process.env.REACT_APP_URL}/api/createchapter`, {
         chapterName: newChapter,
         subject: formData.subject
       });
@@ -156,7 +156,7 @@ const SolutionForm = ({ onSuccess }) => {
     if (!newSubtopic.trim() || !formData.subject || !formData.chapter) return;
     
     try {
-      const response = await axios.post("http://localhost:5000/api/createsubtopic", {
+      const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsubtopic`, {
         subtopicName: newSubtopic,
         subject: formData.subject,
         chapter: formData.chapter
@@ -187,7 +187,7 @@ const SolutionForm = ({ onSuccess }) => {
         }))
       };
 
-      const response = await axios.post("http://localhost:5000/api/createsolution", payload);
+      const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsolution`, payload);
       onSuccess(response.data);
       setFormData({
         subject: "",

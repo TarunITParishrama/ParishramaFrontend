@@ -37,7 +37,7 @@ const StudentReport = ({ onClose }) => {
     setStatus('Fetching reports...');
     
     try {
-      const response = await axios.get(`http://localhost:5000/api/getstudentreportbystudentid/${formData.rollNo}`);
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getstudentreportbystudentid/${formData.rollNo}`);
       
       if (!response.data?.data) {
         throw new Error('No data received from server');

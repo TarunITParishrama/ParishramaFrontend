@@ -35,7 +35,7 @@ export default function NewReport({ onClose }) {
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/getsubjects");
+        const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`);
         setSubjects(response.data.data);
       } catch (err) {
         setError("Failed to fetch subjects");
@@ -50,7 +50,7 @@ export default function NewReport({ onClose }) {
       if (formData.subject) {
         try {
           const response = await axios.get(
-            `http://localhost:5000/api/getchapters?subject=${formData.subject}`
+            `${process.env.REACT_APP_URL}/api/getchapters?subject=${formData.subject}`
           );
           setChapters(response.data.data);
           setFormData(prev => ({ ...prev, chapter: "", subtopic: "" }));
@@ -68,7 +68,7 @@ export default function NewReport({ onClose }) {
       if (formData.subject && formData.chapter) {
         try {
           const response = await axios.get(
-            `http://localhost:5000/api/getsubtopic?subject=${formData.subject}&chapter=${formData.chapter}`
+            `${process.env.REACT_APP_URL}/api/getsubtopic?subject=${formData.subject}&chapter=${formData.chapter}`
           );
           setSubtopics(response.data.data);
           setFormData(prev => ({ ...prev, subtopic: "" }));
@@ -86,7 +86,7 @@ export default function NewReport({ onClose }) {
       if (formData.subject) {
         try {
           const response = await axios.get(
-            `http://localhost:5000/api/getsolutionbank?subject=${formData.subject}`
+            `${process.env.REACT_APP_URL}/api/getsolutionbank?subject=${formData.subject}`
           );
           const uniqueTestNames = [
             ...new Set(response.data.data.map(item => item.solutionRef.testName))
@@ -247,7 +247,7 @@ export default function NewReport({ onClose }) {
   
       // 3. Send the request with proper headers
       const response = await axios.post(
-        "http://localhost:5000/api/createreport",
+        `${process.env.REACT_APP_URL}/api/createreport`,
         requestBody,
         {
           headers: {

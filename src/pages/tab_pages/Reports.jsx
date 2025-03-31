@@ -12,7 +12,7 @@ export default function Reports() {
     // Fetch student details from the backend API
     const fetchStudents = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/students");
+        const response = await fetch(`${process.env.REACT_APP_URL}/api/students`);
         if (response.ok) {
           const data = await response.json();
           setStudents(data);

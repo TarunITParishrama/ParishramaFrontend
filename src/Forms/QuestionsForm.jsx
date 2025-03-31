@@ -38,7 +38,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
   const fetchSubjects = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/getsubjects");
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`);
 
       console.log("API Response:", response.data);
 
@@ -58,7 +58,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     if (!subject) return;
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/getchapters?subject=${subject}`);
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getchapters?subject=${subject}`);
 
       console.log("API Response:", response.data);
 
@@ -81,7 +81,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     }
 
     try {
-      const response = await axios.get(`/api/getsubtopics?subject=${subject}&chapter=${chapter}`);
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubtopics?subject=${subject}&chapter=${chapter}`);
       setSubtopics(response.data.data);
       console.log("✅ Fetched subtopics:", response.data.data);
     } catch (error) {
@@ -97,7 +97,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
     if (type === "subject") {
       try {
-        const response = await axios.post("http://localhost:5000/api/createsubject", {
+        const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsubject`, {
           subjectName: value,
         });
         setSubjects((prev) => [...prev, response.data.data]);
@@ -113,7 +113,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
       }
 
       try {
-        const response = await axios.post("http://localhost:5000/api/createchapter", {
+        const response = await axios.post(`${process.env.REACT_APP_URL}/api/createchapter`, {
           chapterName: value,
           subject: selectedSubject.subjectName,
         });
@@ -126,7 +126,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     }
     if (type === "subtopic") {
       try {
-        const response = await axios.post("http://localhost:5000/api/createsubtopic", {
+        const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsubtopic`, {
           subtopicName: value,
           subject: selectedSubject.subjectName,
           chapter: selectedChapter.chapterName,
@@ -255,7 +255,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     console.log("Form Data:", formDataToSend);
 
     try {
-      await axios.post("http://localhost:5000/api/createquestions", formDataToSend);
+      await axios.post(`${process.env.REACT_APP_URL}/api/createquestions`, formDataToSend);
       alert("✅ Question added successfully!");
     } catch (error) {
       console.error("❌ Error submitting question", error);

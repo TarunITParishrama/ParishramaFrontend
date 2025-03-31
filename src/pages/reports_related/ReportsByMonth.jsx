@@ -5,18 +5,16 @@ import { useLocation, useNavigate } from "react-router-dom";
 export default function ReportsByMonth() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { testId, monthYear, marksType } = state || {};
-  const [reports, setReports] = useState([]);
+  const { testId, monthYear } = state || {}; // Removed marksType from props
   const [solutions, setSolutions] = useState([]);
   const [testName, setTestName] = useState("");
   const [subjectName, setSubjectName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [studentResults, setStudentResults] = useState([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [groupedReports, setGroupedReports] = useState({});
 
-  // Helper function to convert monthYear (e.g. "Mar 2025") to date range
   const getMonthRange = (monthYear) => {
     const [monthStr, yearStr] = monthYear.split(' ');
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
@@ -44,14 +42,9 @@ export default function ReportsByMonth() {
         setLoading(true);
         setError("");
         
-        // 1. First get the test details including name and subject
-        const reportResponse = await axios.get(`http://localhost:5000/api/getreport/${testId}`);
+        const reportResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getreport/${testId}`);
+        if (!reportResponse.data?.data) throw new Error("Test details not found");
         
-        if (!reportResponse.data?.data) {
-          throw new Error("Test details not found");
-        }
-        
-        // Extract test details
         const testData = reportResponse.data.data;
         const fetchedTestName = testData.testName || "Unknown Test";
         const fetchedSubject = testData.subject?.subjectName || testData.subject || "Unknown Subject";
@@ -59,11 +52,9 @@ export default function ReportsByMonth() {
         setTestName(fetchedTestName);
         setSubjectName(fetchedSubject);
         
-        // 2. Get date range for the selected month
         const { start, end } = getMonthRange(monthYear);
         
-        // 3. Fetch reports with proper filtering
-        const reportsResponse = await axios.get("http://localhost:5000/api/getreportbank", {
+        const reportsResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getreportbank`, {
           params: {
             reportRef: testId,
             testName: fetchedTestName,
@@ -73,31 +64,35 @@ export default function ReportsByMonth() {
           }
         });
         
-        console.log('Filtered reports:', reportsResponse.data);
-        
         if (!reportsResponse.data?.data || reportsResponse.data.data.length === 0) {
-          throw new Error(`No reports found for:
-            Test: ${fetchedTestName}
-            Subject: ${fetchedSubject}
-            Month: ${monthYear}`);
+          throw new Error(`No reports found for ${fetchedTestName}, ${fetchedSubject}, ${monthYear}`);
         }
         
-        // 4. Ensure unique registration numbers
-        const uniqueReports = [];
-        const regNumbers = new Set();
+        const groupedByDate = {};
         
         reportsResponse.data.data.forEach(report => {
-          if (!regNumbers.has(report.regNumber)) {
-            regNumbers.add(report.regNumber);
-            uniqueReports.push(report);
+          if (!report.date) return;
+          
+          const reportDate = new Date(report.date).toISOString().split('T')[0];
+          
+          if (!groupedByDate[reportDate]) {
+            groupedByDate[reportDate] = {
+              reports: [],
+              regNumbers: new Set(),
+              marksType: report.marksType // Store marksType for each date
+            };
+          }
+          
+          if (!groupedByDate[reportDate].regNumbers.has(report.regNumber)) {
+            groupedByDate[reportDate].regNumbers.add(report.regNumber);
+            groupedByDate[reportDate].reports.push(report);
           }
         });
         
-        setReports(uniqueReports);
+        setGroupedReports(groupedByDate);
         
-        // 5. Fetch corresponding solutions
         const solutionsResponse = await axios.get(
-          `http://localhost:5000/api/getsolutionbank?solutionRef=${testId}`
+          `${process.env.REACT_APP_URL}/api/getsolutionbank?solutionRef=${testId}`
         );
         
         if (!solutionsResponse.data.data || solutionsResponse.data.data.length === 0) {
@@ -109,28 +104,23 @@ export default function ReportsByMonth() {
         );
         setSolutions(sortedSolutions);
         
-        // 6. Calculate student results
-        calculateResults(uniqueReports, sortedSolutions, marksType);
-        
       } catch (err) {
         console.error("Fetch error:", err);
         setError(err.message || "Failed to fetch data");
-        setReports([]);
+        setGroupedReports({});
         setSolutions([]);
-        setStudentResults([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [testId, monthYear, marksType, navigate]);
+  }, [testId, monthYear, navigate]);
 
   const calculateResults = (reports, solutions, marksType) => {
     const results = [];
     const totalQuestions = solutions.length;
     
-    // Create solution map for quick lookup
     const solutionMap = {};
     solutions.forEach(sol => {
       solutionMap[sol.questionNumber] = sol.correctOption;
@@ -139,31 +129,28 @@ export default function ReportsByMonth() {
     reports.forEach(report => {
       let corrAns = 0;
       let wroAns = 0;
-      let unattempted = 0;
       let totalMarks = 0;
       
-      // Process marked answers
+      const unattemptedCount = report.unmarkedOptions ? 
+        (Array.isArray(report.unmarkedOptions) ? report.unmarkedOptions.length : 
+         typeof report.unmarkedOptions === 'object' ? Object.keys(report.unmarkedOptions).length :
+         0) : 0;
+
       const markedOptions = report.markedOptions || {};
       Object.entries(markedOptions).forEach(([qNum, markedOption]) => {
         const correctOption = solutionMap[parseInt(qNum)];
         if (correctOption === undefined) return;
-        
-        if (markedOption === null || markedOption === undefined) {
-          unattempted++;
-        } else if (markedOption === correctOption) {
+  
+        if (markedOption === correctOption) {
           corrAns++;
+          // Use the marksType from the report for calculations
           totalMarks += marksType.includes("+4") ? 4 : 1;
         } else {
           wroAns++;
           totalMarks += marksType.includes("-1") ? -1 : 0;
         }
       });
-      
-      // Count unmarked questions
-      const attempted = Object.keys(markedOptions).length;
-      unattempted += (totalQuestions - attempted);
-      
-      // Calculate metrics
+            
       const accuracy = totalQuestions > 0 ? Math.round((corrAns / totalQuestions) * 100) : 0;
       const maxPossibleMarks = totalQuestions * (marksType.includes("+4") ? 4 : 1);
       const percentage = maxPossibleMarks > 0 ? Math.round((totalMarks / maxPossibleMarks) * 100) : 0;
@@ -172,22 +159,21 @@ export default function ReportsByMonth() {
         regNumber: report.regNumber,
         correctAnswers: corrAns,
         wrongAnswers: wroAns,
-        unattempted,
+        unattempted: unattemptedCount,
         totalMarks,
         accuracy,
         percentage,
-        percentile: 0
+        percentile: 0,
+        date: report.date
       });
     });
     
-    // Calculate percentiles
     if (results.length > 0) {
       const sortedByMarks = [...results].sort((a, b) => b.totalMarks - a.totalMarks);
       sortedByMarks.forEach((result, index) => {
         result.percentile = Math.round(((sortedByMarks.length - index - 1) / sortedByMarks.length) * 100);
       });
       
-      // Update original results with percentiles
       const resultMap = {};
       sortedByMarks.forEach((res, idx) => {
         resultMap[res.regNumber] = res.percentile;
@@ -198,7 +184,170 @@ export default function ReportsByMonth() {
       });
     }
     
-    setStudentResults(results);
+    return results;
+  };
+
+  const handleSubmit = async (date, marksType) => {
+    try {
+      setSubmitLoading(true);
+      setSubmitSuccess(false);
+      setError("");
+  
+      const dateReports = groupedReports[date]?.reports || [];
+      if (dateReports.length === 0) {
+        throw new Error(`No reports found for ${date}`);
+      }
+      
+      const dateResults = calculateResults(dateReports, solutions, marksType);
+      
+      const submissionPromises = dateReports.map(async (report) => {
+        const studentResult = dateResults.find(r => r.regNumber === report.regNumber);
+        if (!studentResult) {
+          throw new Error(`No results found for student ${report.regNumber}`);
+        }
+  
+        const safeNumber = (value) => typeof value === 'number' ? value.toString() : value;
+  
+        const payload = {
+          regNumber: report.regNumber || '',
+          subject: report.subject || '',
+          chapter: report.chapter || '',
+          subtopic: report.subtopic || '',
+          testName: report.testName || '',
+          date: report.date || new Date().toISOString(),
+          marksType: report.marksType || marksType,
+          totalQuestions: safeNumber(solutions.length),
+          correctAnswers: safeNumber(studentResult.correctAnswers),
+          wrongAnswers: safeNumber(studentResult.wrongAnswers),
+          unattempted: safeNumber(studentResult.unattempted),
+          accuracy: safeNumber(studentResult.accuracy),
+          percentile: safeNumber(studentResult.percentile),
+          totalMarks: safeNumber(studentResult.totalMarks),
+          responses: solutions.map(solution => ({
+            questionNumber: safeNumber(solution.questionNumber),
+            markedOption: report.markedOptions?.[solution.questionNumber] ?? null,
+            correctOption: solution.correctOption,
+            isCorrect: report.markedOptions?.[solution.questionNumber] === solution.correctOption
+          }))
+        };
+  
+        try {
+          const response = await axios.post(`${process.env.REACT_APP_URL}/api/createstudentreports`, payload);
+          return { success: true, regNumber: report.regNumber };
+        } catch (error) {
+          console.error(`Submission failed for ${report.regNumber}:`, error);
+          return { 
+            success: false, 
+            regNumber: report.regNumber,
+            error: error.response?.data?.message || error.message
+          };
+        }
+      });
+  
+      const results = await Promise.all(submissionPromises);
+      const failed = results.filter(r => !r.success);
+  
+      if (failed.length > 0) {
+        throw new Error(`${failed.length} submissions failed. First error: ${failed[0].error}`);
+      }
+  
+      setSubmitSuccess(true);
+      
+    } catch (err) {
+      console.error('Submission error:', err);
+      setError(err.message);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const renderDateTables = () => {
+    return Object.entries(groupedReports).map(([date, { reports, marksType }]) => {
+      const dateResults = calculateResults(reports, solutions, marksType);
+      const formattedDate = new Date(date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      return (
+        <div key={date} className="mb-8">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-bold">{formattedDate}</h2>
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+              Marking Scheme: {marksType}
+            </span>
+          </div>
+          
+          <div className="overflow-x-auto mb-4">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correct</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wrong</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unattempted</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Marks</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Accuracy</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentile</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {dateResults.map((result, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{result.regNumber}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-green-600 text-white font-semibold">{result.correctAnswers}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-red-600 text-white font-semibold">{result.wrongAnswers}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-yellow-500 text-white font-semibold">{result.unattempted}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black font-semibold">{result.totalMarks}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black font-semibold">{result.accuracy}%</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black font-semibold">{result.percentage}%</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-black font-semibold">{result.percentile}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={() => handleSubmit(date, marksType)}
+              disabled={submitLoading || dateResults.length === 0}
+              className={`px-6 py-2 rounded-md text-white font-medium ${
+                submitLoading ? 'bg-gray-400' : 'bg-yellow-400 hover:bg-red-500'
+              } transition`}
+            >
+              {submitLoading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Submitting...
+                </span>
+              ) : (
+                `Submit Results for ${formattedDate}`
+              )}
+            </button>
+            {submitSuccess && (
+              <div className="ml-4 flex items-center text-green-600">
+                <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Results submitted successfully!
+              </div>
+            )}
+          </div>
+          {error && (
+            <div className="text-red-500 mt-2">
+              {error}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   if (loading) {
@@ -226,144 +375,6 @@ export default function ReportsByMonth() {
       </div>
     );
   }
-  const handleSubmit = async () => {
-    try {
-      setSubmitLoading(true);
-      setSubmitSuccess(false);
-      setError("");
-  
-      console.log('[SUBMIT] Starting submission process');
-  
-      // 1. Fetch complete report data (unchanged)
-      const allReportsResponse = await axios.get("http://localhost:5000/api/getallreports");
-      if (!allReportsResponse.data?.data) {
-        throw new Error("Invalid response structure from getallreports API");
-      }
-      const completeReports = allReportsResponse.data.data;
-  
-      // 2. Filter relevant reports (unchanged)
-      const [selectedMonth, selectedYear] = monthYear.split(' ');
-      const monthIndex = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(selectedMonth);
-  
-      const filteredReports = completeReports.filter(report => {
-        if (!report.date) return false;
-        const reportDate = new Date(report.date);
-        return (
-          report.reportId === testId &&
-          reportDate.getMonth() === monthIndex && 
-          reportDate.getFullYear() === parseInt(selectedYear)
-        );
-      });
-  
-      if (filteredReports.length === 0) {
-        throw new Error(`No reports found for ${monthYear} matching test ${testId}`);
-      }
-  
-      // 3. Validate and prepare submissions with zero-value handling
-      const submissionPromises = filteredReports.map((report) => {
-        const studentResult = studentResults.find(r => r.regNumber === report.regNumber);
-        if (!studentResult) {
-          throw new Error(`No results found for student ${report.regNumber}`);
-        }
-  
-        // Safely handle zero values by checking typeof number
-        const safeNumber = (value) => typeof value === 'number' ? value.toString() : value;
-  
-        // Prepare payload with zero-value protection
-        const payload = {
-          regNumber: report.regNumber || '',
-          subject: report.subject || '',
-          chapter: report.chapter || '',
-          subtopic: report.subtopic || '',
-          testName: report.testName || '',
-          date: report.date || new Date().toISOString(),
-          marksType: report.marksType || marksType,
-          totalQuestions: safeNumber(solutions.length),
-          correctAnswers: safeNumber(studentResult.correctAnswers),
-          wrongAnswers: safeNumber(studentResult.wrongAnswers),
-          unattempted: safeNumber(studentResult.unattempted),
-          accuracy: safeNumber(studentResult.accuracy),
-          percentile: safeNumber(studentResult.percentile),
-          totalMarks: safeNumber(studentResult.totalMarks),
-          responses: solutions.map(solution => ({
-            questionNumber: safeNumber(solution.questionNumber),
-            markedOption: report.markedOptions?.[solution.questionNumber] ?? null,
-            correctOption: solution.correctOption,
-            isCorrect: report.markedOptions?.[solution.questionNumber] === solution.correctOption
-          }))
-        };
-  
-        console.log(`[SUBMIT] Payload for ${report.regNumber}:`, payload);
-  
-        return axios.post("http://localhost:5000/api/createstudentreports", payload)
-          .then(response => ({ success: true, regNumber: report.regNumber }))
-          .catch(error => {
-            console.error(`Submission failed for ${report.regNumber}:`, error.response?.data || error.message);
-            return { 
-              success: false, 
-              regNumber: report.regNumber,
-              error: error.response?.data?.message || error.message
-            };
-          });
-      });
-  
-      // 4. Execute all submissions (unchanged)
-      const results = await Promise.all(submissionPromises);
-      const failed = results.filter(r => !r.success);
-  
-      if (failed.length > 0) {
-        throw new Error(`${failed.length} submissions failed. First error: ${failed[0].error}`);
-      }
-  
-      setSubmitSuccess(true);
-      
-    } catch (err) {
-      console.error('Submission error:', err);
-      setError(err.message);
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-  const renderSubmitButton = () => (
-    <div className="mt-6 flex justify-end">
-      <button
-        onClick={handleSubmit}
-        disabled={submitLoading || studentResults.length === 0}
-        className={`px-6 py-2 rounded-md text-white font-medium ${
-          submitLoading ? 'bg-gray-400' : 'bg-yellow-400 hover:bg-red-500'
-        } transition`}
-      >
-        {submitLoading ? (
-          <span className="flex items-center">
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <div className="text-sm text-gray-600 mt-2">
-              Submitting reports... (check console for details)
-            </div>
-            Submitting...
-          </span>
-        ) : (
-          'Submit Results'
-        )}
-        {error && (
-           <div className="text-red-500 mt-2">
-           {error}
-         </div>
-        )}
-      </button>
-      {submitSuccess && (
-        <div className="ml-4 flex items-center text-green-600">
-          <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          Results submitted successfully!
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -372,8 +383,7 @@ export default function ReportsByMonth() {
           <div>
             <h1 className="text-2xl font-bold">{testName}</h1>
             <p className="text-white">
-              {monthYear} | Marking Scheme: {marksType}
-              {marksType.includes("+4") ? " (+4/-1)" : " (+1/0)"}
+              {monthYear} | Subject: {subjectName}
             </p>
           </div>
           <button
@@ -384,37 +394,11 @@ export default function ReportsByMonth() {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correct</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wrong</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unattempted</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Marks</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Accuracy</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentile</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {studentResults.map((result, index) => (
-                <tr key={index}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{result.regNumber}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{result.correctAnswers}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{result.wrongAnswers}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{result.unattempted}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{result.totalMarks}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{result.accuracy}%</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-600">{result.percentage}%</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600">{result.percentile}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {renderSubmitButton()}
+        {Object.keys(groupedReports).length > 0 ? (
+          renderDateTables()
+        ) : (
+          <p>No test data available for this month.</p>
+        )}
       </div>
     </div>
   );

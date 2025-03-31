@@ -24,7 +24,7 @@ export default function ViewSolutions() {
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/getsubjects");
+        const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`);
         setSubjects(response.data.data);
       } catch (err) {
         setError("Failed to fetch subjects");
@@ -38,7 +38,7 @@ export default function ViewSolutions() {
     const fetchChapters = async () => {
       if (filters.subject) {
         try {
-          const response = await axios.get(`http://localhost:5000/api/getchapters?subject=${filters.subject}`);
+          const response = await axios.get(`${process.env.REACT_APP_URL}/api/getchapters?subject=${filters.subject}`);
           setChapters(response.data.data);
           setFilters(prev => ({ ...prev, chapter: "", subtopic: "" }));
         } catch (err) {
@@ -55,7 +55,7 @@ export default function ViewSolutions() {
       if (filters.subject && filters.chapter) {
         try {
           const response = await axios.get(
-            `http://localhost:5000/api/getsubtopic?subject=${filters.subject}&chapter=${filters.chapter}`
+            `${process.env.REACT_APP_URL}/api/getsubtopic?subject=${filters.subject}&chapter=${filters.chapter}`
           );
           setSubtopics(response.data.data);
           setFilters(prev => ({ ...prev, subtopic: "" }));
@@ -72,7 +72,7 @@ export default function ViewSolutions() {
     const fetchTestNames = async () => {
       if (filters.subject) {
         try {
-          const response = await axios.get(`http://localhost:5000/api/getsolutionbank?subject=${filters.subject}`);
+          const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsolutionbank?subject=${filters.subject}`);
           const uniqueTestNames = [...new Set(response.data.data.map(item => item.solutionRef.testName))];
           setTestNames(uniqueTestNames);
         } catch (err) {
@@ -99,7 +99,7 @@ export default function ViewSolutions() {
         if (value) params.append(key, value);
       });
 
-      const response = await axios.get(`http://localhost:5000/api/getsolutionbank?${params.toString()}`);
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsolutionbank?${params.toString()}`);
       const sortedSolutions = response.data.data.sort((a, b) => a.questionNumber - b.questionNumber);
       setSolutions(sortedSolutions);
     } catch (err) {

@@ -34,8 +34,8 @@ export default function AllTests() {
       if (!testMap[subjectName][testName]) {
         testMap[subjectName][testName] = {
           months: {},
-          subjectId: report.subject, // Using subject name as ID since we don't have the actual ID
-          testId: report.reportId    // Using reportId instead of reportRef._id
+          subjectId: report.subject,
+          testId: report.reportId    
         };
       }
       
@@ -65,7 +65,7 @@ export default function AllTests() {
     const fetchTestData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("http://localhost:5000/api/getallreports");
+        const response = await axios.get(`${process.env.REACT_APP_URL}/api/getallreports`);
         
         if (!response.data?.data) {
           throw new Error("Invalid API response structure");
