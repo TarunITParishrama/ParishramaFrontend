@@ -2,18 +2,19 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import logo from "../assets/logo_kannada.png";
-import slide1 from "../assets/slides/slide1.jpg";
-import slide2 from "../assets/slides/slide2.jpg";
-import slide3 from "../assets/slides/slide3.jpg";
-import slide4 from "../assets/slides/slide1.jpg";
-import slide5 from "../assets/slides/slide2.jpg";
-import slide6 from "../assets/slides/slide3.jpg";
-import slide7 from "../assets/slides/slide1.jpg";
-import slide8 from "../assets/slides/slide2.jpg";
-import slide9 from "../assets/slides/slide3.jpg";
-import slide10 from "../assets/slides/slide1.jpg";
+import mdlogo from "../assets/MDPhoto.png";
+import titlelogo from "../assets/loginpagelogo.png";
+import creativity from "../assets/creativity.png";
+import honesty from "../assets/honesty.png";
+import trust from "../assets/trust.png";
 
-const slides = [slide1, slide2, slide3, slide4, slide5, slide6, slide7, slide8, slide9, slide10];
+// Import slide images
+import slide1 from "../assets/slides/slide1.png";
+import slide2 from "../assets/slides/slide2.png";
+import slide3 from "../assets/slides/slide3.png";
+import slide4 from "../assets/slides/slide4.png";
+import slide5 from "../assets/slides/slide5.png";
+import slide6 from "../assets/slides/slide6.png";
 
 function Login() {
   const navigate = useNavigate();
@@ -24,13 +25,14 @@ function Login() {
   const [message, setMessage] = useState({ text: "", type: "" });
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Slide auto-transition
+  const slides = [slide1, slide2, slide3, slide4, slide5, slide6];
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [slides.length]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,40 +87,103 @@ function Login() {
 
   return (
     <div className="h-screen flex bg-gradient-br from-red-600 via-orange-500 to-yellow-400">
-      
-      {/* Left Section: Slideshow */}
-      <div className="w-[60%] relative overflow-hidden p-4 mt-28 ml-10">
-  {/* Floating balloons background - now positioned fixed to cover full viewport height */}
-  <div className="fixed top-0 left-0 w-[60%] h-screen overflow-hidden pointer-events-none">
-    {[...Array(8)].map((_, i) => (
-      <div 
-        key={i}
-        className="absolute balloon"
-        style={{
-          left: `${10 + Math.random() * 80}%`,  // Keep balloons within container
-          bottom: '-100px',  // Start below the visible area
-          width: `${30 + Math.random() * 30}px`,  // Random size between 30-60px
-          height: `${40 + Math.random() * 40}px`,  // Random size between 40-80px
-          background: `hsl(${Math.random() * 60 + 20}, 80%, 70%)`,  // Warm colors (20-80° hue)
-          borderRadius: '50%',
-          animation: `floatUp ${10 + Math.random() * 15}s linear infinite`,
-          animationDelay: `${Math.random() * 8}s`,
-          opacity: '0.7',
-          filter: 'drop-shadow(0 0 5px rgba(0,0,0,0.1))'
-        }}
-      />
-    ))}
+      {/* Left Section */}
+      <div className="w-[60%] relative p-4 pl-10">
+        {/* Title logo at top left corner */}
+        <img 
+          src={titlelogo} 
+          alt="title logo" 
+          className="absolute top-4 left-4 h-20 w-80" 
+        />
+
+      <div className="flex items-center h-full mt-2">
+  {/* MD Logo */}
+  <div className="h-[450px] flex items-center mr-12">
+    <img 
+      src={mdlogo} 
+      alt="md logo" 
+      className="h-full w-auto object-contain" 
+    />
   </div>
-  
-  <img
-    src={slides[currentSlide]}
-    alt={`Slide ${currentSlide + 1}`}
-    className="relative z-10 object-cover w-fit h-fit rounded-xl transition-opacity duration-500 ease-in-out shadow-lg shadow-orange-500"
-  />
+
+  {/* Improved Slideshow section */}
+  <div className="flex-1 h-[450px] relative ml-6">
+  <div className="relative h-full w-full overflow-hidden rounded-lg shadow-xl bg-gradient-br from-red-600 via-orange-500 to-yellow-400">
+  {/* Left Vertical Text */}
+  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10">
+    <div className="flex flex-col items-center">
+      {'TOPPERS'.split('').map((letter, i) => (
+        <span 
+          key={`left-${i}`}
+          className="text-2xl font-bold text-red-600 font-serif"
+        >
+          {letter}
+        </span>
+      ))}
+    </div>
+  </div>
+
+  {/* Right Vertical Text */}
+  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10">
+    <div className="flex flex-col items-center">
+      {'TOPPERS'.split('').map((letter, i) => (
+        <span 
+          key={`right-${i}`}
+          className="text-2xl font-bold text-yellow-400 font-serif"
+        >
+          {letter}
+        </span>
+      ))}
+    </div>
+  </div>
+
+  {/* Slides */}
+  {slides.map((slide, index) => (
+    <div 
+      key={index}
+      className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}
+    >
+      <img
+        src={slide}
+        alt={`Slide ${index + 1}`}
+        className="max-h-full max-w-full object-contain p-2"
+      />
+    </div>
+  ))}
 </div>
 
-      {/* Right Section: Login Box */}
-      <div className="w-[40%] flex justify-end items-center pr-28 ">
+    {/* Slide indicators */}
+    <div className="absolute -bottom-1 left-0 right-0 flex justify-center space-x-2">
+      {slides.map((_, index) => (
+        <button
+          key={index}
+          onClick={() => setCurrentSlide(index)}
+          className={`h-3 w-3 rounded-full transition-all ${index === currentSlide ? 'bg-orange-300 w-2' : 'bg-white bg-opacity-50'}`}
+          aria-label={`Go to slide ${index + 1}`}
+        />
+      ))}
+    </div>
+  </div>
+</div>
+      </div>
+
+      {/* Right Section */}
+      <div className="w-[40%] relative flex justify-end items-center pr-28">
+        {/* Overlapping images in top-right corner */}
+        <div className="absolute top-4 right-4 flex items-center">
+          <div className="relative mr-4" style={{ width: '120px', height: '80px' }}>
+            <img src={creativity} alt="Creativity" className="h-14 w-14 absolute top-0 left-0 z-10 transform hover:scale-110 transition-transform" />
+            <img src={honesty} alt="Honesty" className="h-14 w-14 absolute top-1 left-8 z-20 transform hover:scale-110 transition-transform" />
+            <img src={trust} alt="Trust" className="h-14 w-14 absolute top-1 left-16 z-30 transform hover:scale-110 transition-transform" />
+          </div>
+          <div className="flex flex-col space-y-1">
+            <span className="font-bold text-black">Creativity</span>
+            <span className="font-bold text-red-400">Honesty</span>
+            <span className="font-bold text-yellow-400">Trust</span>
+          </div>
+        </div>
+
+        {/* Login Box */}
         <div className="bg-white p-8 rounded-lg shadow-lg shadow-gray-700 w-80 text-gray-900">
           <img src={logo} alt="Parishrama Neet Academy Logo" className="mx-auto mb-4" />
           <h2 className="text-2xl font-bold mb-4 text-center">

@@ -42,7 +42,7 @@ function ParishramaHomePage() {
         isNavOpen ? "ml-64" : "ml-0"
       }`}>
         {/* Top Navigation Bar */}
-        <header className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 shadow-sm h-28">
+        <header className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 shadow-sm h-40">
   <div className="flex items-center justify-between h-full px-4">
     
     {/* Menu Button (left) */}
@@ -56,43 +56,47 @@ function ParishramaHomePage() {
     </button>
 
     {/* Center Logo + Bubbles */}
-    <div className="flex flex-col items-center ml-40">
-      <div className="h-16 w-auto">
+    <div className="flex flex-col items-center">
+      <div className="h-20 w-auto">
         <img src={logo} alt="LOGO" className="h-full object-contain" />
       </div>
-      <div className="flex space-x-3 mt-1">
-        <div className="flex flex-col items-center">
+      <div className="flex space-x-4 -mt-3">
+        <div className="flex flex-col items-end ml-28">
           <div className="w-3 h-3 bg-black rounded-full"></div>
-          <span className="text-xs font-semibold text-gray-800">Creativity</span>
+          <span className="text-sm font-semibold  text-gray-800">Creativity</span>
         </div>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-end">
           <div className="w-3 h-3 bg-red-700 rounded-full"></div>
-          <span className="text-xs font-semibold text-gray-800">Honesty</span>
+          <span className="text-sm font-semibold text-gray-800">Honesty</span>
         </div>
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-end">
           <div className="w-3 h-3 bg-yellow-300 rounded-full"></div>
-          <span className="text-xs font-semibold text-gray-800">Trust</span>
+          <span className="text-sm font-semibold text-gray-800">Trust</span>
         </div>
       </div>
     </div>
 
     {/* MD Info + MD Image + Logout (right) */}
-    <div className="flex items-center space-x-4">
-      <span className="text-white text-sm font-semibold whitespace-nowrap">
-        Pradeep Eeshwar, Managing Director
-      </span>
-      <img src={mdlogo} alt="MDPic" className="w-12 h-12 rounded-full object-cover" />
-      <button 
-        onClick={() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("userRole");
-          navigate("/");
-        }}
-        className="text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"
-      >
-        Logout
-      </button>
-    </div>
+    <div className="flex items-center space-x-6">
+  <div className="flex flex-col items-center">
+    <img src={mdlogo} alt="MDPic" className="w-20 h-24 object-cover" />
+    <span className="text-white text-sm font-semibold text-center mt-2">
+      Shri Pradeep Eshwar,<br />Managing Director
+    </span>
+  </div>
+
+  <button 
+    onClick={() => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userRole");
+      navigate("/");
+    }}
+    className="text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"
+  >
+    Logout
+  </button>
+</div>
+
   </div>
 </header>
 
