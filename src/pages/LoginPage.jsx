@@ -86,14 +86,14 @@ function Login() {
   };
 
   return (
-    <div className="h-screen flex bg-gradient-br from-red-600 via-orange-500 to-yellow-400">
+    <div className="h-screen flex bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400">
       {/* Left Section */}
       <div className="w-[60%] relative p-4 pl-10">
         {/* Title logo at top left corner */}
         <img 
           src={titlelogo} 
           alt="title logo" 
-          className="absolute top-4 left-4 h-20 w-80" 
+          className="absolute top-4 left-4 h-28 w-90" 
         />
 
       <div className="flex items-center h-full mt-2">
@@ -178,7 +178,7 @@ function Login() {
           </div>
           <div className="flex flex-col space-y-1">
             <span className="font-bold text-black">Creativity</span>
-            <span className="font-bold text-red-400">Honesty</span>
+            <span className="font-bold text-red-600">Honesty</span>
             <span className="font-bold text-yellow-400">Trust</span>
           </div>
         </div>

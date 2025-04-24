@@ -81,7 +81,7 @@ function ParishramaHomePage() {
   <div className="flex flex-col items-center">
     <img src={mdlogo} alt="MDPic" className="w-20 h-24 object-cover" />
     <span className="text-white text-sm font-semibold text-center mt-2">
-      Shri Pradeep Eshwar,<br />Managing Director
+      Shri Pradeep Eshwar<br /><span className="text-black">Managing Director</span>
     </span>
   </div>
 
@@ -99,10 +99,6 @@ function ParishramaHomePage() {
 
   </div>
 </header>
-
-
-
-
         {/* Content Area */}
         <main className="p-2 bg-white">
           {activeTab === "dashboard" ? (
