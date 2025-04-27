@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import NewReport from "../stud/NewReport";
 import DatePicker from "react-datepicker";
+import { FaCalendarAlt } from "react-icons/fa";
 import DownloadDropdown from "../../download/DetailedReport";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -32,6 +33,13 @@ export default function Reports() {
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
   const [sortConfig, setSortConfig] = useState({ key: "regNumber", direction: "asc" });
+  const [tablePages, setTablePages] = useState({});
+  const [rowsPerPage] = useState(10);
+  const [expandedSubjects, setExpandedSubjects] = useState({});
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [bulkData, setBulkData] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,10 +49,10 @@ export default function Reports() {
         
         const [reportsRes, studentReportsRes, patternsRes, studentsRes, solutionsRes] = await Promise.all([
           fetch(`${process.env.REACT_APP_URL}/api/getallreports`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${process.env.REACT_APP_URL}/api/getstudentreports`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${process.env.REACT_APP_URL}/api/getpatterns`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${process.env.REACT_APP_URL}/api/getstudentreports?stream=${streamFilter}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${process.env.REACT_APP_URL}/api/getpatterns?stream=${streamFilter}`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${process.env.REACT_APP_URL}/api/getstudents`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${process.env.REACT_APP_URL}/api/getsolutionbank`, { headers: { Authorization: `Bearer ${token}` } })
+          fetch(`${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${streamFilter}`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
 
         const reportsData = await reportsRes.json();
@@ -52,7 +60,7 @@ export default function Reports() {
           const uniqueTests = Array.from(new Set(
             reportsData.data.map(item => item.testName)
           )).map(testName => {
-            const test = reportsData.data.find(item => item.testName === testName);
+            const test = reportsData.data.find(item => item.testName === testName && item.stream === streamFilter);
             return test ? { testName, date: test.date, stream: test.stream } : null;
           }).filter(Boolean);
           
@@ -103,14 +111,88 @@ export default function Reports() {
     };
 
     fetchData();
-  }, []);
+  }, [streamFilter]);
 
-  // Updated processDetailedReports function
+  const handleBulkUpload = async () => {
+    if (bulkData.length === 0) {
+      setUploadStatus("No data to upload");
+      return;
+    }
+
+    setUploadStatus("Uploading bulk reports...");
+    setUploadProgress(0);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.REACT_APP_URL}/api/detailedreports/bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ reports: bulkData })
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        setUploadStatus("Bulk upload successful! Refreshing data...");
+        setUploadProgress(100);
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setBulkData([]);
+          window.location.reload();
+        }, 1500);
+      } else {
+        setUploadStatus(`Error: ${result.message || 'Bulk upload failed'}`);
+      }
+    } catch (err) {
+      console.error("Bulk upload error:", err);
+      setUploadStatus(`Error: ${err.message}`);
+    }
+  };
+
+  const generateBulkData = () => {
+    const generatedData = [];
+    
+    Object.entries(groupedData).forEach(([testName, testData]) => {
+      testData.forEach(report => {
+        const bulkReport = {
+          regNumber: report.regNumber,
+          studentName: report.studentName,
+          campus: report.campus,
+          section: report.section,
+          stream: report.stream,
+          testName: report.testName,
+          date: report.date,
+          subjects: report.subjects.map(subject => ({
+            subjectName: subject.subjectName,
+            totalQuestionsAttempted: subject.totalQuestionsAttempted,
+            totalQuestionsUnattempted: subject.totalQuestionsUnattempted,
+            correctAnswers: subject.correctAnswers,
+            wrongAnswers: subject.wrongAnswers,
+            totalMarks: subject.totalMarks,
+            fullMarks: subject.fullMarks
+          })),
+          overallTotalMarks: report.overallTotalMarks,
+          fullMarks: report.fullMarks,
+          accuracy: report.accuracy,
+          percentage: report.percentage,
+          percentile: report.percentile,
+          rank: report.rank
+        };
+        
+        generatedData.push(bulkReport);
+      });
+    });
+    
+    setBulkData(generatedData);
+    setShowUploadModal(true);
+    setUploadStatus(`Generated ${generatedData.length} reports ready for upload`);
+  };
+
   const processDetailedReports = (studentReports, patterns, solutions, studentMap) => {
-    // Create solution map with grace information and correct options
     const solutionMap = {};
     solutions.forEach(sol => {
-      // Handle both array and single value cases for correctOptions
       const correctOptions = Array.isArray(sol.correctOptions) 
         ? sol.correctOptions 
         : sol.correctOption 
@@ -123,7 +205,6 @@ export default function Reports() {
       };
     });
   
-    // Process each report with pattern matching
     const reportsWithPatterns = studentReports.map(report => {
       const cleanTestName = report.testName
         .replace(/\d+/g, '')
@@ -138,26 +219,20 @@ export default function Reports() {
       return { report, pattern };
     }).filter(({ pattern }) => pattern);
   
-    // Calculate ranks with proper tie handling
     const rankedReports = [...reportsWithPatterns].sort((a, b) => {
-      // Primary sort by total marks descending
       if (b.report.totalMarks !== a.report.totalMarks) {
         return b.report.totalMarks - a.report.totalMarks;
       }
-      // Secondary sort by accuracy if marks are equal
       return b.report.accuracy - a.report.accuracy;
     });
   
-    // Calculate ranks and percentiles
     let currentRank = 1;
     const rankedResults = [];
     
     for (let i = 0; i < rankedReports.length; i++) {
-      // Same rank if marks and accuracy are equal to previous
       if (i > 0 && 
           rankedReports[i].report.totalMarks === rankedReports[i-1].report.totalMarks &&
           rankedReports[i].report.accuracy === rankedReports[i-1].report.accuracy) {
-        // Same rank as previous
       } else {
         currentRank = i + 1;
       }
@@ -171,13 +246,11 @@ export default function Reports() {
       });
     }
   
-    // Process subject breakdown with grace marks
     return rankedResults.map(({ report, pattern, rank, percentile }) => {
       const marksType = report.marksType || "+4/-1";
       const correctMark = marksType.includes("+4") ? 4 : 1;
       const wrongMark = marksType.includes("-1") ? -1 : 0;
   
-      // Question to subject mapping
       const questionSubjectMap = {};
       let currentQuestion = 1;
       
@@ -189,7 +262,6 @@ export default function Reports() {
         }
       });
   
-      // Initialize subject data
       const subjectData = {};
       pattern.subjects.forEach(subject => {
         const subjectName = subject.subject.subjectName;
@@ -203,11 +275,10 @@ export default function Reports() {
           marks: 0,
           fullMarks: subject.totalMarks,
           style: subjectStyles[subjectName] || subjectStyles.default,
-          hasGraceQuestions: false // Track if subject has any grace questions
+          hasGraceQuestions: false
         };
       });
   
-      // Process each response with grace mark consideration
       report.responses.forEach(response => {
         const subjectName = questionSubjectMap[response.questionNumber];
         if (!subjectName || !subjectData[subjectName]) return;
@@ -218,17 +289,14 @@ export default function Reports() {
         if (response.markedOption && response.markedOption.trim() !== '') {
           subjectData[subjectName].attempted++;
           
-          // Grace mark takes precedence
           if (solution.isGrace) {
             subjectData[subjectName].correct++;
             subjectData[subjectName].marks += correctMark;
             subjectData[subjectName].hasGraceQuestions = true;
           } else if (solution.correctOptions.includes(response.markedOption)) {
-            // Correct option marked
             subjectData[subjectName].correct++;
             subjectData[subjectName].marks += correctMark;
           } else {
-            // Wrong option marked
             subjectData[subjectName].wrong++;
             subjectData[subjectName].marks += wrongMark;
           }
@@ -237,7 +305,6 @@ export default function Reports() {
         }
       });
   
-      // Convert to array format
       const subjects = Object.values(subjectData).map(subject => ({
         subjectName: subject.subjectName,
         totalQuestionsAttempted: subject.attempted,
@@ -272,7 +339,6 @@ export default function Reports() {
     });
   };
 
-  // Request sort for a specific column
   const requestSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -281,9 +347,15 @@ export default function Reports() {
     setSortConfig({ key, direction });
   };
 
-  // Filter data based on all selected filters
+  const toggleSubjectExpansion = (subjectName) => {
+    setExpandedSubjects(prev => ({
+      ...prev,
+      [subjectName]: !prev[subjectName]
+    }));
+  };
+
   const filteredData = useMemo(() => {
-    return detailedData.filter(item => {
+    let data = detailedData.filter(item => {
       const matchesStream = item.stream === streamFilter;
       const matchesSearch = searchTerm === "" || 
         item.testName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -300,13 +372,19 @@ export default function Reports() {
       return matchesStream && matchesSearch && matchesTest && 
              matchesCampus && matchesSection && matchesDate;
     });
-  }, [detailedData, streamFilter, searchTerm, selectedTest, selectedCampus, selectedSection, startDate, endDate]);
-  
-  // Sort the data
-  const sortedData = useMemo(() => {
-    let sortableData = [...filteredData];
+
     if (sortConfig.key) {
-      sortableData.sort((a, b) => {
+      data.sort((a, b) => {
+        if (sortConfig.key === 'regNumber') {
+          const aNum = parseInt(a.regNumber.replace(/\D/g, '')), 
+                bNum = parseInt(b.regNumber.replace(/\D/g, ''));
+          if (sortConfig.direction === 'asc') {
+            return aNum - bNum;
+          } else {
+            return bNum - aNum;
+          }
+        }
+        
         const getValue = (obj, key) => key.split('.').reduce((o, k) => (o || {})[k], obj);
         const aValue = getValue(a, sortConfig.key);
         const bValue = getValue(b, sortConfig.key);
@@ -316,21 +394,95 @@ export default function Reports() {
         return 0;
       });
     }
-    return sortableData;
-  }, [filteredData, sortConfig]);
 
-  // Calculate total marks for each subject and overall total
-  const subjectTotalMarks = {};
-  let overallTotal = 0;
+    return data;
+  }, [detailedData, streamFilter, searchTerm, selectedTest, selectedCampus, selectedSection, startDate, endDate, sortConfig]);
 
-  if (sortedData.length > 0 && sortedData[0].subjects) {
-    sortedData[0].subjects.forEach(subject => {
-      subjectTotalMarks[subject.subjectName] = subject.fullMarks;
-      overallTotal += subject.fullMarks;
+  const groupedData = useMemo(() => {
+    const groups = {};
+    filteredData.forEach(item => {
+      if (!groups[item.testName]) {
+        groups[item.testName] = [];
+      }
+      groups[item.testName].push(item);
     });
-  }
+    return groups;
+  }, [filteredData]);
 
-  // Render watermarked subject cell
+  useEffect(() => {
+    if (filteredData.length > 0) {
+      const initialPages = {};
+      Object.keys(groupedData).forEach(testName => {
+        initialPages[testName] = 1;
+      });
+      setTablePages(initialPages);
+    }
+  }, [filteredData, groupedData]);
+
+  const handleTablePageChange = (testName, pageNumber) => {
+    setTablePages(prev => ({
+      ...prev,
+      [testName]: pageNumber
+    }));
+  };
+
+  const getPaginatedTestData = (testName, testData) => {
+    const currentPage = tablePages[testName] || 1;
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return testData.slice(startIndex, endIndex);
+  };
+
+  const getTotalPagesForTest = (testData) => {
+    return Math.ceil(testData.length / rowsPerPage);
+  };
+
+  const downloadTestCSV = (testName, testData) => {
+    const headers = [
+      "Sl.No", "Reg No", "Student Name", "Campus", "Section",
+      ...testData[0].subjects.flatMap(subject => [
+        `${subject.subjectName} Attempted`,
+        `${subject.subjectName} Unattempted`,
+        `${subject.subjectName} Correct`,
+        `${subject.subjectName} Wrong`,
+        `${subject.subjectName} Marks`
+      ]),
+      "Total Marks", "Accuracy", "Percentage", "Percentile"
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...testData.map((row, index) => [
+        index + 1,
+        row.regNumber,
+        `"${row.studentName}"`,
+        `"${typeof row.campus === 'object' ? row.campus.name : row.campus}"`,
+        row.section,
+        ...row.subjects.flatMap(subject => [
+          subject.totalQuestionsAttempted,
+          subject.totalQuestionsUnattempted,
+          subject.correctAnswers,
+          subject.wrongAnswers,
+          subject.totalMarks
+        ]),
+        row.overallTotalMarks,
+        row.accuracy,
+        row.percentage,
+        row.percentile
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${testName.replace(/[^a-zA-Z0-9]/g, "_")}_report.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const renderSubjectCell = (subject, value, type) => {
     const isGraceAffected = type === 'correct' && subject.hasGraceQuestions;
     
@@ -350,7 +502,6 @@ export default function Reports() {
     );
   };
 
-  // Render sort indicator
   const renderSortIndicator = (key) => {
     if (sortConfig.key === key) {
       return sortConfig.direction === "asc" ? "↑" : "↓";
@@ -358,9 +509,47 @@ export default function Reports() {
     return null;
   };
 
+  const renderPagination = (testName, testData) => {
+    const totalPages = getTotalPagesForTest(testData);
+    const currentPage = tablePages[testName] || 1;
+
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex justify-center mt-4">
+        <nav className="inline-flex rounded-md shadow">
+          <button
+            onClick={() => handleTablePageChange(testName, currentPage - 1)}
+            disabled={currentPage === 1}
+            className={`px-3 py-1 rounded-l-md border ${currentPage === 1 ? 'bg-gray-200 text-gray-500' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Previous
+          </button>
+          
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
+            <button
+              key={number}
+              onClick={() => handleTablePageChange(testName, number)}
+              className={`px-3 py-1 border-t border-b ${currentPage === number ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              {number.toString().padStart(2, '0')}
+            </button>
+          ))}
+          
+          <button
+            onClick={() => handleTablePageChange(testName, currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-1 rounded-r-md border ${currentPage === totalPages ? 'bg-gray-200 text-gray-500' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            Next
+          </button>
+        </nav>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Bar */}
       <div className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white py-6 px-8 flex flex-col">
         <button onClick={() => navigate('/home')} className="text-white text-sm flex items-center mb-2">
           ◀ Back to Dashboard
@@ -368,10 +557,8 @@ export default function Reports() {
         <h1 className="text-3xl font-bold">Tests</h1>
       </div>
 
-      {/* Filters Section */}
       <div className="max-w-7xl bg-white shadow-md rounded-lg mx-auto mt-6 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {/* Search Input */}
           <div className="col-span-1 md:col-span-2">
             <input
               type="text"
@@ -382,7 +569,6 @@ export default function Reports() {
             />
           </div>
           
-          {/* Stream Filter */}
           <div className="flex items-center gap-4">
             <label className="flex items-center">
               <input
@@ -390,7 +576,11 @@ export default function Reports() {
                 className="form-radio"
                 name="stream"
                 checked={streamFilter === "LongTerm"}
-                onChange={() => setStreamFilter("LongTerm")}
+                onChange={() => {
+                  setStreamFilter("LongTerm");
+                  setSelectedTest(null);
+                  setTablePages({});
+                }}
               />
               <span className="ml-2">LongTerm</span>
             </label>
@@ -400,13 +590,16 @@ export default function Reports() {
                 className="form-radio"
                 name="stream"
                 checked={streamFilter === "PUC"}
-                onChange={() => setStreamFilter("PUC")}
+                onChange={() => {
+                  setStreamFilter("PUC");
+                  setSelectedTest(null);
+                  setTablePages({});
+                }}
               />
               <span className="ml-2">PUC</span>
             </label>
           </div>
           
-          {/* Test Name Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
             <select
@@ -415,6 +608,7 @@ export default function Reports() {
               onChange={(e) => {
                 const test = tests.find(t => t.testName === e.target.value);
                 setSelectedTest(test || null);
+                setTablePages({});
               }}
             >
               <option value="">All Tests</option>
@@ -428,13 +622,15 @@ export default function Reports() {
             </select>
           </div>
           
-          {/* Campus Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
             <select
               className="w-full p-2 border rounded"
               value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
+              onChange={(e) => {
+                setSelectedCampus(e.target.value);
+                setTablePages({});
+              }}
             >
               {campuses.map((campus, index) => (
                 <option key={index} value={campus}>{campus}</option>
@@ -442,13 +638,15 @@ export default function Reports() {
             </select>
           </div>
           
-          {/* Section Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
             <select
               className="w-full p-2 border rounded"
               value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
+              onChange={(e) => {
+                setSelectedSection(e.target.value);
+                setTablePages({});
+              }}
             >
               {sections.map((section, index) => (
                 <option key={index} value={section}>{section}</option>
@@ -456,26 +654,36 @@ export default function Reports() {
             </select>
           </div>
           
-          {/* Date Range Picker */}
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-            <DatePicker
-              selectsRange={true}
-              startDate={startDate}
-              endDate={endDate}
-              onChange={(update) => setDateRange(update)}
-              isClearable={true}
-              placeholderText="Select date range"
-              className="w-full p-2 border rounded"
-              dateFormat="MMM d, yyyy"
-            />
+            <div className="relative">
+              <DatePicker
+                selectsRange={true}
+                startDate={startDate}
+                endDate={endDate}
+                onChange={(update) => {
+                  setDateRange(update);
+                  setTablePages({});
+                }}
+                isClearable={true}
+                placeholderText="Select date range"
+                className="w-full p-2 border rounded pl-10"
+                dateFormat="MMM d, yyyy"
+              />
+              <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
+            </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-wrap justify-end gap-4 mb-4">
+          <button
+            onClick={generateBulkData}
+            className="bg-green-600 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg"
+          >
+            Generate Bulk Upload Data
+          </button>
           <DownloadDropdown
-            data={sortedData}
+            data={filteredData}
             streamFilter={streamFilter}
             studentData={students}
           />
@@ -487,109 +695,207 @@ export default function Reports() {
           </button>
         </div>
 
-        {/* Results Count */}
+        {showUploadModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold mb-4">Bulk Upload Reports</h2>
+              <p className="mb-4 text-sm text-gray-600">
+                Ready to upload {bulkData.length} reports for {streamFilter} students.
+                This will update all test data in the system.
+              </p>
+              
+              <div className="mb-4">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-green-600 h-2.5 rounded-full" 
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">{uploadStatus}</p>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadProgress(0);
+                    setUploadStatus("");
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkUpload}
+                  disabled={uploadProgress > 0}
+                  className={`px-4 py-2 ${uploadProgress > 0 ? 'bg-gray-400' : 'bg-green-600'} text-white rounded hover:bg-green-700`}
+                >
+                  {uploadProgress > 0 ? 'Uploading...' : 'Confirm Upload'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mb-4 text-sm text-gray-600">
-          Showing {sortedData.length} of {detailedData.length} records
+          Total records found: {filteredData.length}
+          {selectedTest && ` for ${selectedTest.testName}`}
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="flex justify-center items-center h-32">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            {sortedData.length > 0 ? (
-              <table className="min-w-full bg-white border">
-                <thead>
-                  <tr className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white">
-                    <th 
-                      className="py-2 px-4 border cursor-pointer"
-                      onClick={() => requestSort("regNumber")}
-                    >
-                      Reg No {renderSortIndicator("regNumber")}
-                    </th>
-                    <th 
-                      className="py-2 px-4 border cursor-pointer"
-                      onClick={() => requestSort("studentName")}
-                    >
-                      Student {renderSortIndicator("studentName")}
-                    </th>
-                    <th 
-                      className="py-2 px-4 border cursor-pointer"
-                      onClick={() => requestSort("campus")}
-                    >
-                      Campus {renderSortIndicator("campus")}
-                    </th>
-                    <th 
-                      className="py-2 px-4 border cursor-pointer"
-                      onClick={() => requestSort("section")}
-                    >
-                      Section {renderSortIndicator("section")}
-                    </th>
+            {Object.entries(groupedData).length > 0 ? (
+              Object.entries(groupedData).map(([testName, testData]) => {
+                const paginatedData = getPaginatedTestData(testName, testData);
+                const currentPage = tablePages[testName] || 1;
+                const startRecord = (currentPage - 1) * rowsPerPage + 1;
+                const endRecord = Math.min(currentPage * rowsPerPage, testData.length);
+
+                return (
+                  <div key={testName} className="mb-8">
+                    <div className="flex justify-between items-center mb-2">
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          {testName} ({new Date(testData[0].date).toLocaleDateString()})
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Showing records {startRecord.toString().padStart(2, '0')}-{endRecord.toString().padStart(2, '0')} of {testData.length}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => downloadTestCSV(testName, testData)}
+                        className="bg-blue-500 text-white py-1 px-3 rounded text-sm"
+                      >
+                        Download CSV
+                      </button>
+                    </div>
                     
-                    {/* Dynamic Subject Headers */}
-                    {sortedData[0]?.subjects?.map((subject, idx) => (
-                      <th key={idx} colSpan="5" className="py-2 px-4 border text-center">
-                        {subject.subjectName} ({subject.fullMarks})
-                      </th>
-                    ))}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full bg-white border">
+                        <thead>
+                          <tr className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white">
+                            <th className="py-2 px-4 border">Sl.No</th>
+                            <th 
+                              className="py-2 px-4 border cursor-pointer"
+                              onClick={() => requestSort("regNumber")}
+                            >
+                              Reg No {renderSortIndicator("regNumber")}
+                            </th>
+                            <th 
+                              className="py-2 px-4 border cursor-pointer"
+                              onClick={() => requestSort("studentName")}
+                            >
+                              Student {renderSortIndicator("studentName")}
+                            </th>
+                            <th 
+                              className="py-2 px-4 border cursor-pointer"
+                              onClick={() => requestSort("campus")}
+                            >
+                              Campus {renderSortIndicator("campus")}
+                            </th>
+                            <th 
+                              className="py-2 px-4 border cursor-pointer"
+                              onClick={() => requestSort("section")}
+                            >
+                              Section {renderSortIndicator("section")}
+                            </th>
+                            
+                            {testData[0]?.subjects?.map((subject, idx) => (
+                              <React.Fragment key={idx}>
+                                <th 
+                                  colSpan={expandedSubjects[subject.subjectName] ? 5 : 1}
+                                  className="py-2 px-4 border text-center relative"
+                                >
+                                  <div className="flex items-center justify-center">
+                                    {subject.subjectName} ({subject.fullMarks})
+                                    <button 
+                                      onClick={() => toggleSubjectExpansion(subject.subjectName)}
+                                      className="ml-2 text-xs bg-white text-orange-500 rounded-full w-5 h-5 flex items-center justify-center"
+                                    >
+                                      {expandedSubjects[subject.subjectName] ? '−' : '+'}
+                                    </button>
+                                  </div>
+                                </th>
+                              </React.Fragment>
+                            ))}
+                            
+                            <th colSpan="4" className="py-2 px-4 text-center">
+                              Total ({testData[0].subjects.reduce((sum, sub) => sum + sub.fullMarks, 0)})
+                            </th>
+                          </tr>
+                          
+                          <tr className="bg-gray-50">
+                            <th colSpan="5"></th>
+                            {testData[0]?.subjects?.map((subject, idx) => (
+                              <React.Fragment key={idx}>
+                                {expandedSubjects[subject.subjectName] ? (
+                                  <>
+                                    <th className="py-1 px-2 border text-xs">Attempted</th>
+                                    <th className="py-1 px-2 border text-xs">Unattempted</th>
+                                    <th className="py-1 px-2 border text-xs">Correct</th>
+                                    <th className="py-1 px-2 border text-xs">Wrong</th>
+                                    <th className="py-1 px-2 border text-xs">Marks</th>
+                                  </>
+                                ) : (
+                                  <th className="py-1 px-2 border text-xs">Marks</th>
+                                )}
+                              </React.Fragment>
+                            ))}
+                            <th className="py-1 px-2 border text-xs">Marks</th>
+                            <th className="py-1 px-2 border text-xs">Accuracy</th>
+                            <th className="py-1 px-2 border text-xs">%</th>
+                            <th className="py-1 px-2 border text-xs">Percentile</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedData.map((report, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="py-2 px-4 border text-center">{(currentPage - 1) * rowsPerPage + index + 1}</td>
+                              <td className="py-2 px-4 border">
+                                <div className="flex items-center gap-2"><span>{report.regNumber}</span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-4 border">{report.studentName}</td>
+                              <td className="py-2 px-4 border">{typeof report.campus === 'object' ? report.campus.name : report.campus}</td>
+                              <td className="py-2 px-4 border">{report.section}</td>
+                              
+                              {report.subjects.map((subject, idx) => (
+                                <React.Fragment key={idx}>
+                                  {expandedSubjects[subject.subjectName] ? (
+                                    <>
+                                      {renderSubjectCell(subject, subject.totalQuestionsAttempted, 'attempted')}
+                                      {renderSubjectCell(subject, subject.totalQuestionsUnattempted, 'unattempted')}
+                                      {renderSubjectCell(subject, subject.correctAnswers, 'correct')}
+                                      {renderSubjectCell(subject, subject.wrongAnswers, 'wrong')}
+                                      {renderSubjectCell(subject, subject.totalMarks, 'marks')}
+                                    </>
+                                  ) : (
+                                    renderSubjectCell(subject, subject.totalMarks, 'marks')
+                                  )}
+                                </React.Fragment>
+                              ))}
+                              
+                              <td className="py-2 px-4 border text-center font-medium">
+                                {report.overallTotalMarks}
+                              </td>
+                              <td className="py-2 px-4 border text-center">{report.accuracy}%</td>
+                              <td className="py-2 px-4 border text-center">{report.percentage}%</td>
+                              <td className="py-2 px-4 border text-center">{report.percentile}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                     
-                    <th colSpan="4" className="py-2 px-4 text-center">
-                      Total ({overallTotal})
-                    </th>
-                  </tr>
-                  
-                  {/* Sub-headers for subjects */}
-                  <tr className="bg-gray-50">
-                    <th colSpan="4"></th>
-                    {sortedData[0]?.subjects?.map((subject, idx) => (
-                      <React.Fragment key={idx}>
-                        <th className="py-1 px-2 border text-xs">Attempted</th>
-                        <th className="py-1 px-2 border text-xs">Unattempted</th>
-                        <th className="py-1 px-2 border text-xs">Correct</th>
-                        <th className="py-1 px-2 border text-xs">Wrong</th>
-                        <th className="py-1 px-2 border text-xs">Marks</th>
-                      </React.Fragment>
-                    ))}
-                    <th className="py-1 px-2 border text-xs">Marks</th>
-                    <th className="py-1 px-2 border text-xs">Accuracy</th>
-                    <th className="py-1 px-2 border text-xs">%</th>
-                    <th className="py-1 px-2 border text-xs">Percentile</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedData.map((report, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="py-2 px-4 border">
-                        <div className="flex items-center gap-2"><span>{report.regNumber}</span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-4 border">{report.studentName}</td>
-                      <td className="py-2 px-4 border">{typeof report.campus === 'object' ? report.campus.name : report.campus}</td>
-                      <td className="py-2 px-4 border">{report.section}</td>
-                      
-                      {/* Subject-wise data with watermarks */}
-                      {report.subjects.map((subject, idx) => (
-                        <React.Fragment key={idx}>
-                          {renderSubjectCell(subject, subject.totalQuestionsAttempted, 'attempted')}
-                          {renderSubjectCell(subject, subject.totalQuestionsUnattempted, 'unattempted')}
-                          {renderSubjectCell(subject, subject.correctAnswers, 'correct')}
-                          {renderSubjectCell(subject, subject.wrongAnswers, 'wrong')}
-                          {renderSubjectCell(subject, subject.totalMarks, 'marks')}
-                        </React.Fragment>
-                      ))}
-                      
-                      <td className="py-2 px-4 border text-center font-medium">
-                        {report.overallTotalMarks}
-                      </td>
-                      <td className="py-2 px-4 border text-center">{report.accuracy}%</td>
-                      <td className="py-2 px-4 border text-center">{report.percentage}%</td>
-                      <td className="py-2 px-4 border text-center">{report.percentile}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    {renderPagination(testName, testData)}
+                  </div>
+                );
+              })
             ) : (
               <div className="text-center py-8">
                 <p className="text-gray-500 text-lg mb-4">
@@ -603,6 +909,7 @@ export default function Reports() {
                       setSelectedSection("All");
                       setDateRange([null, null]);
                       setSearchTerm("");
+                      setTablePages({});
                     }}
                     className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
                   >
@@ -615,7 +922,6 @@ export default function Reports() {
         )}
       </div>
 
-      {/* New Report Modal */}
       {showNewReport && <NewReport onClose={() => setShowNewReport(false)} />}
     </div>
   );

@@ -97,14 +97,7 @@ function Login() {
         />
 
       <div className="flex items-center h-full mt-2">
-  {/* MD Logo */}
-  <div className="h-[450px] flex items-center mr-12">
-    <img 
-      src={mdlogo} 
-      alt="md logo" 
-      className="h-full w-auto object-contain" 
-    />
-  </div>
+  
 
   {/* Improved Slideshow section */}
   <div className="flex-1 h-[450px] relative ml-6">
@@ -112,10 +105,10 @@ function Login() {
   {/* Left Vertical Text */}
   <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10">
     <div className="flex flex-col items-center">
-      {'TOPPERS'.split('').map((letter, i) => (
+      {'Achievers'.split('').map((letter, i) => (
         <span 
           key={`left-${i}`}
-          className="text-2xl font-bold text-red-600 font-serif"
+          className="text-2xl font-bold text-white font-serif"
         >
           {letter}
         </span>
@@ -126,10 +119,10 @@ function Login() {
   {/* Right Vertical Text */}
   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10">
     <div className="flex flex-col items-center">
-      {'TOPPERS'.split('').map((letter, i) => (
+      {'Achievers'.split('').map((letter, i) => (
         <span 
           key={`right-${i}`}
-          className="text-2xl font-bold text-yellow-400 font-serif"
+          className="text-2xl text-white font-extrabold font-serif"
         >
           {letter}
         </span>
@@ -163,6 +156,14 @@ function Login() {
         />
       ))}
     </div>
+  </div>
+  {/* MD Logo */}
+  <div className="h-[450px] flex items-center mr-12">
+    <img 
+      src={mdlogo} 
+      alt="md logo" 
+      className="h-full w-auto object-contain" 
+    />
   </div>
 </div>
       </div>

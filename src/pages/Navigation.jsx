@@ -27,7 +27,7 @@ const getNavigationItems = (role) => {
     { name: "Hostel", path: "hostel", show: ["super_admin", "admin", "counseller"].includes(role) },
     { name: "Gate Pass", path: "gatepass", show: ["super_admin", "admin"].includes(role) },
     { name: "Admission", path: "admission", show: ["super_admin", "admin", "counseller"].includes(role) },
-    { name: "Settings", path: "settings", show: ["super_admin", "admin"].includes(role) },
+    { name: "Settings", path: "settings", show: ["super_admin"].includes(role) },
     { name: "Staffs", path: "staffs", show: ["super_admin", "admin", "counseller"].includes(role) }
   ];
 

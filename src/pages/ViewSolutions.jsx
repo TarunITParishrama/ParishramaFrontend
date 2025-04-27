@@ -177,7 +177,7 @@ export default function ViewSolutions() {
                     <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                       <div className="transform rotate-[-10deg]">
                         <span className="text-5xl font-bold text-green-600/60 tracking-widest border-4 border-green-600/50 rounded-lg px-6 py-2">
-                          GRACED
+                          Grace
                         </span>
                       </div>
                     </div>

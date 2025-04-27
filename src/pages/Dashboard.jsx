@@ -38,7 +38,7 @@ const getDashboardItems = (role) => {
     { name: "Solutions", icon: "🔠", path: "marks", show:  ["super_admin", "admin"].includes(role) },
     { name: "Gate Pass", icon: <img src={gatepassicon} alt="" className="w-10 h-12 inline"/>, path: "gatepass", show: ["super_admin", "admin"].includes(role) },
     { name: "Admission", icon: <img src={admissionicon} alt="" className="w-12 h-10 inline"/>, path: "admission", show: ["super_admin", "admin", "counseller"].includes(role) },
-    { name: "Settings", icon: <img src={settingsIcon} alt="" className="w-12 h-12 inline"/>, path: "settings", show: ["super_admin", "admin"].includes(role) },
+    { name: "Settings", icon: <img src={settingsIcon} alt="" className="w-12 h-12 inline"/>, path: "settings", show: ["super_admin"].includes(role) },
     { name: "Staffs", icon: <img src={staffIcon} alt="" className="w-10 h-12 inline"/>, path: "staffs", show: ["super_admin", "admin", "counseller"].includes(role) }
   ];
 
