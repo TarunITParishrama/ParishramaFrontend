@@ -81,7 +81,8 @@ export default function Reports() {
             studentMap[student.regNumber] = {
               studentName: student.studentName,
               campus: student.campus?.name || "N/A",
-              section: student.section
+              section: student.section,
+              studentImageURL: student.studentImageURL || null
             };
             
             if (student.campus?.name) campusSet.add(student.campus.name);

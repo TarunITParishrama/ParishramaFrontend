@@ -1,17 +1,23 @@
-// Part 1
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { read, utils } from "xlsx";
+import { Upload, AArrowUp } from "lucide-react";
 
 export default function AdmissionForm() {
   const [campuses, setCampuses] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [regNumberExists, setRegNumberExists] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showMedicalDetails, setShowMedicalDetails] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [failedStudents, setFailedStudents] = useState([]);
 
   const [formData, setFormData] = useState({
     admissionYear: new Date().getFullYear(),
@@ -71,7 +77,6 @@ export default function AdmissionForm() {
       }
     }
   };
-  // Part 2 (continued from Part 1)
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -123,7 +128,6 @@ export default function AdmissionForm() {
 
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', data.uploadURL);
-      // xhr.setRequestHeader('Content-Type', selectedFile.type);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -153,13 +157,190 @@ export default function AdmissionForm() {
       toast.error("Image upload failed");
     }
   };
-  // Part 3 (continued)
 
   const cancelUpload = () => {
     setSelectedFile(null);
     setPreviewUrl("");
     setUploadProgress(0);
     setFormData(prev => ({ ...prev, studentImageURL: "" }));
+  };
+
+  // Bulk Upload Handlers
+  const handleBulkFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const validTypes = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a valid Excel or CSV file");
+      return;
+    }
+    
+    setBulkFile(file);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      const validTypes = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv"];
+      
+      if (validTypes.includes(file.type)) {
+        setBulkFile(file);
+      } else {
+        toast.error("Please upload a valid Excel or CSV file");
+      }
+    }
+  };
+
+  const processBulkUpload = async () => {
+    if (!bulkFile) {
+      toast.error("Please select a file to upload");
+      return;
+    }
+
+    if (!campuses.length) {
+      toast.error("Please wait for campuses to load");
+      return;
+    }
+
+    try {
+      setBulkLoading(true);
+      toast.info("Processing bulk upload...");
+
+      // Read file data
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = utils.sheet_to_json(worksheet, { defval: "" });
+
+          // Map column headers to our schema fields
+          const mappedData = jsonData.map(row => {
+            // Handle potential different column names
+            const studentData = {
+              admissionYear: parseInt(row.admissionYear || row.AdmissionYear || row.admission_year || new Date().getFullYear()),
+              campus: row.campus || row.Campus || row.campus_id || "",
+              gender: row.gender || row.Gender || "Boy",
+              admissionType: row.admissionType || row.AdmissionType || row.admission_type || "Residential",
+              regNumber: row.regNumber || row.RegNumber || row.reg_number || row.registration_number || "",
+              studentName: row.studentName || row.StudentName || row.student_name || row.name || "",
+              studentImageURL: null, // No image for bulk uploads
+              allotmentType: row.allotmentType || row.AllotmentType || row.allotment_type || "11th PUC",
+              section: row.section || row.Section || "",
+              fatherName: row.fatherName || row.FatherName || row.father_name || row.Father || "",
+              fatherMobile: row.fatherMobile || row.FatherMobile || row.father_mobile || row.father_contact || "",
+              address: row.address || row.Address || "",
+              contact: row.contact || row.Contact || row.alternate_contact || "",
+              medicalIssues: row.medicalIssues || row.MedicalIssues || row.medical_issues || "No",
+              medicalDetails: row.medicalDetails || row.MedicalDetails || row.medical_details || ""
+            };
+
+            // If campus is provided as a name instead of ID, try to find corresponding ID
+            if (studentData.campus && !studentData.campus.match(/^[0-9a-fA-F]{24}$/)) {
+              const foundCampus = campuses.find(c => 
+                c.name.toLowerCase() === studentData.campus.toString().toLowerCase()
+              );
+              
+              if (foundCampus) {
+                studentData.campus = foundCampus._id;
+              } else {
+                // If we can't find the campus, we'll log this issue
+                console.warn(`Campus not found for: ${studentData.studentName} (${studentData.regNumber})`);
+              }
+            }
+
+            return studentData;
+          });
+
+          // Data validation
+          const validData = mappedData.filter(student => {
+            // Basic validation
+            if (!student.regNumber || !student.regNumber.match(/^\d{6}$/)) {
+              console.warn(`Invalid registration number for student: ${student.studentName}`);
+              return false;
+            }
+            
+            if (!student.studentName) {
+              console.warn(`Missing student name for reg number: ${student.regNumber}`);
+              return false;
+            }
+            
+            if (!student.campus || !student.campus.match(/^[0-9a-fA-F]{24}$/)) {
+              console.warn(`Invalid campus ID for student: ${student.studentName} (${student.regNumber})`);
+              return false;
+            }
+            
+            return true;
+          });
+
+          if (validData.length === 0) {
+            toast.error("No valid student records found in the file");
+            setBulkLoading(false);
+            return;
+          }
+
+          // Send to server
+          const token = localStorage.getItem("token");
+          const response = await axios.post(
+            `${process.env.REACT_APP_URL}/api/bulkcreatestudents`,
+            { students: validData },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              }
+            }
+          );
+
+          toast.success(`Successfully processed ${response.data.successCount} students`);
+          
+          if (response.data.failedCount > 0) {
+            toast.warning(`Failed to process ${response.data.failedCount} students.`);
+            setFailedStudents(response.data.failedStudents);
+          }
+          
+          // Reset the bulk upload state
+          setBulkFile(null);
+          setShowBulkUpload(false);
+
+        } catch (error) {
+          console.error("Error processing file:", error);
+          toast.error("Failed to process file. Check if the format is correct.");
+        } finally {
+          setBulkLoading(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        toast.error("Failed to read file");
+        setBulkLoading(false);
+      };
+      
+      reader.readAsArrayBuffer(bulkFile);
+      
+    } catch (error) {
+      console.error("Bulk upload error:", error);
+      toast.error(error.response?.data?.message || "Bulk upload failed");
+      setBulkLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -244,11 +425,112 @@ export default function AdmissionForm() {
       setLoading(false);
     }
   };
-  // Part 4 (continued)
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">New Student Admission</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">New Student Admission</h2>
+        <button
+          type="button"
+          onClick={() => setShowBulkUpload(!showBulkUpload)}
+          className="flex items-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <AArrowUp size={18} />
+          Upload Bulk
+        </button>
+      </div>
+
+      {showBulkUpload && (
+        <div className="mb-8 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+          <h3 className="text-lg font-semibold mb-3 text-blue-800">Bulk Student Upload</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Upload a CSV or Excel file with student data. The file should contain columns matching the form fields.
+          </p>
+          
+          <div
+            className={`border-2 border-dashed rounded-lg p-6 text-center mb-4 ${
+              dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <div className="flex flex-col items-center">
+              <Upload size={32} className="text-blue-500 mb-2" />
+              <p className="mb-2">Drag & drop your file here</p>
+              <p className="text-sm text-gray-500">- or -</p>
+              <label className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer">
+                Browse Files
+                <input
+                  type="file"
+                  accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                  onChange={handleBulkFileChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+          
+          {bulkFile && (
+            <div className="flex items-center justify-between bg-white p-3 rounded-md border border-gray-200 mb-4">
+              <span className="text-sm truncate">{bulkFile.name}</span>
+              <button 
+                type="button" 
+                className="text-red-500 hover:text-red-700"
+                onClick={() => setBulkFile(null)}
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowBulkUpload(false);
+                setBulkFile(null);
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={processBulkUpload}
+              disabled={!bulkFile || bulkLoading}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+            >
+              {bulkLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                <>Upload Students</>
+              )}
+            </button>
+            {failedStudents.length > 0 && (
+              <div className="mt-6 bg-white p-4 border border-red-300 rounded-md">
+                <h4 className="text-red-600 text-lg font-semibold mb-3">Failed to Upload Students</h4>
+                <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
+                  {failedStudents.map((student, idx) => (
+                  <li key={idx}>
+                  {student.regNumber || 'Unknown RegNumber'} - {student.reason || 'Unknown Error'}
+                  </li>
+                ))}
+                </ul>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* Campus Selection */}
@@ -280,7 +562,7 @@ export default function AdmissionForm() {
             className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
             required
           >
-            {[2024, 2025, 2026, 2027, 2028].map(year => (
+            {[2022,2023,2024, 2025, 2026, 2027, 2028].map(year => (
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
