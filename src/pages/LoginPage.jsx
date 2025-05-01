@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import logo from "../assets/logo_kannada.png";
-import mdlogo from "../assets/MDPhoto.png";
-import titlelogo from "../assets/loginpagelogo.png";
+import titlelogo from "../assets/loginpagelogo.jpg";
 import creativity from "../assets/creativity.png";
 import honesty from "../assets/honesty.png";
 import trust from "../assets/trust.png";
@@ -24,6 +23,28 @@ function Login() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState({ text: "", type: "" });
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [transitionDirection, setTransitionDirection] = useState('next');
+  const carouselRef = useRef(null);
+
+  const goToSlide = (index, direction) => {
+    setTransitionDirection(direction);
+    setCurrentSlide(index);
+  };
+
+  const goToNext = () => {
+    goToSlide((currentSlide + 1) % slides.length, 'next');
+  };
+
+  const goToPrev = () => {
+    goToSlide((currentSlide - 1 + slides.length) % slides.length, 'prev');
+  };
+
+  // Auto-advance slides
+  useEffect(() => {
+    const interval = setInterval(goToNext, 3000);
+    return () => clearInterval(interval);
+  }, [currentSlide]);
+
 
   const slides = [slide1, slide2, slide3, slide4, slide5, slide6];
 
@@ -86,183 +107,238 @@ function Login() {
   };
 
   return (
-    <div className="h-screen flex bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400">
-      {/* Left Section */}
-      <div className="w-[60%] relative p-4 pl-10">
-        {/* Title logo at top left corner */}
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* White Top Section */}
+      <div className="bg-white w-full py-4 px-9 flex justify-between items-center border-b border-gray-200">
         <img 
           src={titlelogo} 
           alt="title logo" 
-          className="absolute top-4 left-4 h-28 w-90" 
+          className="h-20 w-full object-contain -ml-72" 
         />
-
-      <div className="flex items-center h-full mt-2">
-  
-
-  {/* Improved Slideshow section */}
-  <div className="flex-1 h-[450px] relative ml-6">
-  <div className="relative h-full w-full overflow-hidden rounded-lg shadow-xl bg-gradient-br from-red-600 via-orange-500 to-yellow-400">
-  {/* Left Vertical Text */}
-  <div className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10">
-    <div className="flex flex-col items-center">
-      {'Achievers'.split('').map((letter, i) => (
-        <span 
-          key={`left-${i}`}
-          className="text-2xl font-bold text-white font-serif"
-        >
-          {letter}
-        </span>
-      ))}
-    </div>
-  </div>
-
-  {/* Right Vertical Text */}
-  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10">
-    <div className="flex flex-col items-center">
-      {'Achievers'.split('').map((letter, i) => (
-        <span 
-          key={`right-${i}`}
-          className="text-2xl text-white font-extrabold font-serif"
-        >
-          {letter}
-        </span>
-      ))}
-    </div>
-  </div>
-
-  {/* Slides */}
-  {slides.map((slide, index) => (
-    <div 
-      key={index}
-      className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}
-    >
-      <img
-        src={slide}
-        alt={`Slide ${index + 1}`}
-        className="max-h-full max-w-full object-contain p-2"
-      />
-    </div>
-  ))}
-</div>
-
-    {/* Slide indicators */}
-    <div className="absolute -bottom-1 left-0 right-0 flex justify-center space-x-2">
-      {slides.map((_, index) => (
-        <button
-          key={index}
-          onClick={() => setCurrentSlide(index)}
-          className={`h-3 w-3 rounded-full transition-all ${index === currentSlide ? 'bg-orange-300 w-2' : 'bg-white bg-opacity-50'}`}
-          aria-label={`Go to slide ${index + 1}`}
-        />
-      ))}
-    </div>
-  </div>
-  {/* MD Logo */}
-  <div className="h-[450px] flex items-center mr-12">
-    <img 
-      src={mdlogo} 
-      alt="md logo" 
-      className="h-full w-auto object-contain" 
-    />
-  </div>
-</div>
-      </div>
-
-      {/* Right Section */}
-      <div className="w-[40%] relative flex justify-end items-center pr-28">
-        {/* Overlapping images in top-right corner */}
-        <div className="absolute top-4 right-4 flex items-center">
-          <div className="relative mr-4" style={{ width: '120px', height: '80px' }}>
-            <img src={creativity} alt="Creativity" className="h-14 w-14 absolute top-0 left-0 z-10 transform hover:scale-110 transition-transform" />
-            <img src={honesty} alt="Honesty" className="h-14 w-14 absolute top-1 left-8 z-20 transform hover:scale-110 transition-transform" />
-            <img src={trust} alt="Trust" className="h-14 w-14 absolute top-1 left-16 z-30 transform hover:scale-110 transition-transform" />
+        
+        {/* Values Icons - Right-aligned */}
+        <div className="flex items-center">
+          <div className="relative mr-2" style={{ width: '80px', height: '50px' }}>
+            <img src={creativity} alt="Creativity" className="h-8 w-8 md:h-10 md:w-10 absolute top-0 left-0 z-10" />
+            <img src={honesty} alt="Honesty" className="h-8 w-8 md:h-10 md:w-10 absolute top-1 left-6 md:left-8 z-20" />
+            <img src={trust} alt="Trust" className="h-8 w-8 md:h-10 md:w-10 absolute top-1 left-12 md:left-16 z-30" />
           </div>
-          <div className="flex flex-col space-y-1">
+          <div className="flex flex-col space-y-0 text-xs md:text-sm ml-6">
             <span className="font-bold text-black">Creativity</span>
             <span className="font-bold text-red-600">Honesty</span>
             <span className="font-bold text-yellow-400">Trust</span>
           </div>
         </div>
+      </div>
+  
+      {/* Main Content Area */}
+    <div className="flex-1 flex flex-col md:flex-row bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400">
+      {/* Left Section - Carousel Slideshow (Desktop) */}
+      <div className="hidden md:flex md:w-[50%] items-center justify-center p-4 ml-32">
+        <div className="relative w-full max-w-lg h-96"> {/* Fixed height container */}
+          <div 
+            ref={carouselRef}
+            className="relative w-full h-full transition-transform duration-700 ease-in-out"
+          >
+            {slides.map((slide, index) => {
+              let position = 'hidden';
+              if (index === currentSlide) position = 'current';
+              else if (index === (currentSlide + 1) % slides.length) position = 'next';
+              else if (index === (currentSlide - 1 + slides.length) % slides.length) position = 'prev';
 
-        {/* Login Box */}
-        <div className="bg-white p-8 rounded-lg shadow-lg shadow-gray-700 w-80 text-gray-900">
-          <img src={logo} alt="Parishrama Neet Academy Logo" className="mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-4 text-center">
-            {isLogin ? "Login" : "Register"}
-          </h2>
+              return (
+                <div
+                  key={index}
+                  className={`absolute w-full h-full transition-all duration-700 ease-in-out rounded-xl overflow-hidden ${
+                    position === 'current' ? 'opacity-100 z-10 translate-x-0 scale-100' :
+                    position === 'next' ? 'opacity-80 z-5 translate-x-1/4 scale-90' :
+                    position === 'prev' ? 'opacity-80 z-5 -translate-x-1/4 scale-90' :
+                    'opacity-0 z-0'
+                  }`}
+                >
+                  <img
+                    src={slide}
+                    alt={`Slide ${index + 1}`}
+                    className="w-full h-full object-contain p-4" 
+                  />
+                </div>
+              );
+            })}
+          </div>
 
-          {message.text && (
-            <div className={`text-center p-2 mb-4 rounded ${
-              message.type === "success" ? "bg-green-500" : "bg-red-500"
-            } text-white`}>
-              {message.text}
-            </div>
-          )}
+          {/* Navigation Arrows */}
+          <button
+            onClick={goToPrev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-white bg-opacity-70 hover:bg-opacity-90 rounded-full p-2 shadow-md"
+          >
+            <ChevronLeftIcon className="w-5 h-5 text-orange-600" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 bg-white bg-opacity-70 hover:bg-opacity-90 rounded-full p-2 shadow-md"
+          >
+            <ChevronRightIcon className="w-5 h-5 text-orange-600" />
+          </button>
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block mb-1">Phone Number</label>
-              <input
-                type="tel"
-                className="w-full p-2 rounded bg-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone"
-                pattern="\d{10}"
-                required
+          {/* Slide Indicators */}
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-2 z-20">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToSlide(index, index > currentSlide ? 'next' : 'prev')}
+                className={`h-1.5 w-1.5 rounded-full transition-all ${
+                  index === currentSlide ? 'bg-orange-300 w-4' : 'bg-white bg-opacity-50'
+                }`}
               />
-            </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
-            <div className="mb-4">
-              <label className="block mb-1">Password</label>
-              <input
-                type="password"
-                className="w-full p-2 rounded bg-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                required
-                minLength="6"
+  
+        {/* Right Section - Login Form */}
+        <div className="w-full md:w-[50%] flex items-center justify-center p-4 md:p-8">
+          <div className="bg-white rounded-xl shadow-2xl w-auto max-w-md p-6 md:p-8 ml-32">
+            <div className="flex flex-col items-center mb-6">
+              <img 
+                src={logo} 
+                alt="Logo" 
+                className="h-16 md:h-20 w-auto mb-4" 
               />
+              <h2 className="text-2xl font-bold text-gray-800">
+                {isLogin ? "Login" : "Register"}
+              </h2>
             </div>
-
-            {!isLogin && (
-              <div className="mb-4">
-                <label className="block mb-1">Confirm Password</label>
+  
+            {message.text && (
+              <div className={`mb-4 p-3 rounded-lg text-center ${
+                message.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+              }`}>
+                {message.text}
+              </div>
+            )}
+  
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="10-digit phone number"
+                  pattern="\d{10}"
+                  required
+                />
+              </div>
+  
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
                 <input
                   type="password"
-                  className="w-full p-2 rounded bg-gray-200 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm Password"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
                   required
                   minLength="6"
                 />
               </div>
-            )}
-
+  
+              {!isLogin && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm Password"
+                    required
+                    minLength="6"
+                  />
+                </div>
+              )}
+  
+              <button
+                type="submit"
+                className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-md transition-colors duration-300"
+              >
+                {isLogin ? "Login" : "Register"}
+              </button>
+  
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setMessage({ text: "", type: "" });
+                }}
+                className="w-full text-center text-orange-500 hover:text-orange-700 font-medium text-sm mt-2"
+              >
+                {isLogin ? "Need an account? Register" : "Already have an account? Login"}
+              </button>
+            </form>
+          </div>
+        </div>
+  
+        {/* Mobile Slideshow */}
+      <div className="md:hidden w-full py-4 px-4">
+        <div className="relative w-full max-w-md mx-auto h-64 bg-white bg-opacity-20 rounded-xl shadow-lg overflow-hidden">
+          <div className="relative w-full h-full">
+            {slides.map((slide, index) => (
+              <div
+                key={index}
+                className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                  index === currentSlide ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <img
+                  src={slide}
+                  alt={`Slide ${index + 1}`}
+                  className="w-full h-full object-contain p-4" 
+                />
+              </div>
+            ))}
+          </div>
+          
+          {/* Mobile Controls */}
+          <div className="absolute inset-0 flex items-center justify-between px-2">
             <button
-              type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 p-2 rounded shadow-gray-700 shadow-md font-bold text-white mb-4"
+              onClick={goToPrev}
+              className="bg-white bg-opacity-50 hover:bg-opacity-75 rounded-full p-1 shadow-md"
             >
-              {isLogin ? "Login" : "Register"}
+              <ChevronLeftIcon className="w-5 h-5 text-orange-600" />
             </button>
-
             <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setMessage({ text: "", type: "" });
-              }}
-              className="w-full text-orange-500 hover:text-orange-700 p-2 rounded font-bold"
+              onClick={goToNext}
+              className="bg-white bg-opacity-50 hover:bg-opacity-75 rounded-full p-1 shadow-md"
             >
-              {isLogin ? "Need an account? Register" : "Already have an account? Login"}
+              <ChevronRightIcon className="w-5 h-5 text-orange-600" />
             </button>
-          </form>
+          </div>
+
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center space-x-1.5">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToSlide(index, index > currentSlide ? 'next' : 'prev')}
+                className={`h-1.5 w-1.5 rounded-full transition-all ${
+                  index === currentSlide ? 'bg-orange-300 w-3' : 'bg-white bg-opacity-50'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
 
 export default Login;

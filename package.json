@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@types/date-fns": "^2.5.3",
     "axios": "^1.8.4",
     "cra-template-tailwindcss": "4.0.1",
