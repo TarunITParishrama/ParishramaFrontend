@@ -26,7 +26,7 @@ const getDashboardItems = (role) => {
 
   const adminItems = [
     { name: "Student Profile",  icon: <img src={studentIcon} alt="" className="w-10 h-12 inline"/>, path: "studentprofile", show: ["parent"].includes(role)},
-    { name: "Student Reports",  icon: <img src={reportIcon} alt="" className="w-10 h-12 inline"/>, path: "singlereport", show: ["parent"].includes(role)},
+    { name: "Progress Report",  icon: <img src={reportIcon} alt="" className="w-10 h-12 inline"/>, path: "singlereport", show: ["parent"].includes(role)},
     { name: "Students", icon: <img src={studentIcon} alt="" className="w-10 h-12 inline"/>, path: "students", show: ["super_admin","admin", "staff"].includes(role)},
     { name: "Questions", icon: "🔢", path: "questions", show: ["super_admin","admin", "staff"].includes(role)},
     { name: "Feedback", icon: <img src={feedbackicon} alt="" className="w-12 h-10 inline"/>, path: "feedback", show: ["super_admin", "admin", "staff"].includes(role) },

@@ -79,10 +79,18 @@ export default function StudentSettings() {
       const studentData = response.data.data;
       setStudent(studentData);
       
+      // Format dateOfBirth for display if it exists
+      let formattedDOB = "";
+      if (studentData.dateOfBirth) {
+        const dob = new Date(studentData.dateOfBirth);
+        formattedDOB = `${dob.getDate().toString().padStart(2, '0')}-${(dob.getMonth() + 1).toString().padStart(2, '0')}-${dob.getFullYear()}`;
+      }
+      
       // Set form data and handle medical issues state
       setFormData({
         ...studentData,
         campus: studentData.campus._id,
+        dateOfBirth: formattedDOB,
         medicalIssues: studentData.medicalIssues || "No",
         medicalDetails: studentData.medicalDetails || ""
       });
@@ -280,12 +288,10 @@ export default function StudentSettings() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // For date fields, we need to handle them specially
     if (name === "dateOfBirth") {
-      // Convert the date string to a Date object
-      const dateObj = new Date(value);
-      // Format it as DD-MM-YYYY for the backend
-      const formattedDate = `${dateObj.getDate().toString().padStart(2, '0')}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getFullYear()}`;
+      // For date input, we get YYYY-MM-DD format from the input
+      const [year, month, day] = value.split('-');
+      const formattedDate = `${day}-${month}-${year}`;
       setFormData(prev => ({ ...prev, [name]: formattedDate }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -350,23 +356,30 @@ export default function StudentSettings() {
           {activeTab === "edit" ? (
             <form onSubmit={handleUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Campus Selection */}
-              <div className="md:col-span-2">
-                <label className="block text-gray-700 mb-1 font-medium">Campus *</label>
-                <select
-                  name="campus"
-                  value={formData.campus}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  required
-                >
-                  <option value="">Select Campus</option>
-                  {campuses.map(campus => (
-                    <option key={campus._id} value={campus._id}>
-                      {campus.name} ({campus.type})
-                    </option>
-                  ))}
-                </select>
-              </div>
+<div className="md:col-span-2">
+  <label className="block text-gray-700 mb-1 font-medium">Campus *</label>
+  <div className="flex items-center gap-2 mb-1">
+    {student?.campus?.name && (
+      <span className="text-sm text-gray-600">
+        Current: {student.campus.name} ({student.campus.type})
+      </span>
+    )}
+  </div>
+  <select
+    name="campus"
+    value={formData.campus}
+    onChange={handleChange}
+    className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+    required
+  >
+    <option value="">Select Campus</option>
+    {campuses.map(campus => (
+      <option key={campus._id} value={campus._id}>
+        {campus.name} ({campus.type})
+      </option>
+    ))}
+  </select>
+</div>
 
               {/* Admission Year */}
               <div>
@@ -413,10 +426,14 @@ export default function StudentSettings() {
                 <input
                   type="date"
                   name="dateOfBirth"
-                  value={formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString().split('T')[0] : ''}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
-                  required
+                  value={
+                  formData.dateOfBirth 
+                  ? formData.dateOfBirth.split('-').reverse().join('-') // Convert DD-MM-YYYY to YYYY-MM-DD for input
+                  : ''
+                }
+                onChange={handleChange}
+                className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+                required
                 />
               </div>
 
@@ -662,20 +679,23 @@ export default function StudentSettings() {
             </form>
           ) : (
             <div className="bg-red-50 p-6 rounded-lg">
-              <h3 className="text-xl font-medium text-red-800 mb-4">Delete Student</h3>
-              <div className="mb-4 flex items-center space-x-4">
-                {previewUrl && (
-                  <img
-                    src={previewUrl}
-                    alt={student.studentName}
-                    className="h-16 w-16 object-cover rounded-full border-2 border-red-300"
-                  />
-                )}
-                <div>
-                  <p className="font-medium text-lg">{student.studentName}</p>
-                  <p className="text-gray-600">Registration: {student.regNumber}</p>
-                </div>
-              </div>
+  <h3 className="text-xl font-medium text-red-800 mb-4">Delete Student</h3>
+  <div className="mb-4 flex items-center space-x-4">
+    {previewUrl && (
+      <img
+        src={previewUrl}
+        alt={student.studentName}
+        className="h-16 w-16 object-cover rounded-full border-2 border-red-300"
+      />
+    )}
+    <div>
+      <p className="font-medium text-lg">{student.studentName}</p>
+      <p className="text-gray-600">Registration: {student.regNumber}</p>
+      {student.campus?.name && (
+        <p className="text-gray-600">Campus: {student.campus.name}</p>
+      )}
+    </div>
+  </div>
               <p className="mb-6 text-red-700">
                 Warning: This action cannot be undone. All data associated with this student will be permanently removed.
               </p>

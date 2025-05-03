@@ -16,7 +16,7 @@ const getNavigationItems = (role) => {
 
   const adminItems = [
     { name: "Campus", path: "batches", show: ["super_admin", "admin"].includes(role) },
-    { name: "Student Report", path: "singlereport", show: ["parent"].includes(role)},
+    { name: "Progress Report", path: "singlereport", show: ["parent"].includes(role)},
     { name: "Student Profile", path: "studentprofile", show: ["parent"].includes(role)},
     { name: "Students", path: "students", show: ["super_admin","admin", "staff"].includes(role) },
     { name: "Questions", path: "questions", show: ["super_admin", "admin"].includes(role) },

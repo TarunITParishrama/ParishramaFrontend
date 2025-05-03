@@ -271,7 +271,7 @@ function Login() {
         loginType === "staff" ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
       }`}
     >
-      Staff
+      Organization
     </button>
     <button
       type="button"
@@ -374,9 +374,10 @@ function Login() {
         checked={rememberMe}
         onChange={(e) => setRememberMe(e.target.checked)}
         className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+        required
       />
       <label htmlFor="rememberMe" className="ml-2 block text-sm font-semibold text-orange-500 underline">
-        Remember my login (uses cookies)
+        Remember Me (uses cookies)
       </label>
     </div>
     </>

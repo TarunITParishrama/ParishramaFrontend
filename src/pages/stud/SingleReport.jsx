@@ -197,17 +197,72 @@ const SingleReport = () => {
   if (!studentData) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-xl text-gray-600">Student data not found</p>
+        <p className="text-xl text-gray-600">Progress Report not found</p>
       </div>
     );
   }
+
+
+// Updated getBaseTestName function with better normalization
+const getBaseTestName = (testName) => {
+  // Handle special cases with abbreviations
+  const specialTests = {
+    'PDT': 'Parishrama Daily Test',
+    'PCT': 'Parishrama Competitive Test',
+    'PTT': 'Parishrama Theory Test'
+  };
+
+  // Check if the test name matches any special cases
+  for (const [abbr, fullName] of Object.entries(specialTests)) {
+    if (testName.startsWith(abbr)) {
+      return { 
+        baseName: abbr, 
+        displayName: `${abbr}s - ${fullName}`,
+        isSpecial: true
+      };
+    }
+  }
+
+  // Normalize the test name by:
+  // 1. Converting to lowercase
+  // 2. Removing all non-alphabetic characters (keeping spaces)
+  // 3. Trimming whitespace
+  const normalized = testName
+    .toLowerCase()
+    .replace(/[^a-zA-Z\s]/g, '')
+    .trim();
+
+  // Extract the base name by removing any trailing numbers or version indicators
+  const baseName = normalized
+    .replace(/\s*\d+$/, '')  // Remove trailing numbers
+    .replace(/\s*test$/, '') // Remove trailing 'test'
+    .trim();
+
+  // Capitalize the first letter of each word for display
+  const displayBase = baseName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  return { 
+    baseName: baseName || normalized, // Fallback to normalized if empty
+    displayName: `${displayBase} Tests`,
+    isSpecial: false
+  };
+};
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       {/* Header Section */}
       <div className="bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400 text-white rounded-lg p-6 mb-6 shadow-md">
+      <button 
+          onClick={() => navigate('/home')} 
+          className="text-white text-sm flex items-center mb-2"
+        >
+          ◀ Back To Dashboard
+        </button>
   <h1 className="text-2xl md:text-3xl font-bold mb-2">
-    {studentData?.studentName || studentData?.student?.studentName || 'Student'}'s Academic Report
+    {studentData?.studentName || studentData?.student?.studentName || 'Progress'}'s Reports
   </h1>
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm md:text-base">
     <div>
@@ -237,129 +292,146 @@ const SingleReport = () => {
             </Tab>
           </TabList>
 
-          {/* Tests Tab */}
-          <TabPanel>
-            <div className="p-4 md:p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">Test Reports</h2>
-              
-              {detailedReports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No test reports available yet
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {detailedReports.map((reportGroup, index) => (
-                    <div key={index} className="mb-6">
-                      <h3 className="text-lg font-medium text-gray-700 mb-3">
-                        {reportGroup.testName}
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {reportGroup.reports.map((report, idx) => (
-                          <div 
-                            key={idx}
-                            onClick={() => handleReportClick(report)}
-                            className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-white"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <span className="text-sm text-gray-500">
-                                {formatDate(report.date)}
-                              </span>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                Attempted
-                              </span>
-                            </div>
-                            <h4 className="font-medium text-gray-800 mb-2">{report.testName}</h4>
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center">
-                                <MdScore className="text-yellow-500 mr-1" />
-                                <span className="font-medium">
-                                  {report.overallTotalMarks} / {report.fullMarks}
-                                </span>
-                              </div>
-                              <div className="text-sm text-gray-600">
-                                {report.percentage}%
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+{/* Tests Tab */}
+<TabPanel>
+  <div className="p-4 md:p-6">
+    <h2 className="text-xl font-semibold mb-4 text-gray-800">Test Reports</h2>
+    
+    {detailedReports.length === 0 ? (
+      <div className="text-center py-8 text-gray-500">
+        No test reports available yet
+      </div>
+    ) : (
+      <div className="space-y-8">
+        {/* Group reports by normalized base test name */}
+        {Object.entries(
+          detailedReports.reduce((groups, reportGroup) => {
+            const { baseName, displayName } = getBaseTestName(reportGroup.testName);
+            if (!groups[baseName]) {
+              groups[baseName] = {
+                displayName,
+                reports: []
+              };
+            }
+            groups[baseName].reports.push(...reportGroup.reports);
+            return groups;
+          }, {})
+        )
+        .sort(([a], [b]) => a.localeCompare(b)) // Sort alphabetically
+        .map(([baseName, { displayName, reports }]) => (
+          <div key={baseName} className="mb-8">
+            <h3 className="text-lg font-medium text-gray-700 mb-3 border-b pb-2">
+              {displayName}
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {reports
+                .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date (newest first)
+                .map((report, idx) => (
+                  <div 
+                    key={idx}
+                    onClick={() => handleReportClick(report)}
+                    className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-white"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-sm text-gray-500">
+                        {formatDate(report.date)}
+                      </span>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                        Attempted
+                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </TabPanel>
-
-          {/* Unattended Tests Tab */}
-          <TabPanel>
-            <div className="p-4 md:p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">Unattended Tests</h2>
-              
-              {unattendedTests.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  Great job! You've attended all available tests.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {unattendedTests.map((test, index) => (
-                    <div key={index} className="border rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-sm text-gray-500">
-                          {test.date ? formatDate(test.date) : 'Date not specified'}
-                        </span>
-                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                          Not Attempted
+                    <h4 className="font-medium text-gray-800 mb-2">{report.testName}</h4>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center">
+                        <MdScore className="text-yellow-500 mr-1" />
+                        <span className="font-medium">
+                          {report.overallTotalMarks} / {report.fullMarks}
                         </span>
                       </div>
-                      <h4 className="font-medium text-gray-800 mb-2">{test.testName}</h4>
                       <div className="text-sm text-gray-600">
-                        Total Marks: {test.totalMarks}
-                      </div>
-                      <div className="mt-3 text-sm">
-                        <span className="font-medium">Subjects:</span> {test.subjects.map(s => s.subject.subjectName).join(', ')}
+                        {report.percentage}%
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
             </div>
-          </TabPanel>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</TabPanel>
 
-          {/* Upcoming Tests Tab */}
-          <TabPanel>
-            <div className="p-4 md:p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">Upcoming Tests</h2>
-              
-              {upcomingTests.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No upcoming tests scheduled
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {upcomingTests.map((test, index) => (
-                    <div key={index} className="border rounded-lg p-4 bg-gradient-to-br from-green-50 to-white">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-sm text-gray-500">
-                          {test.date ? formatDate(test.date) : 'Date not specified'}
-                        </span>
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                          Upcoming
-                        </span>
-                      </div>
-                      <h4 className="font-medium text-gray-800 mb-2">{test.testName}</h4>
-                      <div className="text-sm text-gray-600">
-                        Total Marks: {test.totalMarks}
-                      </div>
-                      <div className="mt-3 text-sm">
-                        <span className="font-medium">Subjects:</span> {test.subjects.map(s => s.subject.subjectName).join(', ')}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+{/* Unattended Tests Tab - Original version */}
+<TabPanel>
+  <div className="p-4 md:p-6">
+    <h2 className="text-xl font-semibold mb-4 text-gray-800">Unattended Tests</h2>
+    
+    {unattendedTests.length === 0 ? (
+      <div className="text-center py-8 text-gray-500">
+        Great job! You've attended all available tests.
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {unattendedTests.map((test, index) => (
+          <div key={index} className="border rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-sm text-gray-500">
+                {test.date ? formatDate(test.date) : 'Date not specified'}
+              </span>
+              <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                Not Attempted
+              </span>
             </div>
-          </TabPanel>
+            <h4 className="font-medium text-gray-800 mb-2">{test.testName}</h4>
+            <div className="text-sm text-gray-600">
+              Total Marks: {test.totalMarks}
+            </div>
+            <div className="mt-3 text-sm">
+              <span className="font-medium">Subjects:</span> {test.subjects.map(s => s.subject.subjectName).join(', ')}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</TabPanel>
+
+{/* Upcoming Tests Tab - Original version */}
+<TabPanel>
+  <div className="p-4 md:p-6">
+    <h2 className="text-xl font-semibold mb-4 text-gray-800">Upcoming Tests</h2>
+    
+    {upcomingTests.length === 0 ? (
+      <div className="text-center py-8 text-gray-500">
+        No upcoming tests scheduled
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {upcomingTests.map((test, index) => (
+          <div key={index} className="border rounded-lg p-4 bg-gradient-to-br from-green-50 to-white">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-sm text-gray-500">
+                {test.date ? formatDate(test.date) : 'Date not specified'}
+              </span>
+              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                Upcoming
+              </span>
+            </div>
+            <h4 className="font-medium text-gray-800 mb-2">{test.testName}</h4>
+            <div className="text-sm text-gray-600">
+              Total Marks: {test.totalMarks}
+            </div>
+            <div className="mt-3 text-sm">
+              <span className="font-medium">Subjects:</span> {test.subjects.map(s => s.subject.subjectName).join(', ')}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</TabPanel>
         </Tabs>
       </div>
 
