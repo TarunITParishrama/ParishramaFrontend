@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import waitimg from '../../assets/workinprogress.gif'
 
 export default function Leaderboard() {
   const navigate = useNavigate();
@@ -11,14 +10,8 @@ export default function Leaderboard() {
         <button onClick={() => navigate('/home')} className="text-white text-sm flex items-center mb-2">
           ◀ Back to Dashboard
         </button>
-        <h1 className="text-3xl font-bold">Leaderboard</h1>
-        <img src={waitimg} alt="" className="w-auto h-auto"></img>
+        <h1 className="text-3xl font-bold">Leaderboard(coming Soon)</h1>
       </div>
-
-      {/* <div className="max-w-2xl bg-white shadow-md rounded-lg mx-auto mt-6 p-6">
-        <h2 className="text-lg font-semibold">🏆 Top Students</h2>
-        <p>View top-ranking students here.</p>
-      </div> */}
     </div>
   );
 }

@@ -157,11 +157,12 @@ export default function Reports() {
     
     Object.entries(groupedData).forEach(([testName, testData]) => {
       testData.forEach(report => {
+        const studentInfo = students[report.regNumber] || {};
         const bulkReport = {
           regNumber: report.regNumber,
-          studentName: report.studentName,
-          campus: report.campus,
-          section: report.section,
+          studentName: report.studentName || studentInfo.studentName,
+          campus: report.campus || studentInfo.campus,
+          section: report.section || studentInfo.section,
           stream: report.stream,
           testName: report.testName,
           date: report.date,

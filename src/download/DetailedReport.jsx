@@ -88,10 +88,10 @@ const DownloadDropdown = ({ data, streamFilter, studentData }) => {
         doc.text(`Campus: ${studentDetails.campus || (typeof student.campus === 'object' ? student.campus.name : student.campus)}`, 15, 85);
         
         if (studentDetails.fatherName) {
-          doc.text(`Father's Name: ${studentDetails.fatherName}`, 15, 95);
+          doc.text(`Parent's Name: ${studentDetails.fatherName}`, 15, 95);
         }
         if (studentDetails.fatherMobile) {
-          doc.text(`Father's Mobile: ${studentDetails.fatherMobile}`, 15, 105);
+          doc.text(`Parent's Mobile: ${studentDetails.fatherMobile}`, 15, 105);
         }
 
         // Student image
@@ -318,10 +318,10 @@ const loadStudentImage = async (regNumber) => {
       
       // Add more student details if available from studentData
       if (studentDetails.fatherName) {
-        doc.text(`Father's Name: ${studentDetails.fatherName}`, 15, 95);
+        doc.text(`Parent's Name: ${studentDetails.fatherName}`, 15, 95);
       }
       if (studentDetails.fatherMobile) {
-        doc.text(`Father's Mobile: ${studentDetails.fatherMobile}`, 15, 105);
+        doc.text(`Parent's Mobile: ${studentDetails.fatherMobile}`, 15, 105);
       }
 
       // Right side student image

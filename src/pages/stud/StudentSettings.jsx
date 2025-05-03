@@ -21,6 +21,7 @@ export default function StudentSettings() {
     admissionType: "Residential",
     regNumber: "",
     studentName: "",
+    dateOfBirth: "",
     studentImageURL: "",
     allotmentType: "11th PUC",
     section: "",
@@ -278,8 +279,18 @@ export default function StudentSettings() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-
+    
+    // For date fields, we need to handle them specially
+    if (name === "dateOfBirth") {
+      // Convert the date string to a Date object
+      const dateObj = new Date(value);
+      // Format it as DD-MM-YYYY for the backend
+      const formattedDate = `${dateObj.getDate().toString().padStart(2, '0')}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getFullYear()}`;
+      setFormData(prev => ({ ...prev, [name]: formattedDate }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  
     if (name === "medicalIssues") {
       setShowMedicalDetails(value === "Yes");
     }
@@ -394,6 +405,17 @@ export default function StudentSettings() {
                   onChange={handleChange}
                   className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
                   placeholder="Enter the name as per 10th Marks Card"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700 mb-1 font-medium">Date of Birth *</label>
+                <input
+                  type="date"
+                  name="dateOfBirth"
+                  value={formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString().split('T')[0] : ''}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
                   required
                 />
               </div>
@@ -530,7 +552,7 @@ export default function StudentSettings() {
 
               {/* Father's Name */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Father's Name *</label>
+                <label className="block text-gray-700 mb-1 font-medium">Parent's Name *</label>
                 <input
                   type="text"
                   name="fatherName"
@@ -543,7 +565,7 @@ export default function StudentSettings() {
 
               {/* Father's Mobile */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Father's Mobile *</label>
+                <label className="block text-gray-700 mb-1 font-medium">Parent's Mobile *</label>
                 <input
                   type="tel"
                   name="fatherMobile"

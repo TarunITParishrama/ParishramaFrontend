@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import gif from '../../assets/workinprogress.gif'
 
 export default function Attendance() {
   const navigate = useNavigate();
@@ -39,46 +38,8 @@ export default function Attendance() {
       <div className="max-w-2xl bg-white shadow-md rounded-lg mx-auto mt-6 p-6">
         {activeTab === "new" && (
           <>
-            <img src={gif} alt="" className="w-auto h-auto"></img>
-            {/**
-             <h2 className="text-lg font-semibold flex items-center gap-2">📅 New Attendance</h2>
-            <form className="mt-4">
-              <div className="mb-4">
-                <label className="block text-gray-700 font-medium">Select Class *</label>
-                <select className="w-full border p-2 rounded-md mt-1">
-                  <option>Select class</option>
-                </select>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-gray-700 font-medium">Attendance Date *</label>
-                  <input
-                    type="date"
-                    value={attendanceDate}
-                    onChange={(e) => setAttendanceDate(e.target.value)}
-                    className="w-full border p-2 rounded-md mt-1"
-                  />
-                </div>
-
-                <div className="flex-1">
-                  <label className="block text-gray-700 font-medium">Time Session *</label>
-                  <select className="w-full border p-2 rounded-md mt-1">
-                    <option>Select Time Session</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center mt-4">
-                <input type="checkbox" className="mr-2" />
-                <label className="text-gray-700">Copy Previous Attendance</label>
-              </div>
-
-              <button className="mt-6 bg-blue-600 text-white py-2 px-6 rounded-lg w-full hover:bg-blue-700 transition">
-                Submit
-              </button>
-            </form> 
-            */}
+             <h2 className="text-lg font-semibold flex items-center gap-2">📅 Attendance</h2>
+              (Coming Soon...)
           </>
         )}
 

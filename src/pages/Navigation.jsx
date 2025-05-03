@@ -9,26 +9,28 @@ import { FiSearch, FiX } from 'react-icons/fi';
 const getNavigationItems = (role) => {
   const commonItems = [
     { name: "Dashboard", path: "/home", show: true },
-    { name: "Students", path: "students", show: true },
-    { name: "Questions", path: "questions", show: true },
     { name: "Attendance", path: "attendance", show: true },
     { name: "Noticeboard", path: "noticeboard", show: true },
-    { name: "Feedback", path: "feedback", show: true },
-    { name: "Leaderboard", path: "leaderboard", show: true }
+    { name: "Gate Pass", path: "gatepass", show: true },
   ];
 
   const adminItems = [
-    { name: "Campus", path: "batches", show: ["super_admin", "admin", "counseller"].includes(role) },
+    { name: "Campus", path: "batches", show: ["super_admin", "admin"].includes(role) },
+    { name: "Student Report", path: "singlereport", show: ["parent"].includes(role)},
+    { name: "Student Profile", path: "studentprofile", show: ["parent"].includes(role)},
+    { name: "Students", path: "students", show: ["super_admin","admin", "staff"].includes(role) },
+    { name: "Questions", path: "questions", show: ["super_admin", "admin"].includes(role) },
+    { name: "Feedback", path: "feedback", show: ["super_admin", "admin"].includes(role) },
+    { name: "Leaderboard", path: "leaderboard", show: ["super_admin", "admin"].includes(role) },
     { name: "Tests", path: "tests", show: ["super_admin", "admin"].includes(role) },
     { name: "Reports", path: "reports", show: ["super_admin", "admin"].includes(role) },
     { name: "Solutions", path: "marks", show: ["super_admin", "admin"].includes(role) },
     { name: "SMS", path: "sms", show: ["super_admin", "admin"].includes(role) },
     { name: "Hospital", path: "hospital", show: ["super_admin", "admin"].includes(role) },
-    { name: "Hostel", path: "hostel", show: ["super_admin", "admin", "counseller"].includes(role) },
-    { name: "Gate Pass", path: "gatepass", show: ["super_admin", "admin"].includes(role) },
-    { name: "Admission", path: "admission", show: ["super_admin", "admin", "counseller"].includes(role) },
+    { name: "Hostel", path: "hostel", show: ["super_admin", "admin"].includes(role) },
+    { name: "Admission", path: "admission", show: ["super_admin", "admin"].includes(role) },
     { name: "Settings", path: "settings", show: ["super_admin"].includes(role) },
-    { name: "Staffs", path: "staffs", show: ["super_admin", "admin", "counseller"].includes(role) }
+    { name: "Staffs", path: "staffs", show: ["super_admin", "admin"].includes(role) }
   ];
 
   return [...commonItems, ...adminItems]
@@ -43,6 +45,12 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
   const [isSearching, setIsSearching] = useState(false);
 
   const handleNavigation = (path) => {
+    if (path === "studentprofile" && userRole === "parent") {
+      const studentData = JSON.parse(localStorage.getItem("studentData"));
+      if (studentData && studentData.regNumber) {
+        path = `studentprofile/${studentData.regNumber}`;
+      }
+    }
     setTimeout(() => {
       navigate(path);
     }, 0);
@@ -87,7 +95,7 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
       <img src={logo} alt="" className="mx-auto mb-4" />
       
       {/* Search Bar */}
-      <div className="relative mb-4">
+      {userRole !== "parent" &&(<div className="relative mb-4">
       <form onSubmit={handleSearch} className="relative">
   <input
     type="text"
@@ -145,6 +153,7 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
           </div>
         )}
       </div>
+    )}
 
       <ul className="space-y-2 overflow-y-auto flex-1">
         {getNavigationItems(userRole).map((item) => (

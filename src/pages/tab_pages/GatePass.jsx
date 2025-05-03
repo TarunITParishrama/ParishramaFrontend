@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import workinp from '../../assets/workinprogress.gif';
 
 export default function GatePass() {
   const navigate = useNavigate();
@@ -13,15 +12,10 @@ export default function GatePass() {
         </button>
         <h1 className="text-3xl font-bold">Gate Pass</h1>
       </div>
-      <img src={workinp} alt="" className="w-auto h-auto"></img>
-
-{/**
       <div className="max-w-2xl bg-white shadow-md rounded-lg mx-auto mt-6 p-6">
-        <h2 className="text-lg font-semibold">🚪 Manage Gate Pass</h2>
-        <p>Issue and track gate passes here.</p>
+        <h2 className="text-lg font-semibold">🚪 Gate Pass</h2>
+        <p>Coming Soon.</p>
       </div>
-          */}
-
     </div>
   );
 }

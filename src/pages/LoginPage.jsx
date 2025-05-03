@@ -17,14 +17,26 @@ import slide6 from "../assets/slides/slide6.png";
 
 function Login() {
   const navigate = useNavigate();
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loginType, setLoginType] = useState("staff"); // 'staff' or 'parent'
+  const [regNumber, setRegNumber] = useState("");
+  const [dob, setDob] = useState("");
   const [message, setMessage] = useState({ text: "", type: "" });
   const [currentSlide, setCurrentSlide] = useState(0);
   const [transitionDirection, setTransitionDirection] = useState('next');
   const carouselRef = useRef(null);
+
+  useEffect(() => {
+    const rememberedRegNumber = localStorage.getItem("rememberedRegNumber");
+    if (rememberedRegNumber && loginType === "parent") {
+      setRegNumber(rememberedRegNumber);
+      setRememberMe(true);
+    }
+  }, [loginType]);
 
   const goToSlide = (index, direction) => {
     setTransitionDirection(direction);
@@ -58,24 +70,26 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (isLogin) {
-      // Login logic
-      try {
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/user/login`, {
-          phonenumber: phone,
-          password
-        });
-
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userRole", response.data.data.user.role);
-        
-        setMessage({ text: "Login Successful!", type: "success" });
-        setTimeout(() => navigate("/home"), 1500);
-      } catch (error) {
-        const errorMessage = error.response?.data?.message || "Login failed";
-        setMessage({ text: errorMessage, type: "error" });
-      }
-    } else {
+    if (loginType === "staff") {
+      // Existing staff login/signup logic
+      if (isLogin) {
+        try {
+          const response = await axios.post(`${process.env.REACT_APP_URL}/api/user/login`, {
+            phonenumber: phone,
+            password
+          });
+  
+          localStorage.setItem("token", response.data.token);
+          localStorage.setItem("userRole", response.data.data.user.role);
+          localStorage.setItem("loginType", "staff");
+          
+          setMessage({ text: "Login Successful!", type: "success" });
+          setTimeout(() => navigate("/home"), 1500);
+        } catch (error) {
+          const errorMessage = error.response?.data?.message || "Login failed";
+          setMessage({ text: errorMessage, type: "error" });
+        }
+      } else {
       // Signup logic
       if (password !== confirmPassword) {
         setMessage({ text: "Passwords don't match", type: "error" });
@@ -104,7 +118,33 @@ function Login() {
         setMessage({ text: errorMessage, type: "error" });
       }
     }
-  };
+    
+  } else {
+    try {
+      const response = await axios.post(`${process.env.REACT_APP_URL}/api/parent/login`, {
+        regNumber,
+        dob
+      });
+
+      localStorage.setItem("token", response.data.token);
+      localStorage.setItem("userRole", "parent");
+      localStorage.setItem("loginType", "parent");
+      localStorage.setItem("studentData", JSON.stringify({...response.data.data, regNumber: response.data.data.student.regNumber}));
+      
+      if (rememberMe) {
+        localStorage.setItem("rememberedRegNumber", regNumber);
+      } else {
+        localStorage.removeItem("rememberedRegNumber");
+      }
+      
+      setMessage({ text: "Login Successful!", type: "success" });
+      setTimeout(() => navigate("/home"), 1500);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || "Invalid credentials";
+      setMessage({ text: errorMessage, type: "error" });
+    }
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -113,17 +153,17 @@ function Login() {
         <img 
           src={titlelogo} 
           alt="title logo" 
-          className="h-20 w-full object-contain -ml-72" 
+          className="h-20 w-full object-contain ml-2" 
         />
         
         {/* Values Icons - Right-aligned */}
         <div className="flex items-center">
-          <div className="relative mr-2" style={{ width: '80px', height: '50px' }}>
+          <div className="relative mr-6" style={{ width: '80px', height: '50px' }}>
             <img src={creativity} alt="Creativity" className="h-8 w-8 md:h-10 md:w-10 absolute top-0 left-0 z-10" />
             <img src={honesty} alt="Honesty" className="h-8 w-8 md:h-10 md:w-10 absolute top-1 left-6 md:left-8 z-20" />
             <img src={trust} alt="Trust" className="h-8 w-8 md:h-10 md:w-10 absolute top-1 left-12 md:left-16 z-30" />
           </div>
-          <div className="flex flex-col space-y-0 text-xs md:text-sm ml-6">
+          <div className="flex flex-col space-y-0 text-xs md:text-sm">
             <span className="font-bold text-black">Creativity</span>
             <span className="font-bold text-red-600">Honesty</span>
             <span className="font-bold text-yellow-400">Trust</span>
@@ -194,8 +234,6 @@ function Login() {
           </div>
         </div>
       </div>
-
-  
         {/* Right Section - Login Form */}
         <div className="w-full md:w-[50%] flex items-center justify-center p-4 md:p-8">
           <div className="bg-white rounded-xl shadow-2xl w-auto max-w-md p-6 md:p-8 ml-32">
@@ -206,8 +244,10 @@ function Login() {
                 className="h-16 md:h-20 w-auto mb-4" 
               />
               <h2 className="text-2xl font-bold text-gray-800">
-                {isLogin ? "Login" : "Register"}
-              </h2>
+  {loginType === "staff" 
+    ? (isLogin ? "Staff Login" : "Staff Registration") 
+    : "Parent/Student Login"}
+</h2>
             </div>
   
             {message.text && (
@@ -218,78 +258,156 @@ function Login() {
               </div>
             )}
   
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="10-digit phone number"
-                  pattern="\d{10}"
-                  required
-                />
-              </div>
-  
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  required
-                  minLength="6"
-                />
-              </div>
-  
-              {!isLogin && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Confirm Password
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm Password"
-                    required
-                    minLength="6"
-                  />
-                </div>
-              )}
-  
-              <button
-                type="submit"
-                className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-md transition-colors duration-300"
-              >
-                {isLogin ? "Login" : "Register"}
-              </button>
-  
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setMessage({ text: "", type: "" });
-                }}
-                className="w-full text-center text-orange-500 hover:text-orange-700 font-medium text-sm mt-2"
-              >
-                {isLogin ? "Need an account? Register" : "Already have an account? Login"}
-              </button>
-            </form>
+  <form onSubmit={handleSubmit} className="space-y-4">
+  {/* Login Type Toggle */}
+  <div className="flex items-center justify-center space-x-4 mb-4">
+    <button
+      type="button"
+      onClick={() => {
+        setLoginType("staff");
+        setMessage({ text: "", type: "" });
+      }}
+      className={`px-4 py-2 rounded-lg transition-colors ${
+        loginType === "staff" ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+      }`}
+    >
+      Staff
+    </button>
+    <button
+      type="button"
+      onClick={() => {
+        setLoginType("parent");
+        setMessage({ text: "", type: "" });
+      }}
+      className={`px-4 py-2 rounded-lg transition-colors ${
+        loginType === "parent" ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+      }`}
+    >
+      Parent/Student
+    </button>
+  </div>
+
+  {loginType === "staff" ? (
+    <>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Phone Number
+        </label>
+        <input
+          type="tel"
+          className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="10-digit phone number"
+          pattern="\d{10}"
+          required={loginType === "staff"}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Password
+        </label>
+        <input
+          type="password"
+          className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          required={loginType === "staff"}
+          minLength="6"
+        />
+      </div>
+
+      {!isLogin && loginType === "staff" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Confirm Password
+          </label>
+          <input
+            type="password"
+            className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirm Password"
+            required
+            minLength="6"
+          />
+        </div>
+      )}
+    </>
+  ) : (
+    <>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Registration Number
+        </label>
+        <input
+          type="text"
+          className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          value={regNumber}
+          onChange={(e) => setRegNumber(e.target.value)}
+          placeholder="6-digit registration number"
+          pattern="\d{6}"
+          required={loginType === "parent"}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Student's Date of Birth (DD-MM-YYYY)
+        </label>
+        <input
+          type="text"
+          className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          value={dob}
+          onChange={(e) => setDob(e.target.value)}
+          placeholder="DD-MM-YYYY"
+          pattern="\d{2}-\d{2}-\d{4}"
+          required={loginType === "parent"}
+        />
+      </div>
+      <div className="flex items-center">
+      <input
+        type="checkbox"
+        id="rememberMe"
+        checked={rememberMe}
+        onChange={(e) => setRememberMe(e.target.checked)}
+        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+      />
+      <label htmlFor="rememberMe" className="ml-2 block text-sm font-semibold text-orange-500 underline">
+        Remember my login (uses cookies)
+      </label>
+    </div>
+    </>
+  )}
+
+  <button
+    type="submit"
+    className="w-full py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-md transition-colors duration-300"
+  >
+    {loginType === "staff" ? (isLogin ? "Login" : "Register") : "Login"}
+  </button>
+
+  {loginType === "staff" && (
+    <button
+      type="button"
+      onClick={() => {
+        setIsLogin(!isLogin);
+        setMessage({ text: "", type: "" });
+      }}
+      className="w-full text-center text-orange-500 hover:text-orange-700 font-medium text-sm mt-2"
+    >
+      {isLogin ? "Need an account? Register" : "Already have an account? Login"}
+    </button>
+  )}
+</form>
           </div>
         </div>
   
         {/* Mobile Slideshow */}
       <div className="md:hidden w-full py-4 px-4">
-        <div className="relative w-full max-w-md mx-auto h-64 bg-white bg-opacity-20 rounded-xl shadow-lg overflow-hidden">
+        <div className="relative w-full max-w-md mx-auto h-64 bg-opacity-20 rounded-xl overflow-hidden">
           <div className="relative w-full h-full">
             {slides.map((slide, index) => (
               <div

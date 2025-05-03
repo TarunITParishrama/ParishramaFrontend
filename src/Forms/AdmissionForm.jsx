@@ -26,6 +26,7 @@ export default function AdmissionForm() {
     admissionType: "Residential",
     regNumber: "",
     studentName: "",
+    dateOfBirth:"",
     studentImageURL: "",
     allotmentType: "11th PUC",
     section: "",
@@ -80,12 +81,20 @@ export default function AdmissionForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-
+    
+    if (name === "dateOfBirth") {
+      // For date input, we get YYYY-MM-DD format from the input
+      const [year, month, day] = value.split('-');
+      const formattedDate = `${day}-${month}-${year}`;
+      setFormData(prev => ({ ...prev, [name]: formattedDate }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  
     if (name === "regNumber") {
       setRegNumberExists(false);
     }
-
+  
     if (name === "medicalIssues") {
       setShowMedicalDetails(value === "Yes");
     }
@@ -242,11 +251,12 @@ export default function AdmissionForm() {
               admissionType: row.admissionType || row.AdmissionType || row.admission_type || "Residential",
               regNumber: row.regNumber || row.RegNumber || row.reg_number || row.registration_number || "",
               studentName: row.studentName || row.StudentName || row.student_name || row.name || "",
+              dateOfBirth: row.dateOfBirth || row.DateOfBirth || row.dob || row.DOB || "",
               studentImageURL: null, // No image for bulk uploads
               allotmentType: row.allotmentType || row.AllotmentType || row.allotment_type || "11th PUC",
               section: row.section || row.Section || "",
-              fatherName: row.fatherName || row.FatherName || row.father_name || row.Father || "",
-              fatherMobile: row.fatherMobile || row.FatherMobile || row.father_mobile || row.father_contact || "",
+              fatherName: row.parentName || row.ParentName || row.father_name || row.Parent || "",
+              fatherMobile: row.parentMobile || row.ParentMobile || row.father_mobile || row.father_contact || "",
               address: row.address || row.Address || "",
               contact: row.contact || row.Contact || row.alternate_contact || "",
               medicalIssues: row.medicalIssues || row.MedicalIssues || row.medical_issues || "No",
@@ -264,6 +274,25 @@ export default function AdmissionForm() {
               } else {
                 // If we can't find the campus, we'll log this issue
                 console.warn(`Campus not found for: ${studentData.studentName} (${studentData.regNumber})`);
+              }
+            }
+            if (studentData.dateOfBirth) {
+              if (studentData.dateOfBirth instanceof Date) {
+                const day = studentData.dateOfBirth.getDate().toString().padStart(2, '0');
+                const month = (studentData.dateOfBirth.getMonth() + 1).toString().padStart(2, '0');
+                const year = studentData.dateOfBirth.getFullYear();
+                studentData.dateOfBirth = `${day}-${month}-${year}`;
+              } else if (studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                // Convert from YYYY-MM-DD to DD-MM-YYYY
+                const [year, month, day] = studentData.dateOfBirth.split('-');
+                studentData.dateOfBirth = `${day}-${month}-${year}`;
+              } else if (studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                // Already in DD-MM-YYYY format
+                // No change needed
+              } else if (studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                // Convert from DD/MM/YYYY to DD-MM-YYYY
+                const [day, month, year] = studentData.dateOfBirth.split('/');
+                studentData.dateOfBirth = `${day}-${month}-${year}`;
               }
             }
 
@@ -601,6 +630,21 @@ export default function AdmissionForm() {
             required
           />
         </div>
+        <div>
+  <label className="block text-gray-700 mb-1 font-medium">Date of Birth *</label>
+  <input
+    type="date"
+    name="dateOfBirth"
+    value={
+      formData.dateOfBirth 
+        ? formData.dateOfBirth.split('-').reverse().join('-') // Convert DD-MM-YYYY to YYYY-MM-DD for input
+        : ''
+    }
+    onChange={handleChange}
+    className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+    required
+  />
+</div>
 
         {/* Student Image Upload */}
         <div className="md:col-span-2">
@@ -734,7 +778,7 @@ export default function AdmissionForm() {
 
         {/* Father's Name */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Father's Name *</label>
+          <label className="block text-gray-700 mb-1 font-medium">Parent's Name *</label>
           <input
             type="text"
             name="fatherName"
@@ -747,7 +791,7 @@ export default function AdmissionForm() {
 
         {/* Father's Mobile */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Father's Mobile *</label>
+          <label className="block text-gray-700 mb-1 font-medium">Parent's Mobile *</label>
           <input
             type="tel"
             name="fatherMobile"

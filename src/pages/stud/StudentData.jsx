@@ -30,6 +30,31 @@ export default function StudentData() {
     }
   };
 
+  // Format date function for individual student
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    
+    try {
+      // Check if it's already in DD-MM-YYYY format
+      if (dateString.match(/^\d{2}-\d{2}-\d{4}$/)) {
+        const [day, month, year] = dateString.split('-');
+        return `${day}-${month}-${year}`;
+      }
+      
+      // Handle ISO date strings or Date objects
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "Invalid Date";
+      
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "N/A";
+    }
+  };
+
   const getInitialsAvatar = (name) => {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=64`;
   };
@@ -58,8 +83,9 @@ export default function StudentData() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Father's Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Father's Mobile</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Birth</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent's Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent's Mobile</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campus</th>
               </tr>
             </thead>
@@ -71,19 +97,18 @@ export default function StudentData() {
                       <div className="flex-shrink-0 h-14 w-14 rounded-full bg-gray-100 overflow-hidden border-2 border-gray-300">
                         {student.studentImageURL ? (
                           <img
-                          src={student.studentImageURL}
-                          alt={student.studentName}
-                          className="h-14 w-14 object-cover rounded-full cursor-pointer"
-                          onClick={() => {
-                            setSelectedImage(student.studentImageURL);
-                            setIsModalOpen(true);
-                          }}
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = getInitialsAvatar(student.studentName);
-                          }}
-                        />
-                        
+                            src={student.studentImageURL}
+                            alt={student.studentName}
+                            className="h-14 w-14 object-cover rounded-full cursor-pointer"
+                            onClick={() => {
+                              setSelectedImage(student.studentImageURL);
+                              setIsModalOpen(true);
+                            }}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = getInitialsAvatar(student.studentName);
+                            }}
+                          />
                         ) : (
                           <img
                             src={getInitialsAvatar(student.studentName)}
@@ -101,6 +126,9 @@ export default function StudentData() {
                     {student.studentName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(student.dateOfBirth)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {student.fatherName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -115,22 +143,21 @@ export default function StudentData() {
           </table>
           {isModalOpen && (
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-50">
-            <div className="relative">
-              <img
-                src={selectedImage}
-                alt="Zoomed Student"
-                className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-lg"
-              />
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="absolute top-2 right-2 bg-white rounded-full p-1 hover:bg-gray-200"
-              >
-              ✕
-              </button>
-            </div>
+              <div className="relative">
+                <img
+                  src={selectedImage}
+                  alt="Zoomed Student"
+                  className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-lg"
+                />
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="absolute top-2 right-2 bg-white rounded-full p-1 hover:bg-gray-200"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           )}
-
         </div>
       )}
     </div>

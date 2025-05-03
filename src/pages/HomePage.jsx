@@ -13,6 +13,8 @@ function ParishramaHomePage() {
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
+    const regNumber = localStorage.getItem("studentRegNumber");
+
     if (!role) {
       navigate("/");
       return;
@@ -89,6 +91,8 @@ function ParishramaHomePage() {
     onClick={() => {
       localStorage.removeItem("token");
       localStorage.removeItem("userRole");
+      localStorage.removeItem("loginType");
+      localStorage.removeItem("rememberRegNumber");
       navigate("/");
     }}
     className="text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"

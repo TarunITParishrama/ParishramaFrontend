@@ -23,6 +23,8 @@ import Leaderboard from './pages/tab_pages/Leaderboard';
 import Settings from './pages/admin/Settings.jsx';
 import StudentData from './pages/stud/StudentData';
 import StudentReport from './pages/stud/StudentReport';
+import SingleReport from './pages/stud/SingleReport.jsx';
+import StudentProfile from './pages/stud/StudentProfile.jsx';
 import { ToastContainer } from 'react-toastify';
 
 function App() {
@@ -49,6 +51,9 @@ function App() {
           }>
           <Route index element={<Dashboard />} />
           <Route path="staffs" element={<Staffs />} />
+          <Route path="studentprofile/:regNumber" element={<StudentProfile />} />
+          <Route path="singlereport" element={<SingleReport />} />
+          <Route path="singlereport/:regNumber" element={<SingleReport />} />          
           <Route path="students" element={<Students />} />
           <Route path="batches" element={<Batches />} />
           <Route path="tests" element={<Tests />} />
