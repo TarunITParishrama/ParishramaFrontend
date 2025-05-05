@@ -129,6 +129,7 @@ function Login() {
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("userRole", "parent");
       localStorage.setItem("loginType", "parent");
+      localStorage.setItem("regNumber", response.data.data.student.regNumber)
       localStorage.setItem("studentData", JSON.stringify({...response.data.data, regNumber: response.data.data.student.regNumber}));
       
       if (rememberMe) {
@@ -149,14 +150,13 @@ function Login() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* White Top Section */}
-      <div className="bg-white w-full py-4 px-9 flex justify-between items-center border-b border-gray-200">
+      {/* <div className="bg-white w-full py-4 px-9 flex justify-between items-center border-b border-gray-200">
         <img 
           src={titlelogo} 
           alt="title logo" 
           className="h-20 w-full object-contain ml-2" 
         />
         
-        {/* Values Icons - Right-aligned */}
         <div className="flex items-center">
           <div className="relative mr-6" style={{ width: '80px', height: '50px' }}>
             <img src={creativity} alt="Creativity" className="h-8 w-8 md:h-10 md:w-10 absolute top-0 left-0 z-10" />
@@ -169,7 +169,7 @@ function Login() {
             <span className="font-bold text-yellow-400">Trust</span>
           </div>
         </div>
-      </div>
+      </div> */}
   
       {/* Main Content Area */}
     <div className="flex-1 flex flex-col md:flex-row bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400">
@@ -239,7 +239,7 @@ function Login() {
           <div className="bg-white rounded-xl shadow-2xl w-auto max-w-md p-6 md:p-8 ml-32">
             <div className="flex flex-col items-center mb-6">
               <img 
-                src={logo} 
+                src={titlelogo} 
                 alt="Logo" 
                 className="h-16 md:h-20 w-auto mb-4" 
               />

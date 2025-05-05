@@ -208,8 +208,12 @@ const getBaseTestName = (testName) => {
   // Handle special cases with abbreviations
   const specialTests = {
     'PDT': 'Parishrama Daily Test',
-    'PCT': 'Parishrama Competitive Test',
-    'PTT': 'Parishrama Theory Test'
+    'PCT': 'Parishrama Competitive/Cummilative Test',
+    'PTT': 'Parishrama Theory Test',
+    'PPT': 'Parishrama Part Test',
+    'PWT': 'Parishrama Weekly Test',
+    'PDCT': 'Parishrama Daily Cummilative Tests',
+    'PGT': 'Parishrama Grand Test'
   };
 
   // Check if the test name matches any special cases

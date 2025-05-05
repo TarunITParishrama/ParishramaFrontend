@@ -53,7 +53,8 @@ function App() {
           <Route path="staffs" element={<Staffs />} />
           <Route path="studentprofile/:regNumber" element={<StudentProfile />} />
           <Route path="singlereport" element={<SingleReport />} />
-          <Route path="singlereport/:regNumber" element={<SingleReport />} />          
+          <Route path="singlereport/:regNumber" element={<SingleReport />} /> 
+
           <Route path="students" element={<Students />} />
           <Route path="batches" element={<Batches />} />
           <Route path="tests" element={<Tests />} />

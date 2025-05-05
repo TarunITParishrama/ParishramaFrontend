@@ -47,7 +47,7 @@ function ParishramaHomePage() {
         isNavOpen && shouldShowNavigation ? "ml-64" : "ml-0"
       }`}>
         {/* Top Navigation Bar */}
-        <header className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 shadow-sm h-56">
+        <header className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 shadow-sm h-48">
           <div className="flex items-center justify-between h-full px-4">
             {/* Menu Button (left) - only show if navigation is available */}
             {shouldShowNavigation && (
@@ -66,8 +66,8 @@ function ParishramaHomePage() {
               <div className="h-20 w-auto">
                 <img src={logo} alt="LOGO" className="h-full object-contain" />
               </div>
-              <div className="flex space-x-4 -mt-3">
-                <div className="flex flex-col items-end ml-28">
+              <div className="flex space-x-2 -mt-3">
+                <div className="flex flex-col items-end ml-8">
                   <div className="w-3 h-3 bg-black rounded-full"></div>
                   <span className="text-sm font-semibold  text-gray-800">Creativity</span>
                 </div>
@@ -83,12 +83,10 @@ function ParishramaHomePage() {
             </div>
 
             {/* MD Info + MD Image + Logout (right) */}
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center">
               <div className="flex flex-col items-center">
-                <img src={mdlogo} alt="MDPic" className="w-20 h-24 object-cover" />
-                <span className="text-white text-sm font-semibold text-center mt-2">
-                  Shri Pradeep Eshwar<br /><span className="text-black">Managing Director</span>
-                </span>
+                <img src={mdlogo} alt="MDPic" className="w-32 h-34 object-cover" />
+                
               </div>
 
               <button 
