@@ -255,8 +255,8 @@ export default function AdmissionForm() {
               studentImageURL: null, // No image for bulk uploads
               allotmentType: row.allotmentType || row.AllotmentType || row.allotment_type || "11th PUC",
               section: row.section || row.Section || "",
-              fatherName: row.parentName || row.ParentName || row.father_name || row.Parent || "",
-              fatherMobile: row.parentMobile || row.ParentMobile || row.father_mobile || row.father_contact || "",
+              fatherName: row.parentName || row.FatherName || row.father_name || row.Parent || "",
+              fatherMobile: row.parentMobile || row.FatherMobile || row.father_mobile || row.father_contact || "",
               address: row.address || row.Address || "",
               contact: row.contact || row.Contact || row.alternate_contact || "",
               medicalIssues: row.medicalIssues || row.MedicalIssues || row.medical_issues || "No",
@@ -277,48 +277,75 @@ export default function AdmissionForm() {
               }
             }
             if (studentData.dateOfBirth) {
-              if (studentData.dateOfBirth instanceof Date) {
-                const day = studentData.dateOfBirth.getDate().toString().padStart(2, '0');
-                const month = (studentData.dateOfBirth.getMonth() + 1).toString().padStart(2, '0');
-                const year = studentData.dateOfBirth.getFullYear();
-                studentData.dateOfBirth = `${day}-${month}-${year}`;
-              } else if (studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                // Convert from YYYY-MM-DD to DD-MM-YYYY
-                const [year, month, day] = studentData.dateOfBirth.split('-');
-                studentData.dateOfBirth = `${day}-${month}-${year}`;
-              } else if (studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
-                // Already in DD-MM-YYYY format
-                // No change needed
-              } else if (studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-                // Convert from DD/MM/YYYY to DD-MM-YYYY
-                const [day, month, year] = studentData.dateOfBirth.split('/');
-                studentData.dateOfBirth = `${day}-${month}-${year}`;
+              try {
+                // Handle Excel numeric date format (where dates are stored as numbers)
+                if (typeof studentData.dateOfBirth === 'number') {
+                  const date = new Date((studentData.dateOfBirth - (25567 + 1)) * 86400 * 1000);
+                  const day = date.getDate().toString().padStart(2, '0');
+                  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                  const year = date.getFullYear();
+                  studentData.dateOfBirth = `${day}-${month}-${year}`;
+                } 
+                // Handle string dates
+                else if (typeof studentData.dateOfBirth === 'string') {
+                  // Try different date formats
+                  if (studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const [year, month, day] = studentData.dateOfBirth.split('-');
+                    studentData.dateOfBirth = `${day}-${month}-${year}`;
+                  } else if (studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                    const [day, month, year] = studentData.dateOfBirth.split('/');
+                    studentData.dateOfBirth = `${day}-${month}-${year}`;
+                  }
+                  // If it's already in DD-MM-YYYY format, leave it as is
+                  else if (!studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    console.warn(`Unrecognized date format: ${studentData.dateOfBirth}`);
+                    studentData.dateOfBirth = ''; // Set to empty if format is unrecognized
+                  }
+                }
+              } catch (e) {
+                console.error(`Error parsing date ${studentData.dateOfBirth}:`, e);
+                studentData.dateOfBirth = ''; // Set to empty if parsing fails
               }
             }
-
             return studentData;
           });
 
           // Data validation
           const validData = mappedData.filter(student => {
-            // Basic validation
-            if (!student.regNumber || !student.regNumber.match(/^\d{6}$/)) {
-              console.warn(`Invalid registration number for student: ${student.studentName}`);
-              return false;
+            if (!student) return false; // Skip if null (from campus matching)
+            
+            const errors = [];
+            
+            // Required fields
+            if (!student.regNumber || !student.regNumber.toString().match(/^\d{6}$/)) {
+              errors.push("Invalid registration number (must be 6 digits)");
             }
             
-            if (!student.studentName) {
-              console.warn(`Missing student name for reg number: ${student.regNumber}`);
-              return false;
+            if (!student.studentName || student.studentName.trim().length < 2) {
+              errors.push("Student name is required");
             }
             
             if (!student.campus || !student.campus.match(/^[0-9a-fA-F]{24}$/)) {
-              console.warn(`Invalid campus ID for student: ${student.studentName} (${student.regNumber})`);
+              errors.push("Invalid campus ID");
+            }
+            
+            // Make fatherMobile optional or less strict
+            if (student.fatherMobile && !student.fatherMobile.toString().match(/^\d{10}$/)) {
+              errors.push("Invalid parent mobile number");
+            }
+            
+            // Make date validation less strict
+            if (student.dateOfBirth && !student.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
+              errors.push("Date of birth must be in DD-MM-YYYY format");
+            }
+            
+            if (errors.length > 0) {
+              console.warn(`Invalid student data for ${student.regNumber || 'unknown'}:`, errors);
               return false;
             }
             
             return true;
-          });
+          }).filter(Boolean); // Remove any null entries
 
           if (validData.length === 0) {
             toast.error("No valid student records found in the file");
