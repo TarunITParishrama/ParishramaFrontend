@@ -107,8 +107,7 @@ export default function ViewSolutions() {
               >
                 <option value="">All Types</option>
                 <option value="MCQ">MCQ</option>
-                <option value="FillInTheBlanks">Fill in the Blanks</option>
-                <option value="TrueFalse">True/False</option>
+                <option value="Theory">Theory</option>
               </select>
             </div>
 

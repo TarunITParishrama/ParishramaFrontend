@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/solid";import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import logo from "../assets/logo_kannada.png";
 import titlelogo from "../assets/loginpagelogo.jpg";
-import creativity from "../assets/creativity.png";
-import honesty from "../assets/honesty.png";
-import trust from "../assets/trust.png";
 
 // Import slide images
 import slide1 from "../assets/slides/slide1.png";
@@ -149,28 +145,6 @@ function Login() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* White Top Section */}
-      {/* <div className="bg-white w-full py-4 px-9 flex justify-between items-center border-b border-gray-200">
-        <img 
-          src={titlelogo} 
-          alt="title logo" 
-          className="h-20 w-full object-contain ml-2" 
-        />
-        
-        <div className="flex items-center">
-          <div className="relative mr-6" style={{ width: '80px', height: '50px' }}>
-            <img src={creativity} alt="Creativity" className="h-8 w-8 md:h-10 md:w-10 absolute top-0 left-0 z-10" />
-            <img src={honesty} alt="Honesty" className="h-8 w-8 md:h-10 md:w-10 absolute top-1 left-6 md:left-8 z-20" />
-            <img src={trust} alt="Trust" className="h-8 w-8 md:h-10 md:w-10 absolute top-1 left-12 md:left-16 z-30" />
-          </div>
-          <div className="flex flex-col space-y-0 text-xs md:text-sm">
-            <span className="font-bold text-black">Creativity</span>
-            <span className="font-bold text-red-600">Honesty</span>
-            <span className="font-bold text-yellow-400">Trust</span>
-          </div>
-        </div>
-      </div> */}
-  
       {/* Main Content Area */}
     <div className="flex-1 flex flex-col md:flex-row bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400">
       {/* Left Section - Carousel Slideshow (Desktop) */}
@@ -355,14 +329,14 @@ function Login() {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Student's Date of Birth (DD-MM-YYYY)
+          Student's Date of Birth (MM-DD-YYYY)
         </label>
         <input
           type="text"
           className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           value={dob}
           onChange={(e) => setDob(e.target.value)}
-          placeholder="DD-MM-YYYY"
+          placeholder="MM-DD-YYYY"
           pattern="\d{2}-\d{2}-\d{4}"
           required={loginType === "parent"}
         />

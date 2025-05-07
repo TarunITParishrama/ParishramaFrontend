@@ -198,8 +198,7 @@ const SolutionForm = ({ onSuccess }) => {
               required
             >
               <option value="MCQ">MCQ</option>
-              <option value="FillInTheBlanks">Fill in the Blanks</option>
-              <option value="TrueFalse">True/False</option>
+              <option value="Theory">Theory</option>
             </select>
           </div>
 
