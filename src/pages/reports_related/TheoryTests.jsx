@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 
 export default function TheoryTests({
-  streamFilter,
+  streamFilter = "PUC",
   searchTerm,
   selectedTest,
   selectedCampus,
@@ -26,13 +26,19 @@ export default function TheoryTests({
         const theoryData = await theoryRes.json();
 
         if (theoryData.status === "success") {
-            const testsWithDefaults = theoryData.data?.tests.map(test => ({
+            const testsWithDefaults = theoryData.data?.tests?.map(test => ({
                 testName: test.testName || "Unnamed Test",
                 date: test.date || new Date(),
                 stream: test.stream || streamFilter,
+                subjectDetails: test.subjectDetails || [
+                  { name: "Physics", maxMarks: 35 },
+                  { name: "Chemistry", maxMarks: 35 },
+                  { name: "Biology", maxMarks: 35 },
+                  { name: "Mathematics", maxMarks: 40 }
+                ],
                 studentResults: test.studentResults || []
-              }));
-            setTheoryData(testsWithDefaults || []);
+              })) || [];
+            setTheoryData(testsWithDefaults);
         }
 
       } catch (err) {
@@ -42,64 +48,53 @@ export default function TheoryTests({
 
     fetchData();
   }, [streamFilter]);
-  const getMaxMarksForSubject = (subjectName) => {
-    switch(subjectName.toLowerCase()) {
-      case 'physics': return 35;
-      case 'chemistry': return 35;
-      case 'biology': return 35;
-      case 'mathematics': return 40;
-      default: return 0;
-    }
-  };
 
   // Group tests by test name
   const groupedTests = useMemo(() => {
     const groups = {};
     
     theoryData.forEach(test => {
-      if (!test.testName) return;
+      if (!test?.testName) return;
       
       if (!groups[test.testName]) {
         groups[test.testName] = {
           testInfo: {
             name: test.testName,
             date: test.date,
-            stream: test.stream
+            stream: test.stream || "PUC"
           },
+          subjects: test.subjectDetails || [
+            { name: "Physics", maxMarks: 25 },
+            { name: "Chemistry", maxMarks: 25 },
+            { name: "Biology", maxMarks: 25 },
+            { name: "Mathematics", maxMarks: 25}
+          ],
           students: []
         };
       }
       
-      // Get subject names and max marks
-      if (test.studentResults?.length > 0) {
-        const firstResult = test.studentResults[0];
-        const subjects = Object.keys(firstResult.subjectMarks || {})
-          .filter(key => key !== 'totalMarks' && key !== 'percentage')
-          .map(subject => ({
-            name: subject,
-            maxMarks: getMaxMarksForSubject(subject)
-          }));
-        
-        groups[test.testName].subjects = subjects;
-        groups[test.testName].totalMarks = subjects.reduce((sum, sub) => sum + sub.maxMarks, 0);
-      }
+      // Calculate total max marks from subject details
+      groups[test.testName].totalMarks = (test.subjectDetails || []).reduce(
+        (sum, sub) => sum + (sub?.maxMarks || 0), 0
+      );
       
       // Add student results
-      test.studentResults?.forEach(result => {
+      (test.studentResults || []).forEach(result => {
         const studentInfo = students[result.regNumber] || {};
         groups[test.testName].students.push({
           ...result,
           studentName: studentInfo.studentName || "N/A",
           campus: studentInfo.campus || "N/A",
-          section: studentInfo.section || "N/A"
+          section: studentInfo.section || "N/A",
+          subjectMarks: result.subjectMarks instanceof Map ?
+            Object.fromEntries(result.subjectMarks):
+            result.subjectMarks
         });
       });
     });
     
     return groups;
   }, [theoryData, students]);
-
- 
 
   // Filter tests based on selected filters
   const filteredTests = useMemo(() => {
@@ -198,7 +193,7 @@ export default function TheoryTests({
         `"${student.studentName}"`,
         `"${student.campus}"`,
         student.section,
-        ...testData.subjects?.map(subject => student.subjectMarks[subject.name] || 0),
+        ...testData.subjects?.map(subject => student.subjectMarks[subject.name.toLowerCase()] || 0),
         student.totalMarks || 0,
         student.percentage ? 
           parseFloat(student.percentage).toFixed(2) + '%' : '0%'
@@ -223,34 +218,34 @@ export default function TheoryTests({
     if (totalPages <= 1) return null;
 
     return (
-      <div className="flex justify-center mt-4">
-        <nav className="inline-flex rounded-md shadow">
-          <button
-            onClick={() => handleTablePageChange(testName, currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`px-3 py-1 rounded-l-md border ${currentPage === 1 ? 'bg-gray-200 text-gray-500' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-          >
-            Previous
-          </button>
-          
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
-            <button
-              key={number}
-              onClick={() => handleTablePageChange(testName, number)}
-              className={`px-3 py-1 border-t border-b ${currentPage === number ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            >
-              {number.toString().padStart(2, '0')}
-            </button>
-          ))}
-          
-          <button
-            onClick={() => handleTablePageChange(testName, currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className={`px-3 py-1 rounded-r-md border ${currentPage === totalPages ? 'bg-gray-200 text-gray-500' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-          >
-            Next
-          </button>
-        </nav>
+      <div className="flex justify-center items-center mt-4 space-x-2">
+        <button
+          onClick={() => handleTablePageChange(testName, currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-3 py-1 rounded-md border ${
+            currentPage === 1 
+              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          &lt;
+        </button>
+        
+        <span className="px-3 py-1 text-sm text-gray-700">
+          {currentPage}/{totalPages}
+        </span>
+        
+        <button
+          onClick={() => handleTablePageChange(testName, currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1 rounded-md border ${
+            currentPage === totalPages 
+              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          &gt;
+        </button>
       </div>
     );
   };
@@ -336,7 +331,7 @@ export default function TheoryTests({
                         
                         {test.subjects?.map((subject, subIdx) => (
                           <td key={subIdx} className="py-2 px-4 border text-center">
-                            {student.subjectMarks[subject.name] || 0}
+                            {student.subjectMarks[subject.name.toLowerCase()] || 0}
                           </td>
                         ))}
                         
