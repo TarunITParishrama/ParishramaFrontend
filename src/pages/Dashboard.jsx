@@ -1,7 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import batchesIcon from '../assets/batches.png';
-//import classesIcon from '../assets/classes.png';
 import admissionicon from '../assets/admission.png';
 import feedbackicon from '../assets/feedback.png';
 import attendanceicon from '../assets/attendance.png';
@@ -16,6 +15,7 @@ import settingsIcon from '../assets/settings.png';
 import smsIcon from '../assets/sms.png';
 import staffIcon from '../assets/staff.png';
 import studentIcon from '../assets/students.png';
+import powerIcon from "../assets/power.png";
 
 const getDashboardItems = (role) => {
   const commonItems = [
@@ -43,14 +43,41 @@ const getDashboardItems = (role) => {
     { name: "Staffs", icon: <img src={staffIcon} alt="" className="w-10 h-12 inline"/>, path: "staffs", show: ["super_admin", "admin", "counseller"].includes(role) }
   ];
 
-  return [...commonItems, ...adminItems]
-  .filter(item => item.show === true || item.show)
-  .sort((a,b)=> a.name.localeCompare(b.name));
+  // Add Logout item only for parent role
+  const logoutItem = role === "parent" 
+    ? [{ 
+        name: "Logout", 
+        icon: (
+          <img src={powerIcon} alt="" className="w-12 h-12 inline"/>
+        ), 
+        path: "logout", 
+        show: true,
+        isLogout: true 
+      }]
+    : [];
+
+  return [...commonItems, ...adminItems, ...logoutItem]
+    .filter(item => item.show === true || item.show)
+    .sort((a, b) => {
+      // Always put logout at the end
+      if (a.isLogout) return 1;
+      if (b.isLogout) return -1;
+      return a.name.localeCompare(b.name);
+    });
 };
 
 export default function Dashboard({ userRole }) {
   const navigate = useNavigate();
   const items = getDashboardItems(userRole);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("loginType");
+    localStorage.removeItem("rememberRegNumber");
+    localStorage.removeItem("studentData");
+    navigate("/");
+  };
 
   return (
     <div className="p-6 rounded-lg">
@@ -63,26 +90,34 @@ export default function Dashboard({ userRole }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
         {items.map((item) => (
           <div
-          key={item.name}
-          onClick={() => {
-            if (item.path === "studentprofile" && userRole === "parent") {
-              const studentData = JSON.parse(localStorage.getItem("studentData"));
-              if (studentData?.regNumber) {
-                navigate(`studentprofile/${studentData.regNumber}`);
+            key={item.name}
+            onClick={() => {
+              if (item.isLogout) {
+                handleLogout();
                 return;
               }
-            }
-            if (item.path === "singlereport" && userRole === "parent") {
-              navigate("singlereport"); 
-              return;
-            }
-            navigate(item.path);
-          }}
-          className="bg-white shadow-lg rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-transform transform hover:-translate-y-1"
-        >
-          <span className="text-4xl">{item.icon}</span>
-          <p className="text-lg font-medium text-gray-700 mt-2">{item.name}</p>
-        </div>
+              if (item.path === "studentprofile" && userRole === "parent") {
+                const studentData = JSON.parse(localStorage.getItem("studentData"));
+                if (studentData?.regNumber) {
+                  navigate(`studentprofile/${studentData.regNumber}`);
+                  return;
+                }
+              }
+              if (item.path === "singlereport" && userRole === "parent") {
+                navigate("singlereport"); 
+                return;
+              }
+              navigate(item.path);
+            }}
+            className={`bg-white shadow-lg rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-transform transform hover:-translate-y-1 ${
+              item.isLogout ? "hover:bg-red-50" : ""
+            }`}
+          >
+            <span className="text-4xl">{item.icon}</span>
+            <p className={`text-lg font-medium mt-2 ${
+              item.isLogout ? "text-red-600" : "text-gray-700"
+            }`}>{item.name}</p>
+          </div>
         ))}
       </div>
     </div>

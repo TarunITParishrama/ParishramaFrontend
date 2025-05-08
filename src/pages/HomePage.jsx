@@ -50,6 +50,7 @@ function ParishramaHomePage() {
   if (!userRole) return null;
 
   const shouldShowNavigation = userRole !== "parent";
+  const isParent = userRole === "parent";
 
   return (
     <div className="flex min-h-screen bg-white relative">
@@ -151,22 +152,33 @@ function ParishramaHomePage() {
 
             {/* MD Info + MD Image + Logout (right) */}
             <div className="flex items-center">
-              <div className="flex flex-col items-center">
-                <img src={mdlogo} alt="MDPic" className="w-32 h-34 object-cover" />
-              </div>
-
-              <button 
-                onClick={() => {
-                  localStorage.removeItem("token");
-                  localStorage.removeItem("userRole");
-                  localStorage.removeItem("loginType");
-                  localStorage.removeItem("rememberRegNumber");
-                  navigate("/");
-                }}
-                className="text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"
-              >
-                Logout
-              </button>
+              {isParent ? (
+                <div className="absolute right-4 top-8">
+                  <img 
+                    src={mdlogo} 
+                    alt="MDPic" 
+                    className="w-20 h-18 object-cover rounded-full border-2 border-white shadow-md" 
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center">
+                    <img src={mdlogo} alt="MDPic" className="w-32 h-34 object-cover" />
+                  </div>
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem("token");
+                      localStorage.removeItem("userRole");
+                      localStorage.removeItem("loginType");
+                      localStorage.removeItem("rememberRegNumber");
+                      navigate("/");
+                    }}
+                    className="text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"
+                  >
+                    Logout
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </header>
