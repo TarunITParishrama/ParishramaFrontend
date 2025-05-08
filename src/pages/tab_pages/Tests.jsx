@@ -93,35 +93,6 @@ export default function Tests() {
     fetchData();
   }, [streamFilter]);
 
-  const createDetailedReports = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${process.env.REACT_APP_URL}/api/createdetailedreports`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ stream: streamFilter })
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        alert("Detailed reports created successfully!");
-        window.location.reload();
-      } else {
-        alert(`Error: ${result.message || 'Failed to create detailed reports'}`);
-      }
-    } catch (err) {
-      console.error("Error creating detailed reports:", err);
-      alert("Error creating detailed reports");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const filteredTestNames = useMemo(() => {
     return tests
       .filter(test => 
@@ -264,14 +235,6 @@ export default function Tests() {
         <div className="flex justify-end mb-4 gap-2">
           <DownloadAllTestsButton streamFilter={streamFilter} students={students} />
           
-          {activeTab === "MCQ" && (
-            <button
-              onClick={createDetailedReports}
-              className="bg-green-600 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg"
-            >
-              Create Detailed Reports
-            </button>
-          )}
           <button
             onClick={() => setShowNewReport(true)}
             className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg"

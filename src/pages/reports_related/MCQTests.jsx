@@ -25,6 +25,7 @@ export default function MCQTests({
     const [tablePages, setTablePages] = useState({});
     const [rowsPerPage] = useState(10);
     const [expandedSubjects, setExpandedSubjects] = useState({});
+    const [uploading, setUploading] = useState(false);
   
     useEffect(() => {
       const fetchData = async () => {
@@ -311,6 +312,106 @@ export default function MCQTests({
   const getTotalPagesForTest = (testData) => {
     return Math.ceil(testData.length / rowsPerPage);
   };
+  const uploadDetailedReports = async (testData) => {
+    if (!testData || testData.length === 0) {
+      alert('No test data available to upload');
+      return;
+    }
+  
+    if (!window.confirm(`Are you sure you want to upload detailed reports for ${testData.length} students?`)) {
+      return;
+    }
+  
+    try {
+      setUploading(true);
+      const token = localStorage.getItem('token');
+      const CHUNK_SIZE = 100; // Adjust based on your server capacity
+      let successfulUploads = 0;
+      let failedUploads = 0;
+      let errors = [];
+  
+      // Process in chunks
+      for (let i = 0; i < testData.length; i += CHUNK_SIZE) {
+        const chunk = testData.slice(i, i + CHUNK_SIZE);
+        
+        const payload = {
+          reports: chunk.map(report => ({
+            regNumber: report.regNumber,
+            studentName: report.studentName,
+            campus: report.campus,
+            section: report.section,
+            stream: report.stream,
+            testName: report.testName,
+            date: report.date,
+            subjects: report.subjects.map(subject => ({
+              subjectName: subject.subjectName,
+              totalQuestionsAttempted: subject.totalQuestionsAttempted,
+              totalQuestionsUnattempted: subject.totalQuestionsUnattempted,
+              correctAnswers: subject.correctAnswers,
+              wrongAnswers: subject.wrongAnswers,
+              totalMarks: subject.totalMarks,
+              fullMarks: subject.fullMarks
+            })),
+            overallTotalMarks: report.overallTotalMarks,
+            fullMarks: report.fullMarks,
+            accuracy: report.accuracy,
+            percentage: report.percentage,
+            percentile: report.percentile,
+            rank: report.rank
+          }))
+        };
+  
+        try {
+          const response = await fetch(`${process.env.REACT_APP_URL}/api/detailedreports/bulk`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+          });
+  
+          const result = await response.json();
+  
+          if (!response.ok) {
+            throw new Error(result.message || 'Chunk upload failed');
+          }
+  
+          successfulUploads += result.insertedCount || chunk.length;
+          
+          if (result.duplicateCount) {
+            failedUploads += result.duplicateCount;
+          }
+          if (result.validationErrors) {
+            failedUploads += result.validationErrors.length;
+          }
+          if (result.errors) {
+            errors = [...errors, ...result.errors];
+          }
+        } catch (chunkError) {
+          console.error(`Error uploading chunk ${i / CHUNK_SIZE + 1}:`, chunkError);
+          failedUploads += chunk.length;
+          errors.push({
+            chunk: i / CHUNK_SIZE + 1,
+            error: chunkError.message
+          });
+        }
+      }
+  
+      if (failedUploads > 0) {
+        alert(`Upload completed with ${successfulUploads} successful and ${failedUploads} failed uploads.`);
+        console.log('Detailed errors:', errors);
+      } else {
+        alert(`Successfully uploaded ${successfulUploads} detailed reports!`);
+      }
+  
+    } catch (error) {
+      console.error('Error in upload process:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const downloadTestCSV = (testName, testData) => {
     const headers = [
@@ -387,38 +488,38 @@ export default function MCQTests({
   const renderPagination = (testName, testData) => {
     const totalPages = getTotalPagesForTest(testData);
     const currentPage = tablePages[testName] || 1;
-
+  
     if (totalPages <= 1) return null;
-
+  
     return (
-      <div className="flex justify-center mt-4">
-        <nav className="inline-flex rounded-md shadow">
-          <button
-            onClick={() => handleTablePageChange(testName, currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`px-3 py-1 rounded-l-md border ${currentPage === 1 ? 'bg-gray-200 text-gray-500' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-          >
-            Previous
-          </button>
-          
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
-            <button
-              key={number}
-              onClick={() => handleTablePageChange(testName, number)}
-              className={`px-3 py-1 border-t border-b ${currentPage === number ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            >
-              {number.toString().padStart(2, '0')}
-            </button>
-          ))}
-          
-          <button
-            onClick={() => handleTablePageChange(testName, currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className={`px-3 py-1 rounded-r-md border ${currentPage === totalPages ? 'bg-gray-200 text-gray-500' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-          >
-            Next
-          </button>
-        </nav>
+      <div className="flex justify-center items-center mt-4 space-x-2">
+        <button
+          onClick={() => handleTablePageChange(testName, currentPage - 1)}
+          disabled={currentPage === 1}
+          className={`px-3 py-1 rounded-md border ${
+            currentPage === 1 
+              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          &lt;
+        </button>
+        
+        <span className="px-3 py-1 text-sm text-gray-700">
+          {currentPage}/{totalPages}
+        </span>
+        
+        <button
+          onClick={() => handleTablePageChange(testName, currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1 rounded-md border ${
+            currentPage === totalPages 
+              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          &gt;
+        </button>
       </div>
     );
   };
@@ -444,6 +545,13 @@ export default function MCQTests({
                   </p>
                 </div>
                 <div className="flex gap-2">
+                <button
+                  onClick={() => uploadDetailedReports(testData)}
+                  className="bg-green-600 text-white py-1 px-3 rounded text-sm"
+                  disabled={uploading}
+                >
+                {uploading ? 'Uploading...' : 'Upload Detailed Reports'}
+                </button>
                   <button
                     onClick={() => downloadTestCSV(testName, testData)}
                     className="bg-blue-500 text-white py-1 px-3 rounded text-sm"

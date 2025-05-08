@@ -4,12 +4,25 @@ import Navigation from "./Navigation";
 import Dashboard from "./Dashboard";
 import logo from "../assets/logo_kannada.png";
 import mdlogo from "../assets/MDPhoto.png";
+import slide1 from "../assets/slides/slide1.png";
+import slide2 from "../assets/slides/slide2.png";
+import slide3 from "../assets/slides/slide3.png";
+import slide4 from "../assets/slides/slide4.png";
 
 function ParishramaHomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [userRole, setUserRole] = useState("");
+  const [showSlideshow, setShowSlideshow] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const slides = [
+    { image: slide1, alt: "Slide 1" },
+    { image: slide2, alt: "Slide 2" },
+    { image: slide3, alt: "Slide 3" },
+    { image: slide4, alt: "Slide 4" }
+  ];
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -20,7 +33,17 @@ function ParishramaHomePage() {
       return;
     }
     setUserRole(role);
-  }, [navigate]);
+
+    // Auto-advance slides every 3 seconds if slideshow is visible
+    let slideInterval;
+    if (showSlideshow) {
+      slideInterval = setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % slides.length);
+      }, 3000);
+    }
+
+    return () => clearInterval(slideInterval);
+  }, [navigate, showSlideshow, slides.length]);
 
   const activeTab = location.pathname === "/home" ? "dashboard" : location.pathname.split('/').pop();
 
@@ -29,12 +52,56 @@ function ParishramaHomePage() {
   const shouldShowNavigation = userRole !== "parent";
 
   return (
-    <div className="flex min-h-screen bg-white ">
+    <div className="flex min-h-screen bg-white relative">
+      {/* Slideshow Overlay */}
+      {showSlideshow && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-70 flex flex-col items-center justify-center p-4">
+          <div className="relative w-full max-w-4xl h-3/4 overflow-hidden rounded-xl shadow-2xl">
+            {slides.map((slide, index) => (
+              <div
+                key={index}
+                className={`absolute inset-0 transition-opacity duration-1000 flex items-center justify-center ${
+                  index === currentSlide ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <img
+                  src={slide.image}
+                  alt={slide.alt}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ))}
+            
+            {/* Slide Indicators */}
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    index === currentSlide ? "bg-white w-6" : "bg-white bg-opacity-50"
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+          
+          {/* Close Button */}
+          <button
+            onClick={() => setShowSlideshow(false)}
+            className="mt-6 px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-md transition-colors duration-300"
+          >
+            Close Slideshow
+          </button>
+        </div>
+      )}
+
       {/* Navigation Sidebar - only show if userRole is not "parent" */}
       {shouldShowNavigation && (
         <div className={`fixed inset-y-0 left-0 transform ${
           isNavOpen ? "translate-x-0" : "-translate-x-full"
-        } w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out z-50`}>
+        } w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out z-40`}>
           <Navigation 
             userRole={userRole} 
             activeTab={activeTab}
@@ -86,7 +153,6 @@ function ParishramaHomePage() {
             <div className="flex items-center">
               <div className="flex flex-col items-center">
                 <img src={mdlogo} alt="MDPic" className="w-32 h-34 object-cover" />
-                
               </div>
 
               <button 
