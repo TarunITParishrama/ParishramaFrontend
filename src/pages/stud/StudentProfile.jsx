@@ -187,16 +187,12 @@ export default function StudentProfile() {
                   <p className="font-medium">{student.campus?.name || "N/A"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Admission Type</p>
+                  <p className="text-sm text-gray-500">Allotment Type</p>
                   <p className="font-medium">{student.admissionType}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Allotment Type</p>
+                  <p className="text-sm text-gray-500">Admission Type</p>
                   <p className="font-medium">{student.allotmentType}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Is Temporary</p>
-                  <p className="font-medium">{student.isTemporary ? "Yes" : "No"}</p>
                 </div>
               </div>
             </div>

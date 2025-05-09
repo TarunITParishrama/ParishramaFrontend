@@ -134,7 +134,7 @@ function ParishramaHomePage() {
               <div className="h-20 w-auto">
                 <img src={logo} alt="LOGO" className="h-full object-contain" />
               </div>
-              <div className="flex space-x-2 -mt-3">
+              {/* <div className="flex space-x-2 -mt-3">
                 <div className="flex flex-col items-end ml-8">
                   <div className="w-3 h-3 bg-black rounded-full"></div>
                   <span className="text-sm font-semibold  text-gray-800">Creativity</span>
@@ -147,7 +147,7 @@ function ParishramaHomePage() {
                   <div className="w-3 h-3 bg-yellow-300 rounded-full"></div>
                   <span className="text-sm font-semibold text-gray-800">Trust</span>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* MD Info + MD Image + Logout (right) */}
@@ -157,7 +157,7 @@ function ParishramaHomePage() {
                   <img 
                     src={mdlogo} 
                     alt="MDPic" 
-                    className="w-20 h-18 object-cover rounded-full border-2 border-white shadow-md" 
+                    className="w-20 h-18 object-cover rounded-full  shadow-md" 
                   />
                 </div>
               ) : (
