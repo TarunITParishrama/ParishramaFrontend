@@ -19,7 +19,7 @@ export default function TheoryTests({
       try {
         const token = localStorage.getItem('token');
         
-        const theoryRes = await fetch(`${process.env.REACT_APP_URL}/api/gettheory?stream=${streamFilter}`, { 
+        const theoryRes = await fetch(`${process.env.REACT_APP_URL}/api/gettheorytests/${streamFilter}`, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
 

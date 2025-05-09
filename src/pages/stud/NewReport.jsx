@@ -22,12 +22,9 @@ export default function NewReport({ onClose }) {
   const [editableRegNumbers, setEditableRegNumbers] = useState({});
   const [showAllInvalid, setShowAllInvalid] = useState(false);
   const [isTheoryTest, setIsTheoryTest] = useState(false);
-  const [subjectDetails, setSubjectDetails] = useState([
-    { name: "Physics", maxMarks: 35 },
-    { name: "Chemistry", maxMarks: 35 },
-    { name: "Biology", maxMarks: 35 },
-    { name: "Mathematics", maxMarks: 40 }
-  ]);
+    const [subjects, setSubjects] = useState([]);
+
+  const [subjectDetails, setSubjectDetails] = useState([]);
 
   // Marks type options
   const marksTypeOptions = [
@@ -38,7 +35,22 @@ export default function NewReport({ onClose }) {
   // Fetch test names when stream changes (only for MCQ)
   useEffect(() => {
     if (isTheoryTest) {
-      setFormData(prev => ({ ...prev, stream: "PUC"}));
+      const fetchSubjects = async () => {
+        try{
+          const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`);
+          if(response.data?.data){
+            setSubjects(response.data.data);
+            const initialSubjects = response.data.data.slice(0, 4).map(subject => ({
+              name: subject.subjectName,
+              maxMarks: 25
+            }));
+            setSubjectDetails(initialSubjects)
+          }
+        }catch(err){
+          setError("Failed to fetch Subjects");
+        }
+      };
+      fetchSubjects();
     }
     
     const fetchTestNames = async () => {
@@ -236,77 +248,86 @@ export default function NewReport({ onClose }) {
     }
   };
 
-  const processTheoryData = (data) => {
-    if (!data || data.length === 0) {
-      setError("No valid data found in the file");
-      setParsedData([]);
-      return;
-    }
+const processTheoryData = (data) => {
+  if (!data || data.length === 0) {
+    setError("No valid data found in the file");
+    setParsedData([]);
+    return;
+  }
+
+  // Expected columns for theory test
+  const firstRow = data[0] || {};
+  const regNoKey = Object.keys(firstRow).find(key => 
+    key.match(/^(regno|rollno|registration|id)/i)
+  );
   
-    // Expected columns for theory test
-    const firstRow = data[0] || {};
-    const regNoKey = Object.keys(firstRow).find(key => 
-      key.match(/^(regno|rollno|registration|id)/i)
-    );
+  // Find the column for each subject
+  const subjectColumns = {};
+  subjectDetails.forEach(subject => {
+    const subjectLower = subject.name.toLowerCase();
+    const matchingKey = Object.keys(firstRow).find(key => {
+      const keyLower = key.toLowerCase().replace(/[^a-z]/g, '');
+      return keyLower.includes(subjectLower);
+    });
+    if(matchingKey){
+      subjectColumns[subject.name] =matchingKey;
+    }
+
+  });
+
+  if (!regNoKey) {
+    setError("File must contain student ID column");
+    setParsedData([]);
+    return;
+  }
+
+  const missingSubjects = subjectDetails.filter(subject => !subjectColumns[subject.name]);
+  if (missingSubjects.length > 0) {
+    setError(`Missing columns for: ${missingSubjects.map(s => s.name).join(', ')}`);
+    setParsedData([]);
+    return;
+  }
+
+  try {
+    const processed = data.map(row => {
+      const subjectMarks = {};
+      let totalMarks = 0;
+      
+      subjectDetails.forEach(subject => {
+        const key = subjectColumns[subject.name];
+        const marks = parseFloat(row[key]) || 0;
+        subjectMarks[subject.name] = marks;
+        totalMarks += marks;
+      });
+
+      const totalPossible = subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0);
+      const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
+
+      return {
+        regNumber: row[regNoKey],
+        subjectMarks,
+        totalMarks,
+        percentage: parseFloat(percentage.toFixed(2))
+      };
+    });
+
+    setParsedData(processed);
     
-    const subjectKeys = subjectDetails.map(subject => 
-      Object.keys(firstRow).find(key => 
-        key.toLowerCase().includes(subject.name.toLowerCase())
-      )
-    ).filter(Boolean);
-  
-    if (!regNoKey) {
-      setError("File must contain student ID column");
-      setParsedData([]);
-      return;
-    }
-  
-    if (subjectKeys.length < 4) {
-      setError("File must contain at least 4 subject columns");
-      setParsedData([]);
-      return;
-    }
-  
-    try {
-      const processed = data.map(row => {
-        const subjectMarks = {};
-        let totalMarks = 0;
-        
-        subjectDetails.forEach((subject, index) => {
-          const key = subjectKeys[index];
-          const marks = parseFloat(row[key]) || 0;
-          subjectMarks[subject.name.toLowerCase()] = marks;
-          totalMarks += marks;
-        });
-
-        const totalPossible = subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0);
-        const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
-
-        return {
-          regNumber: row[regNoKey],
-          subjectMarks,
-          totalMarks,
-          percentage: percentage.toFixed(2)
-        };
-      });
-
-      setParsedData(processed);
-      
-      const invalidRegNumbers = {};
-      processed.forEach((row, index) => {
-        if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
-          invalidRegNumbers[index] = row.regNumber;
-        }
-      });
-      setEditableRegNumbers(invalidRegNumbers);
-      
-      setError("");
-    } catch (err) {
-      setError("Error processing theory test data");
-      console.error("Processing error:", err);
-      setParsedData([]);
-    }
-  };
+    const invalidRegNumbers = {};
+    processed.forEach((row, index) => {
+      if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
+        invalidRegNumbers[index] = row.regNumber;
+      }
+    });
+    setEditableRegNumbers(invalidRegNumbers);
+    
+    setError("");
+  } catch (err) {
+    setError("Error processing theory test data");
+    console.error("Processing error:", err);
+    setParsedData([]);
+  }
+};
 
   const handleRegNumberChange = (index, value) => {
     setEditableRegNumbers(prev => ({
@@ -352,16 +373,17 @@ export default function NewReport({ onClose }) {
         // Submit theory test
         const payload = {
           stream: formData.stream,
+          questionType: formData.questionType,
           testName: formData.testName,
           date: formData.date,
-          subjectDetails, // Include subject details
+          subjectDetails,
           studentResults: parsedData.map(row => ({
             regNumber: row.regNumber,
-            subjectMarks: row.subjectMarks,
+            subjectMarks: Object.entries(row.subjectMarks).map(([name, marks]) => ({ name, marks })),   
             totalMarks: row.totalMarks,
             percentage: row.percentage
-          }))
-        };
+        }))
+      };
         
         const token = localStorage.getItem('token');
         const response = await axios.post(
@@ -554,33 +576,38 @@ export default function NewReport({ onClose }) {
               {/* Subject Details - Only for Theory */}
               {isTheoryTest && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Subject Details *
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {subjectDetails.map((subject, index) => (
-                      <div key={index} className="space-y-2">
-                        <input
-                          type="text"
-                          value={subject.name}
-                          onChange={(e) => handleSubjectChange(index, 'name', e.target.value)}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Subject name"
-                        />
-                        <input
-                          type="number"
-                          value={subject.maxMarks}
-                          onChange={(e) => handleSubjectChange(index, 'maxMarks', parseInt(e.target.value) || 0)}
-                          required
-                          min="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Max marks"
-                        />
-                      </div>
-                    ))}
-                  </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subject Details *
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {subjectDetails.map((subject, index) => (
+                    <div key={index} className="space-y-2">
+                      <select
+                        value={subject.name}
+                        onChange={(e) => handleSubjectChange(index, 'name', e.target.value)}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {subjects.map((sub, i) => (
+                          <option key={i} value={sub.subjectName}>
+                            {sub.subjectName}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        value={subject.maxMarks}
+                        onChange={(e) => handleSubjectChange(index, 'maxMarks', parseInt(e.target.value) || 0)}
+                        required
+                        min="1"
+                        max="50"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Max marks"
+                      />
+                    </div>
+                  ))}
                 </div>
+              </div>
               )}
             </div>
 
