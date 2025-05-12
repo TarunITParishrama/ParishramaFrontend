@@ -1,5 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
 
+const subjectStyles = {
+  "Physics": { background: "rgba(100, 149, 237, 0.1)", watermark: "⚛️" },
+  "Chemistry": { background: "rgba(144, 238, 144, 0.1)", watermark: "🧪" },
+  "Mathematics": { background: "rgba(255, 165, 0, 0.1)", watermark: "🧮" },
+  "Biology": { background: "rgba(60, 179, 113, 0.1)", watermark: "🧬" },
+  "Botany": { background: "rgba(34, 139, 34, 0.1)", watermark: "🌿" },
+  "Zoology": { background: "rgba(46, 139, 87, 0.1)", watermark: "🐾" },
+  "default": { background: "rgba(211, 211, 211, 0.1)", watermark: "📚" }
+};
+
 export default function TheoryTests({
   streamFilter = "PUC",
   searchTerm,
@@ -19,76 +29,57 @@ export default function TheoryTests({
       try {
         const token = localStorage.getItem('token');
         
-        const theoryRes = await fetch(`${process.env.REACT_APP_URL}/api/gettheorytests/${streamFilter}`, { 
+        const response = await fetch(`${process.env.REACT_APP_URL}/api/gettheorytests/${streamFilter}`, { 
           headers: { Authorization: `Bearer ${token}` } 
         });
 
-        const theoryData = await theoryRes.json();
+        const data = await response.json();
 
-        if (theoryData.status === "success") {
-            const testsWithDefaults = theoryData.data?.tests?.map(test => ({
-                testName: test.testName || "Unnamed Test",
-                date: test.date || new Date(),
-                stream: test.stream || streamFilter,
-                subjectDetails: test.subjectDetails || [
-                  { name: "Physics", maxMarks: 35 },
-                  { name: "Chemistry", maxMarks: 35 },
-                  { name: "Biology", maxMarks: 35 },
-                  { name: "Mathematics", maxMarks: 40 }
-                ],
-                studentResults: test.studentResults || []
-              })) || [];
-            setTheoryData(testsWithDefaults);
+        if (data.status === "success") {
+          setTheoryData(data.data);
         }
 
       } catch (err) {
-        console.error("Error fetching theory data:", err);
+        console.error("Error fetching theory test data:", err);
       }
     };
 
     fetchData();
   }, [streamFilter]);
 
-  // Group tests by test name
+  // Process and group the theory test data
   const groupedTests = useMemo(() => {
     const groups = {};
     
     theoryData.forEach(test => {
-      if (!test?.testName) return;
-      
       if (!groups[test.testName]) {
         groups[test.testName] = {
           testInfo: {
             name: test.testName,
             date: test.date,
-            stream: test.stream || "PUC"
+            stream: test.stream
           },
-          subjects: test.subjectDetails || [
-            { name: "Physics", maxMarks: 25 },
-            { name: "Chemistry", maxMarks: 25 },
-            { name: "Biology", maxMarks: 25 },
-            { name: "Mathematics", maxMarks: 25}
-          ],
+          subjects: test.subjectDetails,
+          totalMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0),
           students: []
         };
       }
       
-      // Calculate total max marks from subject details
-      groups[test.testName].totalMarks = (test.subjectDetails || []).reduce(
-        (sum, sub) => sum + (sub?.maxMarks || 0), 0
-      );
-      
       // Add student results
-      (test.studentResults || []).forEach(result => {
+      test.studentResults.forEach(result => {
         const studentInfo = students[result.regNumber] || {};
+        const subjectMarksMap = {};
+        
+        result.subjectMarks.forEach(subject => {
+          subjectMarksMap[subject.name] = subject.marks;
+        });
+        
         groups[test.testName].students.push({
           ...result,
           studentName: studentInfo.studentName || "N/A",
           campus: studentInfo.campus || "N/A",
           section: studentInfo.section || "N/A",
-          subjectMarks: result.subjectMarks instanceof Map ?
-            Object.fromEntries(result.subjectMarks):
-            result.subjectMarks
+          subjectMarks: subjectMarksMap
         });
       });
     });
@@ -181,7 +172,7 @@ export default function TheoryTests({
   const downloadTestCSV = (testName, testData) => {
     const headers = [
       "Sl.No", "Reg No", "Student Name", "Campus", "Section",
-      ...testData.subjects?.map(subject => `${subject.name} (${subject.maxMarks})`),
+      ...testData.subjects.map(subject => `${subject.name} (${subject.maxMarks})`),
       "Total Marks", "Percentage"
     ];
 
@@ -193,7 +184,7 @@ export default function TheoryTests({
         `"${student.studentName}"`,
         `"${student.campus}"`,
         student.section,
-        ...testData.subjects?.map(subject => student.subjectMarks[subject.name.toLowerCase()] || 0),
+        ...testData.subjects.map(subject => student.subjectMarks[subject.name] || 0),
         student.totalMarks || 0,
         student.percentage ? 
           parseFloat(student.percentage).toFixed(2) + '%' : '0%'
@@ -209,6 +200,22 @@ export default function TheoryTests({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const renderSubjectCell = (subjectName, marks) => {
+    const style = subjectStyles[subjectName] || subjectStyles.default;
+    
+    return (
+      <td 
+        className="py-2 px-4 border text-center relative"
+        style={{ backgroundColor: style.background }}
+      >
+        {marks}
+        <span className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 text-4xl">
+          {style.watermark}
+        </span>
+      </td>
+    );
   };
 
   const renderPagination = (testName, testData) => {
@@ -310,13 +317,13 @@ export default function TheoryTests({
                         Section {renderSortIndicator("section")}
                       </th>
                       
-                      {test.subjects?.map((subject, idx) => (
+                      {test.subjects.map((subject, idx) => (
                         <th key={idx} className="py-2 px-4 border text-center">
                           {subject.name} ({subject.maxMarks})
                         </th>
                       ))}
                       
-                      <th className="py-2 px-4 border text-center">Total</th>
+                      <th className="py-2 px-4 border text-center">Total ({test.totalMarks})</th>
                       <th className="py-2 px-4 border text-center">%</th>
                     </tr>
                   </thead>
@@ -329,10 +336,8 @@ export default function TheoryTests({
                         <td className="py-2 px-4 border">{student.campus}</td>
                         <td className="py-2 px-4 border">{student.section}</td>
                         
-                        {test.subjects?.map((subject, subIdx) => (
-                          <td key={subIdx} className="py-2 px-4 border text-center">
-                            {student.subjectMarks[subject.name.toLowerCase()] || 0}
-                          </td>
+                        {test.subjects.map((subject, subIdx) => (
+                          renderSubjectCell(subject.name, student.subjectMarks[subject.name] || 0)
                         ))}
                         
                         <td className="py-2 px-4 border text-center font-medium">

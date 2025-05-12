@@ -32,6 +32,7 @@ const SingleReport = () => {
   const [theoryTests, setTheoryTests] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [patterns, setPatterns] = useState([]);
+  const [theoryPatterns, setTheoryPatterns] = useState([]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -55,7 +56,7 @@ const SingleReport = () => {
           return;
         }
 
-        // Fetch detailed reports
+        // Fetch detailed reports (MCQ tests)
         const reportsRes = await axios.get(
           `${process.env.REACT_APP_URL}/api/students/${parsedStudentData.regNumber}/reports`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -64,7 +65,7 @@ const SingleReport = () => {
         if (reportsRes.data.status === "success") {
           setDetailedReports(reportsRes.data.data);
           
-          // Fetch patterns
+          // Fetch patterns for unattended MCQ tests
           const patternsRes = await axios.get(
             `${process.env.REACT_APP_URL}/api/getpatterns/type/${parsedStudentData.student.stream}`,
             { headers: { Authorization: `Bearer ${token}` } }
@@ -73,7 +74,7 @@ const SingleReport = () => {
           if (patternsRes.data.status === "success") {
             setPatterns(patternsRes.data.data);
             
-            // Identify unattended tests
+            // Identify unattended MCQ tests
             const unattended = patternsRes.data.data.filter(pattern => 
               !reportsRes.data.data.some(report => report.testName === pattern.testName)
             );
@@ -81,14 +82,60 @@ const SingleReport = () => {
           }
         }
 
-        // Fetch theory tests
+        // Fetch theory tests data
         const theoryRes = await axios.get(
-          `${process.env.REACT_APP_URL}/api/gettheory/student/${parsedStudentData.regNumber}`,
+          `${process.env.REACT_APP_URL}/api/getstudenttheory/${parsedStudentData.regNumber}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        
-        if (theoryRes.data.status === "success") {
-          setTheoryTests(theoryRes.data.data.tests);
+
+        // Fetch theory patterns for unattended theory tests
+        const theoryPatternsRes = await axios.get(
+          `${process.env.REACT_APP_URL}/api/gettheorytests/${parsedStudentData.student.stream}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (theoryRes.data.status === "success" && theoryPatternsRes.data.status === "success") {
+          // Process student's theory test results
+          const processedTheoryTests = theoryRes.data.data.map(test => {
+            const studentResult = test.studentResults.find(
+              result => result.regNumber === parsedStudentData.regNumber
+            );
+            
+            return {
+              ...test,
+              testType: 'theory',
+              subjects: studentResult.subjectMarks.map(subject => ({
+                subjectName: subject.name,
+                obtainedMarks: subject.marks,
+                totalMarks: test.subjectDetails.find(s => s.name === subject.name)?.maxMarks || 0
+              })),
+              totalMarks: studentResult.totalMarks,
+              percentage: studentResult.percentage,
+              fullMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0)
+            };
+          });
+
+          setTheoryTests(processedTheoryTests);
+          setTheoryPatterns(theoryPatternsRes.data.data);
+
+          // Identify unattended theory tests
+          const unattendedTheory = theoryPatternsRes.data.data.filter(theoryTest => 
+            !theoryRes.data.data.some(test => test.testName === theoryTest.testName)
+          );
+          
+          // Combine unattended tests
+          setUnattendedTests(prev => [
+            ...prev,
+            ...unattendedTheory.map(test => ({
+              ...test,
+              testType: 'theory',
+              subjects: test.subjectDetails.map(sub => ({
+                subject: { subjectName: sub.name },
+                totalMarks: sub.maxMarks
+              })),
+              totalMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0)
+            }))
+          ]);
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -211,12 +258,6 @@ const SingleReport = () => {
           <div>
             <span className="font-semibold">Registration No:</span> {studentData?.regNumber || 'N/A'}
           </div>
-          {/* <div>
-            <span className="font-semibold">Campus:</span> {studentData?.campus?.name || 'N/A'}
-          </div>
-          <div>
-            <span className="font-semibold">Section:</span> {studentData?.section || 'N/A'}
-          </div> */}
         </div>
       </div>
 
@@ -225,7 +266,7 @@ const SingleReport = () => {
         <Tabs selectedIndex={activeTab} onSelect={(index) => setActiveTab(index)}>
           <TabList className="flex border-b">
             <Tab className="flex items-center px-4 py-3 font-medium text-sm md:text-base cursor-pointer focus:outline-none">
-              <FaFileAlt className="mr-2" /> MCQ Tests
+              <FaFileAlt className="mr-2" /> Competitive Tests
             </Tab>
             <Tab className="flex items-center px-4 py-3 font-medium text-sm md:text-base cursor-pointer focus:outline-none">
               <FaBook className="mr-2" /> Theory Tests
@@ -235,14 +276,14 @@ const SingleReport = () => {
             </Tab>
           </TabList>
 
-          {/* MCQ Tests Tab */}
+          {/* Competitive Tests Tab */}
           <TabPanel>
             <div className="p-4 md:p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">MCQ Test Reports</h2>
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">Competitive Test Reports</h2>
               
               {detailedReports.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No MCQ test reports available yet
+                  No competitive test reports available yet
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -258,7 +299,7 @@ const SingleReport = () => {
                             {formatDate(report.date)}
                           </span>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                            MCQ
+                            Competitive
                           </span>
                         </div>
                         <h4 className="font-medium text-gray-800 mb-2">{report.testName}</h4>
@@ -311,7 +352,7 @@ const SingleReport = () => {
                         <div className="flex items-center">
                           <MdScore className="text-yellow-500 mr-1" />
                           <span className="font-medium">
-                            {test.totalMarks} / {test.totalPossible}
+                            {test.totalMarks} / {test.fullMarks}
                           </span>
                         </div>
                         <div className="text-sm text-gray-600">
@@ -337,13 +378,22 @@ const SingleReport = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {unattendedTests.map((test, index) => (
-                    <div key={index} className="border rounded-lg p-4 bg-gradient-to-br from-gray-50 to-white">
+                    <div 
+                      key={index} 
+                      className={`border rounded-lg p-4 bg-gradient-to-br ${
+                        test.testType === 'theory' ? 'from-purple-50 to-white' : 'from-blue-50 to-white'
+                      }`}
+                    >
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-sm text-gray-500">
                           {formatDate(test.date)}
                         </span>
-                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                          Not Attempted
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          test.testType === 'theory' 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {test.testType === 'theory' ? 'Theory' : 'Competitive'}
                         </span>
                       </div>
                       <h4 className="font-medium text-gray-800 mb-2">{test.testName}</h4>
@@ -351,7 +401,9 @@ const SingleReport = () => {
                         Total Marks: {test.totalMarks}
                       </div>
                       <div className="mt-3 text-sm">
-                        <span className="font-medium">Subjects:</span> {test.subjects.map(s => s.subject.subjectName).join(', ')}
+                        <span className="font-medium">Subjects:</span> {test.subjects?.map(s => 
+                          s.subject?.subjectName || s.subjectName || s.name
+                        ).join(', ')}
                       </div>
                     </div>
                   ))}
@@ -376,7 +428,7 @@ const SingleReport = () => {
                       ? 'bg-purple-100 text-purple-800' 
                       : 'bg-blue-100 text-blue-800'
                   }`}>
-                    {selectedReport.testType === 'theory' ? 'Theory' : 'MCQ'}
+                    {selectedReport.testType === 'theory' ? 'Theory' : 'Competitive'}
                   </span>
                 </div>
                 <button 
@@ -407,7 +459,7 @@ const SingleReport = () => {
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-blue-600">
-                      {selectedReport.fullMarks || selectedReport.totalPossible}
+                      {selectedReport.fullMarks}
                     </div>
                     <div className="text-xs text-gray-500">Total Marks</div>
                   </div>
@@ -504,7 +556,7 @@ const SingleReport = () => {
                     <tbody>
                       {selectedReport.subjects?.map((subject, index) => (
                         <tr key={index} className="hover:bg-gray-50">
-                          <td className="py-2 px-4 border">{subject.subjectName}</td>
+                          <td className="py-2 px-4 border">{subject.subjectName || subject.name}</td>
                           {selectedReport.testType !== 'theory' && (
                             <>
                               <td className="py-2 px-4 border text-center">{subject.totalQuestionsAttempted || 'N/A'}</td>
@@ -514,9 +566,13 @@ const SingleReport = () => {
                             </>
                           )}
                           <td className="py-2 px-4 border text-center font-medium">
-                            {subject.obtainedMarks || subject.totalMarks}
+                            {subject.obtainedMarks || subject.marks}
                           </td>
-                          <td className="py-2 px-4 border text-center">{subject.totalMarks}</td>
+                          <td className="py-2 px-4 border text-center">
+                            {subject.totalMarks || 
+                             (selectedReport.subjectDetails?.find(s => s.name === (subject.subjectName || subject.name))?.maxMarks) || 
+                             'N/A'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -524,7 +580,7 @@ const SingleReport = () => {
                 </div>
               </div>
 
-              {/* Additional Metrics for MCQ Tests */}
+              {/* Additional Metrics for Competitive Tests */}
               {selectedReport.testType !== 'theory' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
