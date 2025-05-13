@@ -54,7 +54,7 @@ export default function Noticeboard() {
         subject: formData.subject,
         message: formData.message,
         dropDate,
-        dropTime: formData.dropTime
+        dropTime: formData.dropTime,
       }, {
         headers: {
           Authorization: `Bearer ${token}`

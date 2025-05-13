@@ -7,7 +7,7 @@ export default function GatePass() {
   const navigate = useNavigate();
   const userRole = localStorage.getItem('userRole');
   const studentRegNumber = localStorage.getItem('studentRegNumber'); // For parent view
-  const [activeTab, setActiveTab] = useState(
+const [activeTab, setActiveTab] = useState(
   userRole === 'parent' ? 'parentview' : 
   userRole === 'staff' ? 'generate' : 
   'viewall'
