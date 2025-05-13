@@ -21,16 +21,16 @@ const getDashboardItems = (role) => {
   const commonItems = [
     { name: "Out Pass", icon: <img src={gatepassicon} alt="" className="w-10 h-12 inline"/>, path: "gatepass", show: true},
     { name: "Attendance", icon: <img src={attendanceicon} alt="" className="w-12 h-10 inline"/>, path: "attendance", show: true },
-    { name: "Noticeboard", icon: <img src={noticeboardIcon} alt="" className="w-12 h-12 inline"/>, path: "noticeboard", show: true },
   ];
 
   const adminItems = [
     { name: "Student Profile",  icon: <img src={studentIcon} alt="" className="w-10 h-12 inline"/>, path: "studentprofile", show: ["parent"].includes(role)},
     { name: "Progress Report",  icon: <img src={reportIcon} alt="" className="w-10 h-12 inline"/>, path: "singlereport", show: ["parent"].includes(role)},
-    { name: "Students", icon: <img src={studentIcon} alt="" className="w-10 h-12 inline"/>, path: "students", show: ["super_admin","admin", "staff"].includes(role)},
+    { name: "Students", icon: <img src={studentIcon} alt="" className="w-10 h-12 inline"/>, path: "students", show: ["super_admin","admin"].includes(role)},
     { name: "Questions", icon: "🔢", path: "questions", show: ["super_admin","admin", "staff"].includes(role)},
-    { name: "Feedback", icon: <img src={feedbackicon} alt="" className="w-12 h-10 inline"/>, path: "feedback", show: ["super_admin", "admin", "staff"].includes(role) },
+    { name: "Feedback", icon: <img src={feedbackicon} alt="" className="w-12 h-10 inline"/>, path: "feedback", show: ["super_admin"].includes(role) },
     { name: "Leaderboard", icon: <img src={leaderboardIcon} alt="" className="w-10 h-12 inline"/>, path: "leaderboard", show: ["super_admin","admin", "staff"].includes(role) },
+    { name: "Noticeboard", icon: <img src={noticeboardIcon} alt="" className="w-10 h-12 inline"/>, path: "noticeboard", show: ["super_admin","admin"].includes(role) },
     { name: "Campus", icon:<img src={batchesIcon} alt="" className="w-10 h-10 inline"/> , path: "batches", show: ["super_admin", "admin", "IT"].includes(role) },
     { name: "Tests", icon: <img src={testsIcon} alt="" className="w-12 h-12 inline"/>, path: "tests", show: ["super_admin", "admin"].includes(role) },
     { name: "Reports", icon: <img src={reportIcon} alt="" className="w-12 h-10 inline"/>, path: "reports", show: ["super_admin", "admin"].includes(role) },

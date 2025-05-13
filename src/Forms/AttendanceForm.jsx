@@ -227,6 +227,7 @@ const AttendanceForm = () => {
   };
 
   return (
+    <div className='overflow-auto max-h-screen p-4'>
     <div className="bg-white rounded-lg shadow-md p-6">
       <h2 className="text-2xl font-bold mb-6 bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400 bg-clip-text text-transparent">
         Mark Attendance
@@ -330,14 +331,13 @@ const AttendanceForm = () => {
         </div>
       ) : filteredStudents.length > 0 ? (
         <div className="mb-6">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-w-full">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg Number</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Absent</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permitted</th>
                 </tr>
@@ -371,9 +371,6 @@ const AttendanceForm = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {student.studentName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {student.section}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <input
@@ -448,6 +445,7 @@ const AttendanceForm = () => {
           {loading ? 'Submitting...' : 'Submit Attendance'}
         </button>
       </div>
+    </div>
     </div>
   );
 };

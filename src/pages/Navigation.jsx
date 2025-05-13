@@ -10,7 +10,6 @@ const getNavigationItems = (role) => {
   const commonItems = [
     { name: "Dashboard", path: "/home", show: true },
     { name: "Attendance", path: "attendance", show: true },
-    { name: "Noticeboard", path: "noticeboard", show: true },
     { name: "Out Pass", path: "gatepass", show: true },
   ];
 
@@ -18,10 +17,11 @@ const getNavigationItems = (role) => {
     { name: "Campus", path: "batches", show: ["super_admin", "admin"].includes(role) },
     { name: "Progress Report", path: "singlereport", show: ["parent"].includes(role)},
     { name: "Student Profile", path: "studentprofile", show: ["parent"].includes(role)},
-    { name: "Students", path: "students", show: ["super_admin","admin", "staff"].includes(role) },
-    { name: "Questions", path: "questions", show: ["super_admin", "admin"].includes(role) },
-    { name: "Feedback", path: "feedback", show: ["super_admin", "admin"].includes(role) },
-    { name: "Leaderboard", path: "leaderboard", show: ["super_admin", "admin"].includes(role) },
+    { name: "Students", path: "students", show: ["super_admin","admin"].includes(role) },
+    { name: "Questions", path: "questions", show: ["super_admin", "admin", "staff"].includes(role) },
+    { name: "Feedback", path: "feedback", show: ["super_admin"].includes(role) },
+    { name: "Leaderboard", path: "leaderboard", show: ["super_admin", "admin", "staff"].includes(role) },
+    { name: "Noticeboard", path: "noticeboard", show: ["super_admin", "admin"].includes(role) },
     { name: "Tests", path: "tests", show: ["super_admin", "admin"].includes(role) },
     { name: "Reports", path: "reports", show: ["super_admin", "admin"].includes(role) },
     { name: "Solutions", path: "marks", show: ["super_admin", "admin"].includes(role) },
