@@ -179,7 +179,7 @@ const SingleReport = () => {
           borderWidth: 1,
         },
         {
-          label: 'Total Marks',
+          label: 'Max Marks',
           data: fullMarks,
           backgroundColor: 'rgba(255, 99, 132, 0.6)',
           borderColor: 'rgba(255, 99, 132, 1)',
@@ -550,7 +550,7 @@ const SingleReport = () => {
                           </>
                         )}
                         <th className="py-2 px-4 border text-center">Marks Obtained</th>
-                        <th className="py-2 px-4 border text-center">Total Marks</th>
+                        <th className="py-2 px-4 border text-center">Max Marks</th>
                       </tr>
                     </thead>
                     <tbody>
