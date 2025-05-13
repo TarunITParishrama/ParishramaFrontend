@@ -285,6 +285,34 @@ export default function StudentSettings() {
     }
   };
 
+  const deleteImage = async () => {
+  if (!formData.regNumber || !formData.studentImageURL) {
+    toast.error("No image to delete");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    await axios.delete(
+      `${process.env.REACT_APP_URL}/api/delete-student-image/${formData.regNumber}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    // Update local state
+    setFormData(prev => ({ ...prev, studentImageURL: "" }));
+    setPreviewUrl("");
+    setSelectedFile(null);
+    toast.success("Image deleted successfully");
+  } catch (error) {
+    const errorMsg = error.response?.data?.message || "Failed to delete image";
+    toast.error(errorMsg);
+    console.error("Delete image error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -495,15 +523,27 @@ export default function StudentSettings() {
                 )}
 
                 {/* Preview Uploaded Image */}
-                {previewUrl && (
-                  <div className="mt-3">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="h-24 w-24 object-cover rounded-md border border-gray-300"
-                    />
-                  </div>
-                )}
+                {/* Preview Uploaded Image */}
+{previewUrl && (
+  <div className="mt-3 relative">
+    <img
+      src={previewUrl}
+      alt="Preview"
+      className="h-24 w-24 object-cover rounded-md border border-gray-300"
+    />
+    <button
+      type="button"
+      onClick={deleteImage}
+      disabled={loading}
+      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50"
+      title="Delete image"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+)}
               </div>
 
               {/* Gender */}
