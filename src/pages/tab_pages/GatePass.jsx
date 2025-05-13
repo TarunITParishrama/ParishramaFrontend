@@ -7,7 +7,7 @@ export default function GatePass() {
   const navigate = useNavigate();
   const userRole = localStorage.getItem('userRole');
   const studentRegNumber = localStorage.getItem('studentRegNumber'); // For parent view
-const [activeTab, setActiveTab] = useState(
+  const [activeTab, setActiveTab] = useState(
   userRole === 'parent' ? 'parentview' : 
   userRole === 'staff' ? 'generate' : 
   'viewall'
@@ -220,18 +220,23 @@ const [activeTab, setActiveTab] = useState(
   }, [activeTab]);
 
   // Get tabs based on user role
-  const getTabs = (userRole) => {
-    if (userRole === 'parent') {
-      return [{ id: "parentview", label: "Gate Passes" }];
-    } else if (userRole === 'staff') {
-      return [
-        { id: "generate", label: "Generate Pass" },
-        { id: "viewall", label: "View All Passes" }
-      ];
-    } else {
-      return [{ id: "view", label: "View Passes" }];
-    }
-  };
+ const getTabs = (userRole) => {
+  const tabs = [];
+  
+  if (['staff', 'admin', 'super_admin'].includes(userRole)) {
+    tabs.push({ id: "generate", label: "Generate Pass" });
+  }
+  
+  if (['staff', 'admin', 'super_admin'].includes(userRole)) {
+    tabs.push({ id: "viewall", label: "View All Passes" });
+  }
+  
+  if (userRole === 'parent') {
+    tabs.push({ id: "parentview", label: "My Child's Passes" });
+  }
+
+  return tabs.length ? tabs : [{ id: "view", label: "View Passes" }];
+};
 
   const tabs = getTabs(userRole);
 
