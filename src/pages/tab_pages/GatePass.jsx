@@ -250,7 +250,7 @@ const [activeTab, setActiveTab] = useState(
         >
           ◀ Back to Dashboard
         </button>
-        <h1 className="text-3xl font-bold">Gate Pass</h1>
+        <h1 className="text-3xl font-bold">Out Pass</h1>
 
         {/* Tab Navigation */}
         <div className="mt-4 flex space-x-6">
@@ -272,7 +272,7 @@ const [activeTab, setActiveTab] = useState(
       <div className="max-w-7xl mx-auto mt-6 p-4">
         {activeTab === "generate" && (
           <div className="bg-white shadow-md rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Generate Gate Pass</h2>
+            <h2 className="text-lg font-semibold mb-4">Generate Out Pass</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Student Reg Number */}

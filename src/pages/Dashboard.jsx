@@ -19,7 +19,7 @@ import powerIcon from "../assets/power.png";
 
 const getDashboardItems = (role) => {
   const commonItems = [
-    { name: "Gate Pass", icon: <img src={gatepassicon} alt="" className="w-10 h-12 inline"/>, path: "gatepass", show: true},
+    { name: "Out Pass", icon: <img src={gatepassicon} alt="" className="w-10 h-12 inline"/>, path: "gatepass", show: true},
     { name: "Attendance", icon: <img src={attendanceicon} alt="" className="w-12 h-10 inline"/>, path: "attendance", show: true },
     { name: "Noticeboard", icon: <img src={noticeboardIcon} alt="" className="w-12 h-12 inline"/>, path: "noticeboard", show: true },
   ];

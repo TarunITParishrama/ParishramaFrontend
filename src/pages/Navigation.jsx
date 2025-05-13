@@ -11,7 +11,7 @@ const getNavigationItems = (role) => {
     { name: "Dashboard", path: "/home", show: true },
     { name: "Attendance", path: "attendance", show: true },
     { name: "Noticeboard", path: "noticeboard", show: true },
-    { name: "Gate Pass", path: "gatepass", show: true },
+    { name: "Out Pass", path: "gatepass", show: true },
   ];
 
   const adminItems = [
