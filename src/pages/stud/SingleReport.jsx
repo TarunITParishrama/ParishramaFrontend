@@ -179,7 +179,7 @@ const SingleReport = () => {
           borderWidth: 1,
         },
         {
-          label: 'Max Marks',
+          label: 'Total Marks',
           data: fullMarks,
           backgroundColor: 'rgba(255, 99, 132, 0.6)',
           borderColor: 'rgba(255, 99, 132, 1)',
@@ -469,14 +469,14 @@ const SingleReport = () => {
                     </div>
                     <div className="text-xs text-gray-500">Percentage</div>
                   </div>
-                  {selectedReport.testType !== 'theory' && (
+                  {/* {selectedReport.testType !== 'theory' && (
                     <div className="text-center">
                       <div className="text-2xl font-bold text-blue-600">
                         {selectedReport.rank ? `#${selectedReport.rank}` : 'N/A'}
                       </div>
                       <div className="text-xs text-gray-500">Rank</div>
                     </div>
-                  )}
+                  )} */}
                 </div>
               </div>
 
@@ -550,7 +550,7 @@ const SingleReport = () => {
                           </>
                         )}
                         <th className="py-2 px-4 border text-center">Marks Obtained</th>
-                        <th className="py-2 px-4 border text-center">Max Marks</th>
+                        {/* <th className="py-2 px-4 border text-center">Total Marks</th> */}
                       </tr>
                     </thead>
                     <tbody>
@@ -565,9 +565,9 @@ const SingleReport = () => {
                               <td className="py-2 px-4 border text-center">{subject.totalQuestionsUnattempted || 'N/A'}</td>
                             </>
                           )}
-                          <td className="py-2 px-4 border text-center font-medium">
+                          {/* <td className="py-2 px-4 border text-center font-medium">
                             {subject.obtainedMarks || subject.marks}
-                          </td>
+                          </td> */}
                           <td className="py-2 px-4 border text-center">
                             {subject.totalMarks || 
                              (selectedReport.subjectDetails?.find(s => s.name === (subject.subjectName || subject.name))?.maxMarks) || 
