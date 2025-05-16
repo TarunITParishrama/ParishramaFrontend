@@ -12,54 +12,86 @@ export default function AllTests() {
   const processTestData = (reports) => {
     const testMap = {};
     
-    reports.forEach(report => {
-      // Skip if required fields are missing
-      if (!report?.testName || !report?.date) {
-        console.warn("Skipping report with missing required fields:", report);
-        return;
-      }
-  
-      const testName = report.testName;
-      const date = new Date(report.date);
-      
-      if (isNaN(date.getTime())) {
-        console.warn("Invalid date format:", report.date);
-        return;
-      }
-  
-      const monthYear = date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        year: 'numeric' 
-      });
-      
-      // Initialize data structure if it doesn't exist
-      if (!testMap[testName]) {
-        testMap[testName] = {
-          months: {},
-          testId: report.reportId,
-          stream: report.stream
-        };
-      }
-      
-      // Add month data
-      testMap[testName].months[monthYear] = {
-        date: report.date,
-        monthName: monthYear,
-        marksType: report.marksType
-      };
+    // First filter out invalid reports
+    const validReports = reports.filter(report => {
+        // Basic validation
+        if (!report || typeof report !== 'object') {
+            console.warn("Skipping invalid report entry:", report);
+            return false;
+        }
+
+        // Required fields check
+        const requiredFields = ['testName', 'date', 'stream', 'reportId'];
+        const missingFields = requiredFields.filter(field => !report[field]);
+        
+        if (missingFields.length > 0) {
+            console.warn(`Skipping report with missing fields (${missingFields.join(', ')}):`, report);
+            return false;
+        }
+
+        // Date validation
+        try {
+            const date = new Date(report.date);
+            if (isNaN(date.getTime())) {
+                console.warn("Skipping report with invalid date:", report.date);
+                return false;
+            }
+        } catch (e) {
+            console.warn("Skipping report with date parsing error:", e.message);
+            return false;
+        }
+
+        return true;
     });
-    
+
+    // Process valid reports
+    validReports.forEach(report => {
+        const testName = report.testName;
+        const date = new Date(report.date);
+        const monthYear = date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            year: 'numeric' 
+        });
+
+        // Initialize test entry if it doesn't exist
+        if (!testMap[testName]) {
+            testMap[testName] = {
+                months: {},
+                testId: report.reportId,
+                stream: report.stream
+            };
+        }
+
+        // Add month data (keeping the most recent if duplicates exist)
+        const existingMonth = testMap[testName].months[monthYear];
+        if (!existingMonth || new Date(existingMonth.date) < date) {
+            testMap[testName].months[monthYear] = {
+                date: report.date,
+                monthName: monthYear,
+                marksType: report.marksType || 'Unknown',
+                reportId: report.reportId
+            };
+        }
+    });
+
     // Convert to final array structure
     const result = Object.entries(testMap).map(([testName, testData]) => ({
-      testName,
-      testId: testData.testId,
-      stream: testData.stream,
-      months: Object.values(testData.months).sort((a, b) => new Date(b.date) - new Date(a.date))
-    })).sort((a, b) => a.testName.localeCompare(b.testName));
-    
-    console.log("Processed result:", result);
+        testName,
+        testId: testData.testId,
+        stream: testData.stream,
+        months: Object.values(testData.months)
+            .sort((a, b) => new Date(b.date) - new Date(a.date)) // Sort by date descending
+    })).sort((a, b) => a.testName.localeCompare(b.testName)); // Sort by test name
+
+    console.log("Processed result:", {
+        inputCount: reports.length,
+        validCount: validReports.length,
+        filteredCount: reports.length - validReports.length,
+        outputCount: result.length
+    });
+
     return result;
-  };
+};
 
   useEffect(() => {
     const fetchTestData = async () => {
