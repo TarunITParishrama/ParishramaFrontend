@@ -717,13 +717,13 @@ export default function GatePass() {
 )}
 {activeTab === "parentview" && (
   <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
-    <h2 className="text-lg font-semibold mb-4">My Child's Gate Passes</h2>
+    <h2 className="text-lg font-semibold mb-4">My Child's E - Passes</h2>
     {loading ? (
       <div className="flex justify-center items-center py-8">
         <p>Loading...</p>
       </div>
     ) : gatePasses.length === 0 ? (
-      <p className="text-gray-600 text-center">No gate passes found for your child.</p>
+      <p className="text-gray-600 text-center">No passes found.</p>
     ) : (
       <div className="grid gap-4">
         {gatePasses.map((pass) => (

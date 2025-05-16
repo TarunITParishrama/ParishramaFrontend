@@ -15,6 +15,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [imageUploads, setImageUploads] = useState({});
   const [modifiedQuestions, setModifiedQuestions] = useState(new Set());
+  const [deleteConfirmation, setDeleteConfirmation] = useState(false);
 
   // Fetch test names when stream changes
   useEffect(() => {
@@ -271,7 +272,46 @@ const EditSolutionsForm = ({ onSuccess }) => {
     } finally {
       setLoading(false);
     }
-};
+  };
+
+  const handleDeleteSolutions = async () => {
+    if (!filters.testName) {
+      toast.error("Please select a test name to delete");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // First, find all solutions matching the filters to get their IDs
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value);
+      });
+
+      const response = await axios.delete(
+        `${process.env.REACT_APP_URL}/api/deletesolutionbankbytest?${params.toString()}`
+      );
+
+      toast.success(`Successfully deleted ${response.data.deletedCount} solutions and their associated entries!`, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+
+      // Reset the form and state
+      setSolutions([]);
+      setImageUploads({});
+      setModifiedQuestions(new Set());
+      setDeleteConfirmation(false);
+      onSuccess();
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || "Failed to delete solutions";
+      toast.error(errorMsg);
+      console.error("Delete solutions error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -340,7 +380,16 @@ const EditSolutionsForm = ({ onSuccess }) => {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmation(true)}
+              disabled={loading || !filters.testName}
+              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${loading || !filters.testName ? 'opacity-50' : ''}`}
+            >
+              Delete Test
+            </button>
+            
             <button
               type="submit"
               disabled={loading}
@@ -350,6 +399,34 @@ const EditSolutionsForm = ({ onSuccess }) => {
             </button>
           </div>
         </form>
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
+              <p className="mb-4">
+                Are you sure you want to delete all solutions for <strong>{filters.testName}</strong>? 
+                This action cannot be undone and will delete all associated solution bank entries.
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setDeleteConfirmation(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteSolutions}
+                  disabled={loading}
+                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${loading ? 'opacity-50' : ''}`}
+                >
+                  {loading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {solutions.length > 0 && (
           <div className="border-t pt-6">
@@ -449,7 +526,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleImageUpload(index, e)}
+                      onChange={(e) => handleImageUpload(index, e.target.files[0])}
                       disabled={solution.isGrace}
                       className={`block w-full text-sm ${
                         solution.isGrace ? 'text-gray-400' : 'text-gray-500'
@@ -472,8 +549,10 @@ const EditSolutionsForm = ({ onSuccess }) => {
                 <button
                   type="button"
                   onClick={handleUpdateSolutions}
-                  disabled={loading}
-                  className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${loading ? 'opacity-50' : ''}`}
+                  disabled={loading || modifiedQuestions.size === 0}
+                  className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    loading || modifiedQuestions.size === 0 ? 'opacity-50' : ''
+                  }`}
                 >
                   {loading ? "Updating..." : "Update Solutions"}
                 </button>

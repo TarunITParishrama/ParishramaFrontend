@@ -19,6 +19,7 @@ export default function EditReports() {
   const [graceQuestionNumbers, setGraceQuestionNumbers] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState(false);
 
   const token = localStorage.getItem('token');
 
@@ -384,6 +385,49 @@ export default function EditReports() {
     }
   };
 
+  // Delete all reports for the selected test and date
+  const handleDeleteReports = async () => {
+    if (!selectedTest || !selectedDate) {
+      setError("Please select a test and date first");
+      return;
+    }
+
+    try {
+      setSubmitLoading(true);
+      setError("");
+
+      const dateObj = new Date(selectedDate);
+      const monthStart = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+      const monthEnd = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0);
+
+      const response = await axios.delete(
+        `${process.env.REACT_APP_URL}/api/deletereportbankbytest`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            testName: selectedTest.testName,
+            stream: selectedStream,
+            dateFrom: monthStart.toISOString(),
+            dateTo: monthEnd.toISOString()
+          }
+        }
+      );
+
+      if (response.data.status === "success") {
+        setReports([]);
+        setFoundReport(null);
+        setSubmitSuccess(true);
+        setDeleteConfirmation(false);
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      setError(err.response?.data?.message || err.message || "Failed to delete reports");
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-7xl mx-auto mt-6 bg-white shadow-md rounded-lg p-6">
@@ -599,14 +643,24 @@ export default function EditReports() {
           </div>
         )}
 
-        {/* Submit All Changes Button */}
-        {reports.length > 0 && (
-          <div className="flex justify-end mt-6">
+        {/* Action Buttons */}
+        {selectedTest && selectedDate && (
+          <div className="flex justify-between mt-6">
+            <button
+              onClick={() => setDeleteConfirmation(true)}
+              disabled={submitLoading || reports.length === 0}
+              className={`px-4 py-2 rounded text-white ${
+                submitLoading || reports.length === 0 ? 'bg-gray-400' : 'bg-red-600 hover:bg-red-700'
+              } transition`}
+            >
+              Delete All Reports
+            </button>
+            
             <button
               onClick={submitAllChanges}
-              disabled={submitLoading}
+              disabled={submitLoading || reports.length === 0}
               className={`px-4 py-2 rounded text-white ${
-                submitLoading ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'
+                submitLoading || reports.length === 0 ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'
               } transition`}
             >
               {submitLoading ? 'Submitting...' : 'Submit All Changes'}
@@ -614,9 +668,40 @@ export default function EditReports() {
           </div>
         )}
 
+        {/* Delete Confirmation Modal */}
+        {deleteConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
+              <p className="mb-4">
+                Are you sure you want to delete all reports for <strong>{selectedTest?.testName}</strong> on{' '}
+                <strong>{selectedDate ? new Date(selectedDate).toLocaleDateString() : ''}</strong>?
+                This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setDeleteConfirmation(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteReports}
+                  disabled={submitLoading}
+                  className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${
+                    submitLoading ? 'opacity-50' : ''
+                  }`}
+                >
+                  {submitLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {submitSuccess && (
           <div className="mt-4 p-3 bg-green-100 text-green-700 rounded-md">
-            Changes saved successfully!
+            Operation completed successfully!
           </div>
         )}
 
