@@ -10,61 +10,60 @@ const subjectStyles = {
   "default": { background: "rgba(211, 211, 211, 0.1)", watermark: "📚" }
 };
 
-
 export default function MCQTests({
-    streamFilter,
-    searchTerm,
-    selectedTest,
-    selectedCampus,
-    selectedSection,
-    dateRange,
-    students
-  }) {
-    const [detailedData, setDetailedData] = useState([]);
-    const [sortConfig, setSortConfig] = useState({ key: "regNumber", direction: "asc" });
-    const [tablePages, setTablePages] = useState({});
-    const [rowsPerPage] = useState(10);
-    const [expandedSubjects, setExpandedSubjects] = useState({});
-    const [uploading, setUploading] = useState(false);
-  
-    useEffect(() => {
-      const fetchData = async () => {
-        try {
-          const token = localStorage.getItem('token');
-          
-          const [reportsRes, patternsRes, solutionsRes] = await Promise.all([
-            fetch(`${process.env.REACT_APP_URL}/api/getstudentreports?stream=${streamFilter}`, { 
-              headers: { Authorization: `Bearer ${token}` } 
-            }),
-            fetch(`${process.env.REACT_APP_URL}/api/getpatterns?stream=${streamFilter}`, { 
-              headers: { Authorization: `Bearer ${token}` } 
-            }),
-            fetch(`${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${streamFilter}`, { 
-              headers: { Authorization: `Bearer ${token}` } 
-            })
-          ]);
-  
-          const reportsData = await reportsRes.json();
-          const patternsData = await patternsRes.json();
-          const solutionsData = await solutionsRes.json();
-  
-          if (reportsData.status === "success" && patternsData.status === "success" && solutionsData.status === "success") {
-            const processedData = processDetailedReports(
-              reportsData.data, 
-              patternsData.data,
-              solutionsData.data,
-              students
-            );
-            setDetailedData(processedData);
-          }
-  
-        } catch (err) {
-          console.error("Error fetching MCQ data:", err);
+  streamFilter,
+  searchTerm,
+  selectedTest,
+  selectedCampus,
+  selectedSection,
+  dateRange,
+  students
+}) {
+  const [detailedData, setDetailedData] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: "regNumber", direction: "asc" });
+  const [tablePages, setTablePages] = useState({});
+  const [rowsPerPage] = useState(10);
+  const [expandedSubjects, setExpandedSubjects] = useState({});
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        
+        const [reportsRes, patternsRes, solutionsRes] = await Promise.all([
+          fetch(`${process.env.REACT_APP_URL}/api/getstudentreports?stream=${streamFilter}`, { 
+            headers: { Authorization: `Bearer ${token}` } 
+          }),
+          fetch(`${process.env.REACT_APP_URL}/api/getpatterns?stream=${streamFilter}`, { 
+            headers: { Authorization: `Bearer ${token}` } 
+          }),
+          fetch(`${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${streamFilter}`, { 
+            headers: { Authorization: `Bearer ${token}` } 
+          })
+        ]);
+
+        const reportsData = await reportsRes.json();
+        const patternsData = await patternsRes.json();
+        const solutionsData = await solutionsRes.json();
+
+        if (reportsData.status === "success" && patternsData.status === "success" && solutionsData.status === "success") {
+          const processedData = processDetailedReports(
+            reportsData.data, 
+            patternsData.data,
+            solutionsData.data,
+            students
+          );
+          setDetailedData(processedData);
         }
-      };
-  
-      fetchData();
-    }, [streamFilter, students]);
+
+      } catch (err) {
+        console.error("Error fetching MCQ data:", err);
+      }
+    };
+
+    fetchData();
+  }, [streamFilter, students]);
 
   const processDetailedReports = (studentReports, patterns, solutions, studentMap) => {
     const solutionMap = {};
@@ -80,28 +79,33 @@ export default function MCQTests({
         isGrace: sol.isGrace || false
       };
     });
-  
+
     const reportsWithPatterns = studentReports.map(report => {
+      // Clean test name by removing numbers and spaces
       const cleanTestName = report.testName
         .replace(/\d+/g, '')
-        .replace(/-/g, '')
+        .replace(/\s+/g, '')
         .trim();
       
-      const pattern = patterns.find(p => 
-        p.testName.replace(/\d+/g, '').trim() === cleanTestName && 
-        p.type === report.stream
-      );
+      // Find matching pattern considering PCT(NEET) and PCT(CET) as different tests
+      const pattern = patterns.find(p => {
+        const patternCleanName = p.testName
+          .replace(/\d+/g, '')
+          .replace(/\s+/g, '')
+          .trim();
+        return patternCleanName === cleanTestName && p.type === report.stream;
+      });
       
       return { report, pattern };
     }).filter(({ pattern }) => pattern);
-  
+
     const rankedReports = [...reportsWithPatterns].sort((a, b) => {
       if (b.report.totalMarks !== a.report.totalMarks) {
         return b.report.totalMarks - a.report.totalMarks;
       }
       return b.report.accuracy - a.report.accuracy;
     });
-  
+
     let currentRank = 1;
     const rankedResults = [];
     
@@ -109,6 +113,7 @@ export default function MCQTests({
       if (i > 0 && 
           rankedReports[i].report.totalMarks === rankedReports[i-1].report.totalMarks &&
           rankedReports[i].report.accuracy === rankedReports[i-1].report.accuracy) {
+        // Same rank as previous
       } else {
         currentRank = i + 1;
       }
@@ -121,12 +126,16 @@ export default function MCQTests({
         percentile: parseFloat(percentile.toFixed(2))
       });
     }
-  
+
     return rankedResults.map(({ report, pattern, rank, percentile }) => {
-      const marksType = report.marksType || "+4/-1";
+      // Determine marks type based on test name
+      const isPCTNEET = report.testName.includes('PCT(NEET)');
+      const isPCTCET = report.testName.includes('PCT(CET)');
+      
+      const marksType = report.marksType || (isPCTNEET ? "+4/-1" : isPCTCET ? "+1/0" : "+4/-1");
       const correctMark = marksType.includes("+4") ? 4 : 1;
       const wrongMark = marksType.includes("-1") ? -1 : 0;
-  
+
       const questionSubjectMap = {};
       let currentQuestion = 1;
       
@@ -137,7 +146,7 @@ export default function MCQTests({
           currentQuestion++;
         }
       });
-  
+
       const subjectData = {};
       pattern.subjects.forEach(subject => {
         const subjectName = subject.subject.subjectName;
@@ -154,11 +163,11 @@ export default function MCQTests({
           hasGraceQuestions: false
         };
       });
-  
+
       report.responses.forEach(response => {
         const subjectName = questionSubjectMap[response.questionNumber];
         if (!subjectName || !subjectData[subjectName]) return;
-  
+
         const solution = solutionMap[response.questionNumber] || {};
         subjectData[subjectName].totalQuestions++;
         
@@ -180,7 +189,7 @@ export default function MCQTests({
           subjectData[subjectName].unattempted++;
         }
       });
-  
+
       const subjects = Object.values(subjectData).map(subject => ({
         subjectName: subject.subjectName,
         totalQuestionsAttempted: subject.attempted,
@@ -192,9 +201,9 @@ export default function MCQTests({
         style: subject.style,
         hasGraceQuestions: subject.hasGraceQuestions
       }));
-  
+
       const studentInfo = studentMap[report.regNumber] || {};
-  
+
       return {
         regNumber: report.regNumber,
         studentName: studentInfo.studentName || "N/A",
@@ -312,6 +321,7 @@ export default function MCQTests({
   const getTotalPagesForTest = (testData) => {
     return Math.ceil(testData.length / rowsPerPage);
   };
+
   const uploadDetailedReports = async (testData) => {
     if (!testData || testData.length === 0) {
       alert('No test data available to upload');
@@ -325,12 +335,11 @@ export default function MCQTests({
     try {
       setUploading(true);
       const token = localStorage.getItem('token');
-      const CHUNK_SIZE = 100; // Adjust based on your server capacity
+      const CHUNK_SIZE = 100;
       let successfulUploads = 0;
       let failedUploads = 0;
       let errors = [];
   
-      // Process in chunks
       for (let i = 0; i < testData.length; i += CHUNK_SIZE) {
         const chunk = testData.slice(i, i + CHUNK_SIZE);
         
@@ -545,13 +554,13 @@ export default function MCQTests({
                   </p>
                 </div>
                 <div className="flex gap-2">
-                <button
-                  onClick={() => uploadDetailedReports(testData)}
-                  className="bg-green-600 text-white py-1 px-3 rounded text-sm"
-                  disabled={uploading}
-                >
-                {uploading ? 'Uploading...' : 'Upload Detailed Reports'}
-                </button>
+                  <button
+                    onClick={() => uploadDetailedReports(testData)}
+                    className="bg-green-600 text-white py-1 px-3 rounded text-sm"
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Uploading...' : 'Upload Detailed Reports'}
+                  </button>
                   <button
                     onClick={() => downloadTestCSV(testName, testData)}
                     className="bg-blue-500 text-white py-1 px-3 rounded text-sm"

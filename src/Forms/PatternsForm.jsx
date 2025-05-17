@@ -20,10 +20,17 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
       setLoading(true);
       try {
         const isPTT = values.type === 'PUC' && values.testName.toUpperCase() === 'PTT';
-        const isPCT = values.type === 'PUC' && values.testName.toUpperCase() === 'PCT';
+        const isPCT = values.type === 'PUC' && values.testName.toUpperCase().includes('PCT');
+        
+        // Modify testName based on marking scheme for PCT
+        let finalTestName = values.testName;
+        if (isPCT) {
+          finalTestName = `PCT(${markingScheme})`;
+        }
 
         const payload = {
           ...values,
+          testName: finalTestName,
           subjects: values.subjects.map(sub => {
             if (isPTT) return { ...sub, totalQuestions: 0, totalMarks: 25 };
             if (isPCT) {
@@ -44,7 +51,13 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
         };
 
         const token = localStorage.getItem('token');
-        await axios.post(`${process.env.REACT_APP_URL}/api/createpatterns`, payload, {
+        const endpoint = initialValues 
+          ? `${process.env.REACT_APP_URL}/api/updatepatterns/${initialValues._id}`
+          : `${process.env.REACT_APP_URL}/api/createpatterns`;
+          
+        const method = initialValues ? 'put' : 'post';
+        
+        await axios[method](endpoint, payload, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -77,7 +90,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
   // Handle test type/name changes
   useEffect(() => {
     const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase().includes('PCT');
     
     const updatedSubjects = formik.values.subjects.map(sub => {
       if (isPTT) {
@@ -96,7 +109,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
 
   const addSubject = () => {
     const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase().includes('PCT');
     
     formik.setFieldValue('subjects', [
       ...formik.values.subjects,
@@ -117,7 +130,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
   const handleQuestionChange = (index, value) => {
     const questions = parseInt(value) || 0;
     const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase().includes('PCT');
     
     let marks = questions;
     if (isPTT) {
@@ -134,7 +147,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
   };
 
   const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-  const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+  const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase().includes('PCT');
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
@@ -165,12 +178,12 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
               onChange={formik.handleChange}
               value={formik.values.testName}
               className="w-full p-2 border rounded"
-              placeholder="Enter TestNames in Alphabets only."
+              placeholder="Enter PTT, PCT, or other test names"
             />
           </div>
         </div>
 
-        {isPCT && (
+        {(formik.values.type === 'PUC' && formik.values.testName.toUpperCase().includes('PCT')) && (
           <div className="bg-gray-50 p-4 rounded">
             <label className="block mb-2">Marking Scheme</label>
             <div className="flex space-x-4">
@@ -195,6 +208,9 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                 CET (+1 per question)
               </label>
             </div>
+            <p className="mt-2 text-sm text-gray-600">
+              Note: This will save as PCT(NEET) or PCT(CET) in the system
+            </p>
           </div>
         )}
 
@@ -237,6 +253,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                         value={subject.totalQuestions}
                         onChange={(e) => handleQuestionChange(index, e.target.value)}
                         className="w-full p-2 border rounded"
+                        disabled={isPTT}
                       />
                     </td>
                   )}
