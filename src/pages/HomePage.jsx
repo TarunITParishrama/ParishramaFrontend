@@ -4,25 +4,25 @@ import Navigation from "./Navigation";
 import Dashboard from "./Dashboard";
 import logo from "../assets/logo_kannada.png";
 import mdlogo from "../assets/MDPhoto.png";
-import slide1 from "../assets/slides/slide1.png";
-import slide2 from "../assets/slides/slide2.png";
-import slide3 from "../assets/slides/slide3.png";
-import slide4 from "../assets/slides/slide4.png";
+// import slide1 from "../assets/slides/slide1.png";
+// import slide2 from "../assets/slides/slide2.png";
+// import slide3 from "../assets/slides/slide3.png";
+// import slide4 from "../assets/slides/slide4.png";
 
 function ParishramaHomePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [userRole, setUserRole] = useState("");
-  const [showSlideshow, setShowSlideshow] = useState(true);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  // const [showSlideshow, setShowSlideshow] = useState(true);
+  // const [currentSlide, setCurrentSlide] = useState(0);
 
-  const slides = [
-    { image: slide1, alt: "Slide 1" },
-    { image: slide2, alt: "Slide 2" },
-    { image: slide3, alt: "Slide 3" },
-    { image: slide4, alt: "Slide 4" }
-  ];
+  // const slides = [
+  //   { image: slide1, alt: "Slide 1" },
+  //   { image: slide2, alt: "Slide 2" },
+  //   { image: slide3, alt: "Slide 3" },
+  //   { image: slide4, alt: "Slide 4" }
+  // ];
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -35,16 +35,16 @@ function ParishramaHomePage() {
     setUserRole(role);
 
     // Auto-advance slides every 3 seconds if slideshow is visible
-    let slideInterval;
-    if (showSlideshow) {
-      slideInterval = setInterval(() => {
-        setCurrentSlide((prev) => (prev + 1) % slides.length);
-      }, 3000);
-    }
+    // let slideInterval;
+    // if (showSlideshow) {
+    //   slideInterval = setInterval(() => {
+    //     setCurrentSlide((prev) => (prev + 1) % slides.length);
+    //   }, 3000);
+    // }
 
-    return () => clearInterval(slideInterval);
-  }, [navigate, showSlideshow, slides.length]);
-
+    // return () => clearInterval(slideInterval);
+  // }, [navigate, showSlideshow, slides.length]);
+},[navigate]);
   const activeTab = location.pathname === "/home" ? "dashboard" : location.pathname.split('/').pop();
 
   if (!userRole) return null;
@@ -55,7 +55,7 @@ function ParishramaHomePage() {
   return (
     <div className="flex min-h-screen bg-white relative">
       {/* Slideshow Overlay */}
-      {showSlideshow && (
+      {/* {showSlideshow && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-70 flex flex-col items-center justify-center p-4">
           <div className="relative w-full max-w-4xl h-3/4 overflow-hidden rounded-xl shadow-2xl">
             {slides.map((slide, index) => (
@@ -73,7 +73,6 @@ function ParishramaHomePage() {
               </div>
             ))}
             
-            {/* Slide Indicators */}
             <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
               {slides.map((_, index) => (
                 <button
@@ -88,7 +87,6 @@ function ParishramaHomePage() {
             </div>
           </div>
           
-          {/* Close Button */}
           <button
             onClick={() => setShowSlideshow(false)}
             className="mt-6 px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg shadow-md transition-colors duration-300"
@@ -96,7 +94,7 @@ function ParishramaHomePage() {
             Close Slideshow
           </button>
         </div>
-      )}
+      )} */}
 
       {/* Navigation Sidebar - only show if userRole is not "parent" */}
       {shouldShowNavigation && (
