@@ -10,7 +10,7 @@ const getNavigationItems = (role) => {
   const commonItems = [
     { name: "Dashboard", path: "/home", show: true },
     { name: "Attendance", path: "attendance", show: true },
-    { name: "E-Pass", path: "gatepass", show: true },
+    { name: "Out Pass", path: "gatepass", show: true },
   ];
 
   const adminItems = [

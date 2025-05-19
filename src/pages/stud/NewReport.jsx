@@ -22,7 +22,8 @@ export default function NewReport({ onClose }) {
   const [editableRegNumbers, setEditableRegNumbers] = useState({});
   const [showAllInvalid, setShowAllInvalid] = useState(false);
   const [isTheoryTest, setIsTheoryTest] = useState(false);
-  const [subjects, setSubjects] = useState([]);
+    const [subjects, setSubjects] = useState([]);
+
   const [subjectDetails, setSubjectDetails] = useState([]);
 
   // Marks type options
@@ -216,21 +217,10 @@ export default function NewReport({ onClose }) {
         
         for (let i = 1; i <= maxQuestionNum; i++) {
           const qKey = `Q${i}`;
-          let answer = row[qKey];
-          
-          // Convert numeric answers to letter format
-          if (answer) {
-            answer = String(answer).trim();
-            if (answer === '1') answer = 'A';
-            else if (answer === '2') answer = 'B';
-            else if (answer === '3') answer = 'C';
-            else if (answer === '4') answer = 'D';
-            
-            // Only keep valid answers (A/B/C/D)
-            questionAnswer[i] = ['A', 'B', 'C', 'D'].includes(answer) ? answer : '';
-          } else {
-            questionAnswer[i] = '';
-          }
+          const answer = row[qKey];
+          questionAnswer[i] = answer && String(answer).trim() !== '' 
+            ? String(answer).trim().toUpperCase() 
+            : '';
         }
   
         return {
@@ -258,85 +248,86 @@ export default function NewReport({ onClose }) {
     }
   };
 
-  const processTheoryData = (data) => {
-    if (!data || data.length === 0) {
-      setError("No valid data found in the file");
-      setParsedData([]);
-      return;
+const processTheoryData = (data) => {
+  if (!data || data.length === 0) {
+    setError("No valid data found in the file");
+    setParsedData([]);
+    return;
+  }
+
+  // Expected columns for theory test
+  const firstRow = data[0] || {};
+  const regNoKey = Object.keys(firstRow).find(key => 
+    key.match(/^(regno|rollno|registration|id)/i)
+  );
+  
+  // Find the column for each subject
+  const subjectColumns = {};
+  subjectDetails.forEach(subject => {
+    const subjectLower = subject.name.toLowerCase();
+    const matchingKey = Object.keys(firstRow).find(key => {
+      const keyLower = key.toLowerCase().replace(/[^a-z]/g, '');
+      return keyLower.includes(subjectLower);
+    });
+    if(matchingKey){
+      subjectColumns[subject.name] =matchingKey;
     }
 
-    // Expected columns for theory test
-    const firstRow = data[0] || {};
-    const regNoKey = Object.keys(firstRow).find(key => 
-      key.match(/^(regno|rollno|registration|id)/i)
-    );
-    
-    // Find the column for each subject
-    const subjectColumns = {};
-    subjectDetails.forEach(subject => {
-      const subjectLower = subject.name.toLowerCase();
-      const matchingKey = Object.keys(firstRow).find(key => {
-        const keyLower = key.toLowerCase().replace(/[^a-z]/g, '');
-        return keyLower.includes(subjectLower);
+  });
+
+  if (!regNoKey) {
+    setError("File must contain student ID column");
+    setParsedData([]);
+    return;
+  }
+
+  const missingSubjects = subjectDetails.filter(subject => !subjectColumns[subject.name]);
+  if (missingSubjects.length > 0) {
+    setError(`Missing columns for: ${missingSubjects.map(s => s.name).join(', ')}`);
+    setParsedData([]);
+    return;
+  }
+
+  try {
+    const processed = data.map(row => {
+      const subjectMarks = {};
+      let totalMarks = 0;
+      
+      subjectDetails.forEach(subject => {
+        const key = subjectColumns[subject.name];
+        const marks = parseFloat(row[key]) || 0;
+        subjectMarks[subject.name] = marks;
+        totalMarks += marks;
       });
-      if(matchingKey){
-        subjectColumns[subject.name] =matchingKey;
-      }
+
+      const totalPossible = subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0);
+      const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
+
+      return {
+        regNumber: row[regNoKey],
+        subjectMarks,
+        totalMarks,
+        percentage: parseFloat(percentage.toFixed(2))
+      };
     });
 
-    if (!regNoKey) {
-      setError("File must contain student ID column");
-      setParsedData([]);
-      return;
-    }
-
-    const missingSubjects = subjectDetails.filter(subject => !subjectColumns[subject.name]);
-    if (missingSubjects.length > 0) {
-      setError(`Missing columns for: ${missingSubjects.map(s => s.name).join(', ')}`);
-      setParsedData([]);
-      return;
-    }
-
-    try {
-      const processed = data.map(row => {
-        const subjectMarks = {};
-        let totalMarks = 0;
-        
-        subjectDetails.forEach(subject => {
-          const key = subjectColumns[subject.name];
-          const marks = parseFloat(row[key]) || 0;
-          subjectMarks[subject.name] = marks;
-          totalMarks += marks;
-        });
-
-        const totalPossible = subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0);
-        const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
-
-        return {
-          regNumber: row[regNoKey],
-          subjectMarks,
-          totalMarks,
-          percentage: parseFloat(percentage.toFixed(2))
-        };
-      });
-
-      setParsedData(processed);
-      
-      const invalidRegNumbers = {};
-      processed.forEach((row, index) => {
-        if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
-          invalidRegNumbers[index] = row.regNumber;
-        }
-      });
-      setEditableRegNumbers(invalidRegNumbers);
-      
-      setError("");
-    } catch (err) {
-      setError("Error processing theory test data");
-      console.error("Processing error:", err);
-      setParsedData([]);
-    }
-  };
+    setParsedData(processed);
+    
+    const invalidRegNumbers = {};
+    processed.forEach((row, index) => {
+      if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
+        invalidRegNumbers[index] = row.regNumber;
+      }
+    });
+    setEditableRegNumbers(invalidRegNumbers);
+    
+    setError("");
+  } catch (err) {
+    setError("Error processing theory test data");
+    console.error("Processing error:", err);
+    setParsedData([]);
+  }
+};
 
   const handleRegNumberChange = (index, value) => {
     setEditableRegNumbers(prev => ({

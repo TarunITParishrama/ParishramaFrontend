@@ -3,15 +3,13 @@ import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import { Bar, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
-import { FaFileAlt, FaBook, FaCalendarTimes, FaChartBar, FaChartPie, FaCalendarAlt } from 'react-icons/fa';
+import { FaFileAlt, FaBook, FaCalendarTimes, FaChartBar, FaChartPie } from 'react-icons/fa';
 import { MdNotes, MdScore } from 'react-icons/md';
 import { RiFileInfoFill } from 'react-icons/ri';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 
 // Register ChartJS components
 ChartJS.register(
@@ -35,8 +33,6 @@ const SingleReport = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [patterns, setPatterns] = useState([]);
   const [theoryPatterns, setTheoryPatterns] = useState([]);
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -183,7 +179,7 @@ const SingleReport = () => {
           borderWidth: 1,
         },
         {
-          label: 'Total Marks',
+          label: 'Max Marks',
           data: fullMarks,
           backgroundColor: 'rgba(255, 99, 132, 0.6)',
           borderColor: 'rgba(255, 99, 132, 1)',
@@ -229,44 +225,6 @@ const SingleReport = () => {
     });
   };
 
-  // Filter and sort reports by date
-  const filterAndSortReports = (reports) => {
-    return reports
-      .filter(report => {
-        if (!startDate || !endDate) return true;
-        const reportDate = new Date(report.date);
-        return reportDate >= startDate && reportDate <= endDate;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  };
-
-  // Filter and sort theory tests by date
-  const filterAndSortTheoryTests = (tests) => {
-    return tests
-      .filter(test => {
-        if (!startDate || !endDate) return true;
-        const testDate = new Date(test.date);
-        return testDate >= startDate && testDate <= endDate;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  };
-
-  // Filter and sort unattended tests by date
-  const filterAndSortUnattendedTests = (tests) => {
-    return tests
-      .filter(test => {
-        if (!startDate || !endDate) return true;
-        const testDate = new Date(test.date);
-        return testDate >= startDate && testDate <= endDate;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  };
-
-  const clearDateFilters = () => {
-    setStartDate(null);
-    setEndDate(null);
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -303,51 +261,6 @@ const SingleReport = () => {
         </div>
       </div>
 
-      {/* Date Range Picker */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
-          <div className="flex items-center">
-            <FaCalendarAlt className="text-gray-500 mr-2" />
-            <span className="font-medium text-gray-700 mr-2">Filter by Date:</span>
-          </div>
-          <div className="flex flex-col md:flex-row md:space-x-4 space-y-2 md:space-y-0">
-            <div className="flex items-center">
-              <label className="mr-2 text-sm text-gray-600">From:</label>
-              <DatePicker
-                selected={startDate}
-                onChange={(date) => setStartDate(date)}
-                selectsStart
-                startDate={startDate}
-                endDate={endDate}
-                placeholderText="Start Date"
-                className="border rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex items-center">
-              <label className="mr-2 text-sm text-gray-600">To:</label>
-              <DatePicker
-                selected={endDate}
-                onChange={(date) => setEndDate(date)}
-                selectsEnd
-                startDate={startDate}
-                endDate={endDate}
-                minDate={startDate}
-                placeholderText="End Date"
-                className="border rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            {(startDate || endDate) && (
-              <button
-                onClick={clearDateFilters}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Main Content with Tabs */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <Tabs selectedIndex={activeTab} onSelect={(index) => setActiveTab(index)}>
@@ -374,39 +287,36 @@ const SingleReport = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filterAndSortReports(detailedReports.flatMap(reportGroup => 
-                    reportGroup.reports.map(report => ({
-                      ...report,
-                      date: reportGroup.date || report.date // Use group date if available
-                    }))
-                  )).map((report, idx) => (
-                    <div 
-                      key={idx}
-                      onClick={() => handleReportClick(report)}
-                      className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-white"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-sm text-gray-500">
-                          {formatDate(report.date)}
-                        </span>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                          Competitive
-                        </span>
-                      </div>
-                      <h4 className="font-medium text-gray-800 mb-2">{report.testName}</h4>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center">
-                          <MdScore className="text-yellow-500 mr-1" />
-                          <span className="font-medium">
-                            {report.overallTotalMarks} / {report.fullMarks}
+                  {detailedReports.map((reportGroup, groupIndex) => (
+                    reportGroup.reports.map((report, idx) => (
+                      <div 
+                        key={`${groupIndex}-${idx}`}
+                        onClick={() => handleReportClick(report)}
+                        className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-white"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-sm text-gray-500">
+                            {formatDate(report.date)}
+                          </span>
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                            Competitive
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600">
-                          {report.percentage}%
+                        <h4 className="font-medium text-gray-800 mb-2">{report.testName}</h4>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center">
+                            <MdScore className="text-yellow-500 mr-1" />
+                            <span className="font-medium">
+                              {report.overallTotalMarks} / {report.fullMarks}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {report.percentage}%
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )))
+                  )}
                 </div>
               )}
             </div>
@@ -423,7 +333,7 @@ const SingleReport = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filterAndSortTheoryTests(theoryTests).map((test, index) => (
+                  {theoryTests.map((test, index) => (
                     <div 
                       key={index}
                       onClick={() => handleReportClick(test)}
@@ -467,7 +377,7 @@ const SingleReport = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filterAndSortUnattendedTests(unattendedTests).map((test, index) => (
+                  {unattendedTests.map((test, index) => (
                     <div 
                       key={index} 
                       className={`border rounded-lg p-4 bg-gradient-to-br ${
@@ -559,6 +469,14 @@ const SingleReport = () => {
                     </div>
                     <div className="text-xs text-gray-500">Percentage</div>
                   </div>
+                  {selectedReport.testType !== 'theory' && (
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {selectedReport.rank ? `#${selectedReport.rank}` : 'N/A'}
+                      </div>
+                      <div className="text-xs text-gray-500">Rank</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -632,6 +550,7 @@ const SingleReport = () => {
                           </>
                         )}
                         <th className="py-2 px-4 border text-center">Marks Obtained</th>
+                        <th className="py-2 px-4 border text-center">Max Marks</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -646,10 +565,13 @@ const SingleReport = () => {
                               <td className="py-2 px-4 border text-center">{subject.totalQuestionsUnattempted || 'N/A'}</td>
                             </>
                           )}
+                          <td className="py-2 px-4 border text-center font-medium">
+                            {subject.obtainedMarks || subject.marks}
+                          </td>
                           <td className="py-2 px-4 border text-center">
                             {subject.totalMarks || 
-                             (selectedReport.subjectDetails?.find(s => s.name === (subject.subjectName || subject.name))?.maxMarks || 
-                             'N/A')}
+                             (selectedReport.subjectDetails?.find(s => s.name === (subject.subjectName || subject.name))?.maxMarks) || 
+                             'N/A'}
                           </td>
                         </tr>
                       ))}
