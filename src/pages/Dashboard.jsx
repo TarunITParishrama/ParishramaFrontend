@@ -19,7 +19,7 @@ import powerIcon from "../assets/power.png";
 
 const getDashboardItems = (role) => {
   const commonItems = [
-    { name: "Out Pass", icon: <img src={gatepassicon} alt="" className="w-10 h-12 inline"/>, path: "gatepass", show: true},
+    { name: "E-Pass", icon: <img src={gatepassicon} alt="" className="w-10 h-12 inline"/>, path: "gatepass", show: true},
     { name: "Attendance", icon: <img src={attendanceicon} alt="" className="w-12 h-10 inline"/>, path: "attendance", show: true },
   ];
 
@@ -30,17 +30,17 @@ const getDashboardItems = (role) => {
     { name: "Questions", icon: "🔢", path: "questions", show: ["super_admin","admin", "staff"].includes(role)},
     { name: "Feedback", icon: <img src={feedbackicon} alt="" className="w-12 h-10 inline"/>, path: "feedback", show: ["super_admin"].includes(role) },
     { name: "Leaderboard", icon: <img src={leaderboardIcon} alt="" className="w-10 h-12 inline"/>, path: "leaderboard", show: ["super_admin","admin", "staff"].includes(role) },
-    { name: "Noticeboard", icon: <img src={noticeboardIcon} alt="" className="w-10 h-12 inline"/>, path: "noticeboard", show: ["super_admin","admin"].includes(role) },
+    { name: "Noticeboard", icon: <img src={noticeboardIcon} alt="" className="w-10 h-12 inline"/>, path: "noticeboard", show: ["super_admin","admin", "parent"].includes(role) },
     { name: "Campus", icon:<img src={batchesIcon} alt="" className="w-10 h-10 inline"/> , path: "batches", show: ["super_admin", "admin", "IT"].includes(role) },
     { name: "Tests", icon: <img src={testsIcon} alt="" className="w-12 h-12 inline"/>, path: "tests", show: ["super_admin", "admin"].includes(role) },
     { name: "Reports", icon: <img src={reportIcon} alt="" className="w-12 h-10 inline"/>, path: "reports", show: ["super_admin", "admin"].includes(role) },
     { name: "SMS", icon: <img src={smsIcon} alt="" className="w-12 h-10 inline"/>, path: "sms", show: ["super_admin", "admin"].includes(role) },
     { name: "Hospital", icon: <img src={hospitalIcon} alt="" className="w-12 h-10 inline"/>, path: "hospital", show: ["super_admin", "admin"].includes(role) },
-    { name: "Hostel", icon: <img src={hostelIcon} alt="" className="w-12 h-10 inline"/>, path: "hostel", show: ["super_admin", "admin", "counseller"].includes(role) },
+    { name: "Hostel", icon: <img src={hostelIcon} alt="" className="w-12 h-10 inline"/>, path: "hostel", show: ["super_admin", "admin"].includes(role) },
     { name: "Solutions", icon: "🔠", path: "marks", show:  ["super_admin", "admin"].includes(role) },
-    { name: "Admission", icon: <img src={admissionicon} alt="" className="w-12 h-10 inline"/>, path: "admission", show: ["super_admin", "admin", "counseller"].includes(role) },
+    { name: "Admission", icon: <img src={admissionicon} alt="" className="w-12 h-10 inline"/>, path: "admission", show: ["super_admin", "admin"].includes(role) },
     { name: "Settings", icon: <img src={settingsIcon} alt="" className="w-12 h-12 inline"/>, path: "settings", show: ["super_admin"].includes(role) },
-    { name: "Staffs", icon: <img src={staffIcon} alt="" className="w-10 h-12 inline"/>, path: "staffs", show: ["super_admin", "admin", "counseller"].includes(role) }
+    { name: "Staffs", icon: <img src={staffIcon} alt="" className="w-10 h-12 inline"/>, path: "staffs", show: ["super_admin", "admin"].includes(role) }
   ];
 
   // Add Logout item only for parent role
