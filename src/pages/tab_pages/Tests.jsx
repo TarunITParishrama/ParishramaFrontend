@@ -1,28 +1,24 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import NewReport from "../stud/NewReport";
-import DatePicker from "react-datepicker";
-import { FaCalendarAlt } from "react-icons/fa";
+//import DatePicker from "react-datepicker";
+//import { FaCalendarAlt } from "react-icons/fa";
 import "react-datepicker/dist/react-datepicker.css";
 import MCQTests from "../reports_related/MCQTests";
 import TheoryTests from "../reports_related/TheoryTests";
-import DownloadAllTestsButton from "../../download/DownloadAllTestsButton";
 
 export default function Tests() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [showNewReport, setShowNewReport] = useState(false);
   const [streamFilter, setStreamFilter] = useState("LongTerm");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTest, setSelectedTest] = useState(null);
-  const [tests, setTests] = useState([]);
   const [students, setStudents] = useState({});
   const [campuses, setCampuses] = useState([]);
   const [sections, setSections] = useState([]);
   const [selectedCampus, setSelectedCampus] = useState("All");
   const [selectedSection, setSelectedSection] = useState("All");
-  const [dateRange, setDateRange] = useState([null, null]);
-  const [startDate, endDate] = dateRange;
+  //const [dateRange, setDateRange] = useState([null, null]);
+  //const [startDate, endDate] = dateRange;
   const [activeTab, setActiveTab] = useState("MCQ");
 
   useEffect(() => {
@@ -31,16 +27,10 @@ export default function Tests() {
         setLoading(true);
         const token = localStorage.getItem('token');
         
-        const [testsRes, studentsRes] = await Promise.all([
-          fetch(`${process.env.REACT_APP_URL}/api/getallreports`, { 
-            headers: { Authorization: `Bearer ${token}` } 
-          }),
-          fetch(`${process.env.REACT_APP_URL}/api/getstudents`, { 
-            headers: { Authorization: `Bearer ${token}` } 
-          })
-        ]);
+        const studentsRes = await fetch(`${process.env.REACT_APP_URL}/api/getstudents`, { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
 
-        const testsData = await testsRes.json();
         const studentsData = await studentsRes.json();
 
         // Process students data
@@ -66,23 +56,6 @@ export default function Tests() {
           setSections(["All", ...Array.from(sectionSet).sort()]);
         }
 
-        // Process tests data
-        if (testsData.status === "success" && Array.isArray(testsData.data)) {
-          const uniqueTests = Array.from(new Set(
-            testsData.data.map(item => item.testName)
-          ).map(testName => {
-            const test = testsData.data.find(item => item.testName === testName);
-            return test ? { 
-              testName, 
-              date: test.date, 
-              stream: test.stream,
-              type: test.type || "MCQ"
-            } : null;
-          })).filter(Boolean);
-          
-          setTests(uniqueTests.sort((a, b) => new Date(b.date) - new Date(a.date)));
-        }
-
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -92,15 +65,6 @@ export default function Tests() {
 
     fetchData();
   }, [streamFilter]);
-
-  const filteredTestNames = useMemo(() => {
-    return tests
-      .filter(test => 
-        test.type === (activeTab === "MCQ" ? "MCQ" : "Theory") && 
-        test.stream === streamFilter
-      )
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [tests, activeTab, streamFilter]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -127,65 +91,28 @@ export default function Tests() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="col-span-1 md:col-span-2">
-            <input
-              type="text"
-              placeholder="Search by Test Name"
-              className="w-full p-2 border rounded"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          {activeTab === "MCQ" && (
-            <div className="flex items-center gap-4">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio"
-                  name="stream"
-                  checked={streamFilter === "LongTerm"}
-                  onChange={() => {
-                    setStreamFilter("LongTerm");
-                    setSelectedTest(null);
-                  }}
-                />
-                <span className="ml-2">LongTerm</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  className="form-radio"
-                  name="stream"
-                  checked={streamFilter === "PUC"}
-                  onChange={() => {
-                    setStreamFilter("PUC");
-                    setSelectedTest(null);
-                  }}
-                />
-                <span className="ml-2">PUC</span>
-              </label>
-            </div>
-          )}
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
-            <select
-              className="w-full p-2 border rounded"
-              value={selectedTest ? selectedTest.testName : ""}
-              onChange={(e) => {
-                const test = filteredTestNames.find(t => t.testName === e.target.value);
-                setSelectedTest(test || null);
-              }}
-            >
-              <option value="">All Tests</option>
-              {filteredTestNames.map((test, index) => (
-                <option key={index} value={test.testName}>
-                  {test.testName} ({new Date(test.date).toLocaleDateString()})
-                </option>
-              ))}
-            </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="flex items-center gap-4 col-span-1 md:col-span-2">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                className="form-radio"
+                name="stream"
+                checked={streamFilter === "LongTerm"}
+                onChange={() => setStreamFilter("LongTerm")}
+              />
+              <span className="ml-2">LongTerm</span>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                className="form-radio"
+                name="stream"
+                checked={streamFilter === "PUC"}
+                onChange={() => setStreamFilter("PUC")}
+              />
+              <span className="ml-2">PUC</span>
+            </label>
           </div>
           
           <div>
@@ -213,28 +140,9 @@ export default function Tests() {
               ))}
             </select>
           </div>
-          
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-            <div className="relative">
-              <DatePicker
-                selectsRange={true}
-                startDate={startDate}
-                endDate={endDate}
-                onChange={(update) => setDateRange(update)}
-                isClearable={true}
-                placeholderText="Select date range"
-                className="w-full p-2 border rounded pl-10"
-                dateFormat="MMM d, yyyy"
-              />
-              <FaCalendarAlt className="absolute left-3 top-3 text-gray-400" />
-            </div>
-          </div>
         </div>
 
         <div className="flex justify-end mb-4 gap-2">
-          <DownloadAllTestsButton streamFilter={streamFilter} students={students} />
-          
           <button
             onClick={() => setShowNewReport(true)}
             className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white py-2 px-4 rounded-lg shadow hover:shadow-lg"
@@ -252,21 +160,15 @@ export default function Tests() {
             {activeTab === "MCQ" ? (
               <MCQTests
                 streamFilter={streamFilter}
-                searchTerm={searchTerm}
-                selectedTest={selectedTest}
                 selectedCampus={selectedCampus}
                 selectedSection={selectedSection}
-                dateRange={dateRange}
                 students={students}
               />
             ) : (
               <TheoryTests
                 streamFilter={streamFilter}
-                searchTerm={searchTerm}
-                selectedTest={selectedTest}
                 selectedCampus={selectedCampus}
                 selectedSection={selectedSection}
-                dateRange={dateRange}
                 students={students}
               />
             )}

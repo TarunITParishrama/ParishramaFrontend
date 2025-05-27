@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import crown from "../../assets/crown.png";
@@ -16,6 +15,21 @@ export default function ReportsByMonth() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [groupedReports, setGroupedReports] = useState({});
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const observer = useRef();
+
+// const styles = {
+//   dangerZone: {
+//     backgroundColor: '#fff5f5',
+//     borderLeft: '4px solid #f56565'
+//   },
+//   dangerText: {
+//     color: '#e53e3e',
+//     fontWeight: '600'
+//   }
+// };
 
   useEffect(() => {
     if (!testName || !date || !stream) {
@@ -39,19 +53,23 @@ export default function ReportsByMonth() {
             testName,
             stream,
             dateFrom: monthStart.toISOString(),
-            dateTo: monthEnd.toISOString()
+            dateTo: monthEnd.toISOString(),
+            page: 1,
+            limit: 100
           }
         });
-        
+
+        const { data, totalPages: tp } = reportsResponse.data;
+        setPage(1);
+        setTotalPages(tp);
+
         if (!reportsResponse.data?.data || reportsResponse.data.data.length === 0) {
           throw new Error(`No reports found for ${testName}, ${stream}, ${dateObj.toLocaleDateString()}`);
         }
         
         const groupedByDate = {};
-        const sortedReports = [...reportsResponse.data.data].sort((a, b) => {
-          return a.regNumber.localeCompare(b.regNumber);
-        });
-        
+        const sortedReports = [...data].sort((a, b) => a.regNumber.localeCompare(b.regNumber));
+
         sortedReports.forEach(report => {
           if (!report.date) return;
           
@@ -83,8 +101,9 @@ export default function ReportsByMonth() {
           throw new Error("No solutions found for this test");
         }
         
+        // Sort solutions numerically by question number
         const sortedSolutions = solutionsResponse.data.data.sort((a, b) => 
-          a.questionNumber - b.questionNumber
+          parseInt(a.questionNumber) - parseInt(b.questionNumber)
         );
         setSolutions(sortedSolutions);
         
@@ -100,6 +119,73 @@ export default function ReportsByMonth() {
 
     fetchData();
   }, [testName, date, stream, navigate]);
+  
+  const loadMoreReports = async () => {
+    if (page >= totalPages || isFetchingMore) return;
+
+    try {
+      setIsFetchingMore(true);
+      const nextPage = page + 1;
+
+      const moreResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getreportbank`, {
+        params: {
+          testName,
+          stream,
+          dateFrom: new Date(date).toISOString(),
+          dateTo: new Date(date).toISOString(),
+          page: nextPage,
+          limit: 100
+        }
+      });
+
+      const newReports = moreResponse.data.data;
+      const updatedGrouped = { ...groupedReports };
+
+      newReports.forEach((report) => {
+        const reportDate = new Date(report.date).toISOString().split('T')[0];
+
+        if (!updatedGrouped[reportDate]) {
+          updatedGrouped[reportDate] = {
+            reports: [],
+            regNumbers: new Set(),
+            marksType: report.marksType
+          };
+        }
+
+        if (!updatedGrouped[reportDate].regNumbers.has(report.regNumber)) {
+          updatedGrouped[reportDate].regNumbers.add(report.regNumber);
+          updatedGrouped[reportDate].reports.push(report);
+        }
+      });
+
+      setGroupedReports(updatedGrouped);
+      setPage(nextPage);
+    } catch (err) {
+      console.error("Error loading more reports:", err);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  };
+
+  const lastItemRef = useCallback(
+    (node) => {
+      if (isFetchingMore) return;
+      if (observer.current) observer.current.disconnect();
+
+      let timeout;
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && page < totalPages) {
+          if (timeout) clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            loadMoreReports();
+          }, 100);
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [isFetchingMore, page, totalPages]
+  );
 
   const renderRankBadge = (rank) => {
     if (rank === 1) {
@@ -127,222 +213,306 @@ export default function ReportsByMonth() {
     return null;
   };
   
-  const calculateResults = (reports, solutions, marksType) => {
-    const results = [];
-    const totalQuestions = solutions.length;
-    const isCompetitive = marksType.includes("+4");
-    const correctMark = isCompetitive ? 4 : 1;
-    const wrongMark = isCompetitive ? -1 : 0;
+const calculateResults = (reports, solutions, marksType) => {
+  const results = [];
+  const isCompetitive = marksType.includes("+4");
+  const correctMark = isCompetitive ? 4 : 1;
+  const wrongMark = isCompetitive ? -1 : 0;
+
+  // Create solution map with all question numbers
+  const solutionMap = {};
+  solutions.forEach(solution => {
+    solutionMap[solution.questionNumber] = {
+      correctOptions: solution.correctOptions || [],
+      isGrace: solution.isGrace || false
+    };
+  });
+
+  // Get all unique question numbers from solutions
+  const allQuestionNumbers = [...new Set(solutions.map(s => s.questionNumber))].sort((a, b) => a - b);
+  const totalQuestions = allQuestionNumbers.length;
+
+  reports.forEach(report => {
+    let corrAns = 0;
+    let wroAns = 0;
+    let totalMarks = 0;
+    let unattemptedCount = 0;
     
-    // Create a map for quick solution lookup by question number
-    const solutionMap = {};
-    solutions.forEach(solution => {
-      solutionMap[solution.questionNumber] = {
-        correctOptions: solution.correctOptions || [],
-        isGrace: solution.isGrace || false
+    const questionAnswers = report.questionAnswers instanceof Map 
+      ? Object.fromEntries(report.questionAnswers)
+      : report.questionAnswers || {};
+
+    // Process each question in order
+    allQuestionNumbers.forEach(qNum => {
+      const markedOption = questionAnswers[qNum]?.trim();
+      const solution = solutionMap[qNum];
+
+      if (!markedOption || markedOption === '') {
+        unattemptedCount++;
+        return;
+      }
+
+      if (solution) {
+        if (solution.isGrace) {
+          corrAns++;
+          totalMarks += correctMark;
+        } else if (solution.correctOptions.includes(markedOption)) {
+          corrAns++;
+          totalMarks += correctMark;
+        } else {
+          wroAns++;
+          totalMarks += wrongMark;
+        }
+      } else {
+        unattemptedCount++;
+      }
+    });
+
+    const accuracy = corrAns + wroAns > 0 
+      ? (corrAns / (corrAns + wroAns)) * 100 
+      : 0;
+    
+    results.push({
+      regNumber: report.regNumber,
+      correctAnswers: corrAns,
+      wrongAnswers: wroAns,
+      unattempted: unattemptedCount + (totalQuestions - Object.keys(questionAnswers).length),
+      totalMarks,
+      accuracy: parseFloat(accuracy.toFixed(2)),
+      percentage: totalQuestions > 0 
+        ? parseFloat(((totalMarks / (totalQuestions * correctMark)) * 100).toFixed(2))
+        : 0,
+      percentile: 0, // Will be calculated later
+      rank: 0,       // Will be calculated later
+      date: report.date
+    });
+  });
+
+  // Calculate ranks and percentiles
+  if (results.length > 0) {
+    // First find top score
+    const topScore = Math.max(...results.map(r => r.totalMarks));
+    
+    // Calculate score-based percentile
+    results.forEach(result => {
+      result.percentile = topScore > 0
+        ? parseFloat(((result.totalMarks / topScore) * 100).toFixed(2))
+        : 0;
+    });
+
+    // Then calculate ranks
+    const sortedByMarks = [...results].sort((a, b) => b.totalMarks - a.totalMarks);
+    let currentRank = 1;
+    
+    for (let i = 0; i < sortedByMarks.length; i++) {
+      if (i > 0 && sortedByMarks[i].totalMarks < sortedByMarks[i-1].totalMarks) {
+        currentRank = i + 1;
+      }
+      sortedByMarks[i].rank = currentRank;
+    }
+
+    // Update ranks in original results
+    const rankMap = {};
+    sortedByMarks.forEach(res => {
+      rankMap[res.regNumber] = res.rank;
+    });
+    
+    results.forEach(res => {
+      res.rank = rankMap[res.regNumber] || 0;
+    });
+  }
+  
+  return results;
+};
+
+const handleSubmit = async (date, marksType) => {
+  try {
+    setSubmitLoading(true);
+    setSubmitSuccess(false);
+    setError("");
+
+    const dateReports = groupedReports[date]?.reports || [];
+    if (dateReports.length === 0) {
+      throw new Error(`No reports found for ${date}`);
+    }
+
+    // 1. Get the pattern and subject details
+    const token = localStorage.getItem('token');
+    const patternResponse = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getpatterns`,
+      {
+        params: { type: stream.includes("PUC") ? "PUC" : "LongTerm" },
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    if (!patternResponse.data?.data) {
+      throw new Error("No patterns data received from server");
+    }
+
+    const baseTestName = testName.replace(/\s*-\s*\d+/g, '').trim();
+    const pattern = patternResponse.data.data.find(p => 
+      p.testName && p.testName.trim() === baseTestName
+    );
+
+    if (!pattern) {
+      throw new Error(`No pattern found for test ${testName}`);
+    }
+
+    // 2. Get subject details and define question distribution
+    const subjectIds = pattern.subjects.map(sub => 
+      typeof sub.subject === 'string' ? sub.subject : sub.subject._id
+    );
+    
+    const subjectsResponse = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getsubjects`,
+      { 
+        params: { ids: subjectIds.join(',') },
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    // Create subject map with ID as key and name as value
+    const subjectMap = {};
+    subjectsResponse.data.data.forEach(subject => {
+      subjectMap[subject._id] = subject.subjectName;
+    });
+
+    // Define question distribution per subject (10 questions each in order)
+    const questionsPerSubject = 10;
+    const subjectQuestionMap = {};
+    pattern.subjects.forEach((subject, index) => {
+      const subjectId = typeof subject.subject === 'string' 
+        ? subject.subject 
+        : subject.subject._id;
+      const startQ = index * questionsPerSubject + 1;
+      const endQ = (index + 1) * questionsPerSubject;
+      
+      subjectQuestionMap[subjectId] = {
+        name: subjectMap[subjectId],
+        questionNumbers: Array.from({length: questionsPerSubject}, (_, i) => startQ + i),
+        totalMarks: subject.totalMarks || 0
       };
     });
-  
-    reports.forEach(report => {
-      let corrAns = 0;
-      let wroAns = 0;
-      let totalMarks = 0;
-      let unattemptedCount = 0;
-      
+
+    // 3. Calculate overall results
+    const dateResults = calculateResults(dateReports, solutions, marksType);
+
+    // 4. Calculate subject-wise results for each student
+    const resultsWithSubjects = dateReports.map((report, index) => {
+      const studentResult = dateResults[index];
       const questionAnswers = report.questionAnswers instanceof Map 
         ? Object.fromEntries(report.questionAnswers) 
         : report.questionAnswers || {};
-      
-      // Check each question
-      for (let qNum in questionAnswers) {
-        const markedOption = questionAnswers[qNum]?.trim();
-        const solution = solutionMap[qNum];
-        
-        if (!markedOption || markedOption === '') {
-          unattemptedCount++;
-          continue;
-        }
-  
-        if (solution) {
-          if (solution.isGrace) {
-            // Grace mark - any marked option is correct
-            corrAns++;
-            totalMarks += correctMark;
-          } else if (solution.correctOptions.includes(markedOption)) {
-            // Correct option marked
-            corrAns++;
-            totalMarks += correctMark;
-          } else {
-            // Wrong option marked
-            wroAns++;
-            totalMarks += wrongMark;
-          }
-        } else {
-          // No solution found for this question - treat as unattempted
-          unattemptedCount++;
-        }
-      }
-      
-      // Handle questions not answered at all (unattempted)
-      const answeredQuestions = Object.keys(questionAnswers).filter(q => questionAnswers[q]?.trim() !== '');
-      unattemptedCount += totalQuestions - answeredQuestions.length;
-      
-      const accuracy = corrAns + wroAns > 0 
-        ? (corrAns / (corrAns + wroAns)) * 100 
-        : 0;
-      
-      const maxPossibleMarks = totalQuestions * correctMark;
-      const percentage = maxPossibleMarks > 0 
-        ? (totalMarks / maxPossibleMarks) * 100 
-        : 0;
-      
-      results.push({
-        regNumber: report.regNumber,
-        correctAnswers: corrAns,
-        wrongAnswers: wroAns,
-        unattempted: unattemptedCount,
-        totalMarks,
-        accuracy,
-        percentage,
-        percentile: 0,
-        date: report.date,
-        rank: 0
-      });
-    });
-  
-    // Calculate ranks and percentiles
-    if (results.length > 0) {
-      const sortedByMarks = [...results].sort((a, b) => b.totalMarks - a.totalMarks);
-      let currentRank = 1;
-      
-      for (let i = 0; i < sortedByMarks.length; i++) {
-        if (i > 0 && sortedByMarks[i].totalMarks < sortedByMarks[i-1].totalMarks) {
-          currentRank = i + 1;
-        }
-        sortedByMarks[i].rank = currentRank;
-      }
-      
-      const totalStudents = sortedByMarks.length;
-      sortedByMarks.forEach(result => {
-        result.percentile = ((totalStudents - result.rank) / totalStudents) * 100;
-      });
-      
-      const percentileMap = {};
-      const rankMap = {};
-      sortedByMarks.forEach(res => {
-        percentileMap[res.regNumber] = res.percentile;
-        rankMap[res.regNumber] = res.rank;
-      });
-      
-      results.forEach(res => {
-        res.percentile = percentileMap[res.regNumber] || 0;
-        res.rank = rankMap[res.regNumber] || 0;
-      });
-    }
-    
-    return results;
-  };
 
-  const handleSubmit = async (date, marksType) => {
-    try {
-      setSubmitLoading(true);
-      setSubmitSuccess(false);
-      setError("");
-  
-      const dateReports = groupedReports[date]?.reports || [];
-      if (dateReports.length === 0) {
-        throw new Error(`No reports found for ${date}`);
-      }
-      
-      const dateResults = calculateResults(dateReports, solutions, marksType);
-      const token = localStorage.getItem('token');
-      // First check for existing reports
-      const checkResponse = await axios.post(`${process.env.REACT_APP_URL}/api/checkexistingreports`,
-        {
-        reports: dateReports.map(report => ({
-          regNumber: report.regNumber,
-          testName: report.testName || testName,
-          stream: report.stream || stream,
-          date: report.date
-        }))
-      },
-    {
-      headers:{
-        Authorization: `Bearer ${token}`
-      }
-    }
-    );
-  
-      const { existingCount } = checkResponse.data;
-  
-      // Show confirmation only if updates will occur
-      if (existingCount > 0) {
-        const confirm = window.confirm(
-          `This will update ${existingCount} existing reports and create ${dateReports.length - existingCount} new ones. Continue?`
-        );
-        if (!confirm) {
-          setSubmitLoading(false);
-          return;
-        }
-      }
-  
-      // Prepare payload
-      const reportsPayload = dateReports.map((report, index) => {
-        const studentResult = dateResults[index];
-        
-        const questionAnswers = report.questionAnswers instanceof Map 
-          ? Object.fromEntries(report.questionAnswers) 
-          : report.questionAnswers || {};
-  
-        const safeNumber = (value) => typeof value === 'number' ? value.toString() : value;
-  
-        return {
-          regNumber: report.regNumber || '',
-          stream: report.stream || stream,
-          testName: report.testName || testName,
-          date: report.date || new Date().toISOString(),
-          marksType: report.marksType || marksType,
-          totalQuestions: safeNumber(solutions.length),
-          correctAnswers: safeNumber(studentResult.correctAnswers),
-          wrongAnswers: safeNumber(studentResult.wrongAnswers),
-          unattempted: safeNumber(studentResult.unattempted),
-          accuracy: safeNumber(studentResult.accuracy.toFixed(2)),
-          percentage: safeNumber(studentResult.percentage.toFixed(2)),
-          percentile: safeNumber(studentResult.percentile.toFixed(2)),
-          totalMarks: safeNumber(studentResult.totalMarks),
-          responses: solutions.map(solution => ({
-            questionNumber: safeNumber(solution.questionNumber),
-            markedOption: questionAnswers[solution.questionNumber] || null,
-            correctOptions: solution.correctOptions,
-            isGrace: solution.isGrace || false,
-            isCorrect: solution.isGrace || solution.correctOptions.includes(questionAnswers[solution.questionNumber] || '')
-          }))
+      const subjectResults = {};
+      let totalScored = 0;
+      let totalPossible = 0;
+
+      // Process each subject
+      Object.entries(subjectQuestionMap).forEach(([subjectId, subjectData]) => {
+        let subjectScored = 0;
+        let subjectPossible = 0;
+
+        // Process each question for this subject
+        subjectData.questionNumbers.forEach(qNum => {
+          const qNumStr = qNum.toString();
+          const markedOption = questionAnswers[qNumStr]?.trim();
+          const solution = solutions.find(s => s.questionNumber.toString() === qNumStr);
+
+          if (!solution) return;
+
+          const isCorrect = solution.isGrace || 
+                          (solution.correctOptions.includes(markedOption));
+          
+          if (marksType.includes("+4")) {
+            subjectPossible += 4;
+            subjectScored += isCorrect ? 4 : (markedOption ? -1 : 0);
+          } else {
+            subjectPossible += 1;
+            subjectScored += isCorrect ? 1 : 0;
+          }
+        });
+
+        subjectResults[subjectData.name] = {
+          scored: subjectScored,
+          marks: subjectData.totalMarks,
+          percentage: subjectData.totalMarks > 0
+            ? parseFloat(((subjectScored / subjectData.totalMarks) * 100).toFixed(2))
+            : 0
         };
+
+        totalScored += subjectScored;
+        totalPossible += subjectData.totalMarks;
       });
-  
-      // Submit bulk operation
-      const response = await axios.post(
-        `${process.env.REACT_APP_URL}/api/bulkstudentreports`,
-        { reports: reportsPayload }
+
+      return {
+        regNumber: report.regNumber || '',
+        testName: report.testName || testName,
+        date: report.date || new Date().toISOString(),
+        stream: report.stream || stream,
+        patternId: pattern._id,
+        subjects: subjectResults,
+        totalMarks: studentResult.totalMarks,
+        percentile: studentResult.percentile,
+        percentage: studentResult.percentage,
+        rank: studentResult.rank,
+        marksType: report.marksType || marksType
+      };
+    });
+
+    // 5. Check for existing results
+    const checkResponse = await axios.post(
+      `${process.env.REACT_APP_URL}/api/checkexistingtestresults`,
+      { results: resultsWithSubjects },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    const { existingCount } = checkResponse.data.data;
+
+    // 6. Show confirmation if updates will occur
+    if (existingCount > 0) {
+      const confirm = window.confirm(
+        `This will update ${existingCount} existing test results and create ${
+          resultsWithSubjects.length - existingCount
+        } new ones. Continue?`
       );
-  
-      setSubmitSuccess(true);
-      toast.success(
-        `Successfully processed ${reportsPayload.length} reports (${response.data.data.created} created, ${response.data.data.updated} updated)`,
-        { position: "top-right", autoClose: 5000 }
-      );
-      
-    } catch (err) {
-      console.error('Submission error:', err);
-      setError(err.response?.data?.message || err.message);
-      toast.error(
-        err.response?.data?.message || err.message || "Failed to submit reports",
-        { position: "top-right", autoClose: 5000 }
-      );
-    } finally {
-      setSubmitLoading(false);
+      if (!confirm) {
+        setSubmitLoading(false);
+        return;
+      }
     }
-  };
+
+    // 7. Submit results
+    const createResponse = await axios.post(
+      `${process.env.REACT_APP_URL}/api/createtestresults`,
+      { results: resultsWithSubjects },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    setSubmitSuccess(true);
+    toast.success(
+      `Successfully processed ${
+        resultsWithSubjects.length
+      } test results (${
+        createResponse.data.data.created
+      } created, ${
+        createResponse.data.data.updated
+      } updated)`,
+      { position: "top-right", autoClose: 5000 }
+    );
+
+  } catch (err) {
+    console.error('Submission error:', err);
+    setError(err.response?.data?.message || err.message);
+    toast.error(
+      err.response?.data?.message || err.message || "Failed to submit results",
+      { position: "top-right", autoClose: 5000 }
+    );
+  } finally {
+    setSubmitLoading(false);
+  }
+};
 
   const downloadCSV = (date, reports, marksType) => {
     const dateResults = calculateResults(reports, solutions, marksType);
@@ -391,7 +561,7 @@ export default function ReportsByMonth() {
   };
 
   const renderDateTables = () => {
-    return Object.entries(groupedReports).map(([date, { reports, marksType }]) => {
+    return Object.entries(groupedReports).map(([date, { reports, marksType }], index) => {
       const dateResults = calculateResults(reports, solutions, marksType);
       const formattedDate = new Date(date).toLocaleDateString('en-US', {
         weekday: 'long',
@@ -401,8 +571,11 @@ export default function ReportsByMonth() {
       });
 
       return (
-        <div key={date} className="mb-8">
-          <div className="flex justify-between items-center mb-2">
+<div
+    key={date}
+    ref={index === Object.keys(groupedReports).length - 1 ? lastItemRef : null}
+    className="mb-8"
+  >          <div className="flex justify-between items-center mb-2">
             <h2 className="text-xl font-bold">{formattedDate}</h2>
             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
               Marking Scheme: {marksType}
@@ -427,11 +600,17 @@ export default function ReportsByMonth() {
               {dateResults.map((result, index) => {
                 const attempted = result.correctAnswers + result.wrongAnswers;
                 const totalQuestions = solutions.length;
+                const isDangerZone = result.percentile < 50;
                 
                 return (
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {result.regNumber} {renderRankBadge(result.rank)}
+                      {isDangerZone &&(
+                        <span className="ml-2 bg-red-800 text-white text-xs font-semibold px-2.5 py-0.5 rounded">
+                          Needs Attention
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {attempted}/{totalQuestions}
@@ -452,7 +631,7 @@ export default function ReportsByMonth() {
                       {result.percentage.toFixed(2)}%
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-black font-semibold">
-                      {result.percentile.toFixed(2)}%
+                      {result.percentile}%
                     </td>
                   </tr>
                 );
@@ -555,9 +734,17 @@ export default function ReportsByMonth() {
 
         {Object.keys(groupedReports).length > 0 ? (
           renderDateTables()
+          
         ) : (
           <p>No test data available for this month.</p>
         )}
+        {isFetchingMore && (
+  <div className="text-center py-4 text-blue-600 font-semibold animate-pulse">
+    Loading more reports...
+  </div>
+)}
+
+
       </div>
     </div>
   );

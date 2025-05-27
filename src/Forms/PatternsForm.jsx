@@ -30,17 +30,9 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
               const marksPerQuestion = markingScheme === 'NEET' ? 4 : 1;
               return { ...sub, totalMarks: sub.totalQuestions * marksPerQuestion };
             }
-            // LongTerm - 4 marks per question
-            return { ...sub, totalMarks: sub.totalQuestions * 4 };
+            return sub; // For custom test names, keep user-entered values
           }),
-          totalMarks: values.subjects.reduce((sum, sub) => {
-            if (isPTT) return sum + 25;
-            if (isPCT) {
-              const marksPerQuestion = markingScheme === 'NEET' ? 4 : 1;
-              return sum + (sub.totalQuestions * marksPerQuestion);
-            }
-            return sum + (sub.totalQuestions * 4);
-          }, 0)
+          totalMarks: values.subjects.reduce((sum, sub) => sum + sub.totalMarks, 0)
         };
 
         const token = localStorage.getItem('token');
@@ -57,6 +49,14 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
       }
     }
   });
+
+  // Check if current test name is a custom one (not PTT or PCT)
+  const isCustomTestName = () => {
+    const upperTestName = formik.values.testName.toUpperCase();
+    return formik.values.type === 'PUC' && 
+           upperTestName !== 'PTT' && 
+           upperTestName !== 'PCT';
+  };
 
   // Fetch subjects
   useEffect(() => {
@@ -79,24 +79,27 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
     const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
     const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
     
-    const updatedSubjects = formik.values.subjects.map(sub => {
-      if (isPTT) {
-        return { ...sub, totalQuestions: 0, totalMarks: 25 };
-      }
-      if (isPCT) {
-        const marksPerQuestion = markingScheme === 'NEET' ? 4 : 1;
-        return { ...sub, totalMarks: sub.totalQuestions * marksPerQuestion };
-      }
-      // LongTerm
-      return { ...sub, totalMarks: sub.totalQuestions * 4 };
-    });
-    
-    formik.setFieldValue('subjects', updatedSubjects);
+    // Only auto-update marks for PTT/PCT, not custom test names
+    if (isPTT || isPCT) {
+      const updatedSubjects = formik.values.subjects.map(sub => {
+        if (isPTT) {
+          return { ...sub, totalQuestions: 0, totalMarks: 25 };
+        }
+        if (isPCT) {
+          const marksPerQuestion = markingScheme === 'NEET' ? 4 : 1;
+          return { ...sub, totalMarks: sub.totalQuestions * marksPerQuestion };
+        }
+        return sub;
+      });
+      
+      formik.setFieldValue('subjects', updatedSubjects);
+    }
   }, [formik.values.type, formik.values.testName, markingScheme]);
 
   const addSubject = () => {
     const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
     const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isCustom = isCustomTestName();
     
     formik.setFieldValue('subjects', [
       ...formik.values.subjects,
@@ -104,7 +107,8 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
         subject: '', 
         totalQuestions: isPTT ? 0 : 1,
         totalMarks: isPTT ? 25 : 
-                  (isPCT ? (markingScheme === 'NEET' ? 4 : 1) : 4)
+                  (isPCT ? (markingScheme === 'NEET' ? 4 : 1) : 
+                  (isCustom ? 1 : 4)) // Default to 1 for custom tests, 4 otherwise
       }
     ]);
   };
@@ -119,22 +123,29 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
     const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
     const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
     
-    let marks = questions;
-    if (isPTT) {
-      marks = 25;
-    } else if (isPCT) {
-      marks = questions * (markingScheme === 'NEET' ? 4 : 1);
-    } else {
-      // LongTerm
-      marks = questions * 4;
-    }
-    
     formik.setFieldValue(`subjects[${index}].totalQuestions`, questions);
-    formik.setFieldValue(`subjects[${index}].totalMarks`, marks);
+    
+    // Only auto-update marks for PTT/PCT
+    if (isPTT) {
+      formik.setFieldValue(`subjects[${index}].totalMarks`, 25);
+    } else if (isPCT) {
+      const marks = questions * (markingScheme === 'NEET' ? 4 : 1);
+      formik.setFieldValue(`subjects[${index}].totalMarks`, marks);
+    }
+    // For custom test names, don't auto-update marks
+  };
+
+  const handleMarksChange = (index, value) => {
+    // Only allow manual marks change for custom test names
+    if (isCustomTestName()) {
+      const marks = parseInt(value) || 0;
+      formik.setFieldValue(`subjects[${index}].totalMarks`, marks);
+    }
   };
 
   const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
   const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+  const isCustom = isCustomTestName();
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
@@ -198,7 +209,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
           </div>
         )}
 
-        <div className="overflow-x-auto">
+<div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white">
               <tr>
@@ -244,8 +255,12 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                     <input
                       type="number"
                       value={subject.totalMarks}
-                      readOnly
-                      className="w-full p-2 border rounded bg-gray-100"
+                      onChange={(e) => handleMarksChange(index, e.target.value)}
+                      className={`w-full p-2 border rounded ${
+                        !isCustom ? 'bg-gray-100' : ''
+                      }`}
+                      readOnly={!isCustom}
+                      min="0"
                     />
                   </td>
                   <td className="p-3">

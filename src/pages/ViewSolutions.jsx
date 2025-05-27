@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -13,6 +13,12 @@ export default function ViewSolutions() {
   const [testNames, setTestNames] = useState([]);
   const [solutions, setSolutions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef();
+
 
   // Fetch test names when stream changes
   useEffect(() => {
@@ -38,39 +44,88 @@ export default function ViewSolutions() {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setSolutions([]);
+  const handleSearch = async () => {
+  try {
+    setIsLoading(true);
+    const queryParams = new URLSearchParams({
+      stream: filters.stream,
+      questionType: filters.questionType,
+      testName: filters.testName,
+      date: filters.date,
+      page: 1,
+      limit: 50
+    });
 
-    try {
-      toast.info("Searching for solutions...");
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getsolutionbank?${queryParams}`
+    );
 
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsolutionbank?${params.toString()}`);
-      console.log("API Response:", response.data); // Add this line
-      
-      const sortedSolutions = response.data.data.sort((a, b) => a.questionNumber - b.questionNumber);
-      
-      if (sortedSolutions.length === 0) {
-        toast.info("No solutions found matching your criteria");
-      } else {
-        toast.success(`Found ${sortedSolutions.length} solutions`);
+    const sorted = response.data.data
+      .filter(item => item.solutionRef.testName === filters.testName)
+      .sort((a, b) => a.questionNumber - b.questionNumber);
+
+    setSolutions(sorted);
+    setPage(1);
+    setTotalPages(response.data.totalPages);
+    setHasMore(response.data.page < response.data.totalPages);
+  } catch (error) {
+    console.error("Error loading solutions:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+  const loadMore = async () => {
+  if (!hasMore || isLoading) return;
+
+  const nextPage = page + 1;
+
+  try {
+    setIsLoading(true);
+    const queryParams = new URLSearchParams({
+      stream: filters.stream,
+      questionType: filters.questionType,
+      testName: filters.testName,
+      date: filters.date,
+      page: nextPage,
+      limit: 50
+    });
+
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getsolutionbank?${queryParams}`
+    );
+
+    const newData = response.data.data
+      .filter(item => item.solutionRef.testName === filters.testName)
+      .sort((a, b) => a.questionNumber - b.questionNumber);
+
+setSolutions(prev =>
+  [...prev, ...newData].sort((a, b) => a.questionNumber - b.questionNumber)
+);
+    setPage(nextPage);
+    setHasMore(nextPage < response.data.totalPages);
+  } catch (error) {
+    console.error("Error loading more solutions:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+const lastSolutionElementRef = useCallback(
+  (node) => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMore();
       }
-      
-      setSolutions(sortedSolutions);
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || "Failed to fetch solutions. Please try again.";
-      toast.error(errorMsg);
-      console.error("Solutions fetch error:", err);
-    } finally {
-      setLoading(false);
-      toast.dismiss();
-    }
-  };
+    });
+
+    if (node) observer.current.observe(node);
+  },
+  [isLoading, hasMore]
+);
+
+
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -80,7 +135,10 @@ export default function ViewSolutions() {
       </div>
 
       <div className="max-w-4xl bg-white shadow-md rounded-lg mx-auto mt-6 p-6">
-        <form onSubmit={handleSearch} className="space-y-4 mb-6">
+        <form onSubmit={(e) => {
+    e.preventDefault();
+    handleSearch();
+  }} className="space-y-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Stream Dropdown */}
             <div>
@@ -163,10 +221,13 @@ export default function ViewSolutions() {
         <div className="space-y-6">
           <h2 className="text-lg font-semibold">Solutions Found: {solutions.length}</h2>
           <div className="space-y-4">
-            {solutions.map((solution, index) => (
-              <div 
-                key={index} 
-                className={`border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow relative 
+            {solutions.map((solution, index) => {
+  const isLast = index === solutions.length - 1;
+  return (
+    <div
+      key={index}
+      ref={isLast ? lastSolutionElementRef : null}
+      className={`border border-gray-200 rounded-lg p-4hover:shadow-md transition-shadow relative 
                   overflow-hidden ${solution.isGrace ? 'bg-gray-100/60' : 'bg-white'}`}
               >
                 {/* Grace Stamp Overlay */}
@@ -249,9 +310,17 @@ export default function ViewSolutions() {
                   </div>
                 </div>
               </div>
-            ))}
+  );
+              
+})}
+{isLoading && (
+    <div className="text-center py-4 text-blue-600 font-semibold animate-pulse">
+      Loading more solutions...
+    </div>
+  )}
           </div>
         </div>
+        
       ) : (
         !loading && <p className="text-center text-gray-500 py-8">No solutions found. Apply filters to search.</p>
       )}

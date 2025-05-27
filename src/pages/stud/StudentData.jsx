@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useCallback } from "react";
 
 export default function StudentData() {
   const [students, setStudents] = useState([]);
@@ -15,9 +16,14 @@ export default function StudentData() {
   const [searchQueries, setSearchQueries] = useState({});
   const [sectionFilters, setSectionFilters] = useState({});
   const [sortOrders, setSortOrders] = useState({});
+  const [page, setPage] = useState(1);
+const [totalPages, setTotalPages] = useState(1);
+const [isLoadingMore, setIsLoadingMore] = useState(false);
+const observer = useRef();
+
 
   useEffect(() => {
-    fetchStudents();
+    fetchStudents(1);
   }, []);
 
   useEffect(() => {
@@ -31,22 +37,48 @@ export default function StudentData() {
     }
   }, [students, searchQueries, sectionFilters, sortOrders]);
 
-  const fetchStudents = async () => {
-    try {
-      toast.info("Loading student data...");
-      const token = localStorage.getItem("token");
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getstudents`, {
+  const fetchStudents = async (pageNum = 1) => {
+  try {
+    if (pageNum === 1) setLoading(true);
+    else setIsLoadingMore(true);
+
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getstudents?page=${pageNum}&limit=100`,
+      {
         headers: { Authorization: `Bearer ${token}` }
-      });
-      setStudents(response.data.data);
-      toast.dismiss();
-    } catch (error) {
-      toast.error("Failed to load student data. Please try again later.");
-      console.error("Student fetch error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      }
+    );
+
+    const newData = response.data.data || [];
+    setStudents(prev => pageNum === 1 ? newData : [...prev, ...newData]);
+    setPage(pageNum);
+    setTotalPages(response.data.totalPages);
+    toast.dismiss();
+  } catch (error) {
+    toast.error("Failed to load student data.");
+    console.error("Student fetch error:", error);
+  } finally {
+    if (pageNum === 1) setLoading(false);
+    else setIsLoadingMore(false);
+  }
+};
+
+  const lastCampusRef = useCallback(
+  (node) => {
+    if (isLoadingMore) return;
+    if (observer.current) observer.current.disconnect();
+
+    observer.current = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && page < totalPages) {
+        fetchStudents(page + 1);
+      }
+    });
+
+    if (node) observer.current.observe(node);
+  },
+  [isLoadingMore, page, totalPages]
+);
 
   const groupStudentsByCampus = () => {
     const grouped = {};
@@ -190,9 +222,13 @@ export default function StudentData() {
               Collapse All
             </button>
           </div>
+{Object.entries(groupStudentsByCampus()).map(([campus, campusStudents], index, array) => (
+  <div
+    key={campus}
+    ref={index === array.length - 1 ? lastCampusRef : null}
+    className="border rounded-lg overflow-hidden"
+  >
 
-          {Object.entries(groupStudentsByCampus()).map(([campus, campusStudents]) => (
-            <div key={campus} className="border rounded-lg overflow-hidden">
               <button
                 className="w-full p-4 bg-gray-50 hover:bg-gray-100 flex justify-between items-center"
                 onClick={() => toggleCampusExpand(campus)}
@@ -370,6 +406,12 @@ export default function StudentData() {
           )}
         </div>
       )}
+      {isLoadingMore && (
+  <div className="text-center py-4 text-orange-600 font-semibold animate-pulse">
+    Loading more students...
+  </div>
+)}
+
     </div>
   );
 }
