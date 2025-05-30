@@ -5,7 +5,7 @@ import { Bar, Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { FaFileAlt, FaBook, FaChartBar, FaChartPie, FaCalendarAlt, FaRegStickyNote } from 'react-icons/fa';
 import { MdNotes, MdScore, MdEmojiEvents } from 'react-icons/md';
-import { RiFileInfoFill } from 'react-icons/ri';
+//import { RiFileInfoFill } from 'react-icons/ri';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -266,13 +266,13 @@ const SingleReport = () => {
     });
   };
 
-  const getPerformanceLevel = (percentile) => {
-    if (!percentile) return null;
-    if (percentile < 50) return "Needs foundational revision";
-    if (percentile < 75) return "May secure BDS / AYUSH / Pvt Mgmt seat";
-    if (percentile < 90) return "Pvt MBBS / Reserved Govt possibility";
-    return "High performance zone - Strong Govt MBBS chance";
-  };
+  // const getPerformanceLevel = (percentile) => {
+  //   if (!percentile) return null;
+  //   if (percentile < 50) return "Needs foundational revision";
+  //   if (percentile < 75) return "May secure BDS / AYUSH / Pvt Mgmt seat";
+  //   if (percentile < 90) return "Pvt MBBS / Reserved Govt possibility";
+  //   return "High performance zone - Strong Govt MBBS chance";
+  // };
 
   const getPerformanceColor = (percentile) => {
     if (!percentile) return "gray";
@@ -598,6 +598,7 @@ const SingleReport = () => {
               </div>
 
               {/* Performance Summary */}
+              {/* 
               <div className={`bg-gradient-to-r ${
                 selectedReport.isPresent === false 
                   ? 'from-gray-100 to-gray-200 border-l-4 border-gray-400' 
@@ -611,7 +612,9 @@ const SingleReport = () => {
               } p-4 mb-6 rounded-r-lg shadow-sm`}>
                 <div className="flex justify-between items-center">
                   <div>
+                  */}
                     <h3 className="font-medium text-gray-800">Performance Summary</h3>
+                    {/* 
                     <p className="text-sm text-gray-600">
                       {selectedReport.isPresent === false 
                         ? "You were absent for this test" 
@@ -624,6 +627,7 @@ const SingleReport = () => {
                       : getPerformanceColor(selectedReport.percentile)
                   }-500 text-2xl`} />
                 </div>
+                */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-blue-600">
@@ -655,6 +659,7 @@ const SingleReport = () => {
               </div>
 
               {/* Counseling Eligibility Table */}
+              {/* 
               {selectedReport.testType !== 'theory' && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-lg">
                   <div className="flex items-center mb-2">
@@ -709,6 +714,7 @@ const SingleReport = () => {
                   </div>
                 </div>
               )}
+                */}
 
               {/* Charts Section */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -794,7 +800,7 @@ const SingleReport = () => {
                       <tr className="bg-gray-100">
                         <th className="py-3 px-4 border text-left">Subject</th>
                         <th className="py-3 px-4 border text-center">Marks Obtained</th>
-                        <th className="py-3 px-4 border text-center">Total Marks</th>
+                        <th className="py-3 px-4 border text-center">Max Marks</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -815,7 +821,7 @@ const SingleReport = () => {
               </div>
             </div>
           </div>
-        </div>
+        // </div>
       )}
     </div>
   );

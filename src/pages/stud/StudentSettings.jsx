@@ -27,6 +27,7 @@ export default function StudentSettings() {
     section: "",
     fatherName: "",
     fatherMobile: "",
+    emailId: "", // Added emailId field
     address: "",
     contact: "",
     medicalIssues: "No",
@@ -91,6 +92,7 @@ export default function StudentSettings() {
         ...studentData,
         campus: studentData.campus._id,
         dateOfBirth: formattedDOB,
+        emailId: studentData.emailId || "", // Set emailId from student data
         medicalIssues: studentData.medicalIssues || "No",
         medicalDetails: studentData.medicalDetails || ""
       });
@@ -269,6 +271,7 @@ export default function StudentSettings() {
         section: "",
         fatherName: "",
         fatherMobile: "",
+        emailId: "", // Reset emailId
         address: "",
         contact: "",
         medicalIssues: "No",
@@ -286,32 +289,32 @@ export default function StudentSettings() {
   };
 
   const deleteImage = async () => {
-  if (!formData.regNumber || !formData.studentImageURL) {
-    toast.error("No image to delete");
-    return;
-  }
+    if (!formData.regNumber || !formData.studentImageURL) {
+      toast.error("No image to delete");
+      return;
+    }
 
-  try {
-    setLoading(true);
-    const token = localStorage.getItem("token");
-    await axios.delete(
-      `${process.env.REACT_APP_URL}/api/delete-student-image/${formData.regNumber}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    
-    // Update local state
-    setFormData(prev => ({ ...prev, studentImageURL: "" }));
-    setPreviewUrl("");
-    setSelectedFile(null);
-    toast.success("Image deleted successfully");
-  } catch (error) {
-    const errorMsg = error.response?.data?.message || "Failed to delete image";
-    toast.error(errorMsg);
-    console.error("Delete image error:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      await axios.delete(
+        `${process.env.REACT_APP_URL}/api/delete-student-image/${formData.regNumber}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Update local state
+      setFormData(prev => ({ ...prev, studentImageURL: "" }));
+      setPreviewUrl("");
+      setSelectedFile(null);
+      toast.success("Image deleted successfully");
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || "Failed to delete image";
+      toast.error(errorMsg);
+      console.error("Delete image error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -384,30 +387,30 @@ export default function StudentSettings() {
           {activeTab === "edit" ? (
             <form onSubmit={handleUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Campus Selection */}
-<div className="md:col-span-2">
-  <label className="block text-gray-700 mb-1 font-medium">Campus *</label>
-  <div className="flex items-center gap-2 mb-1">
-    {student?.campus?.name && (
-      <span className="text-sm text-gray-600">
-        Current: {student.campus.name} ({student.campus.type})
-      </span>
-    )}
-  </div>
-  <select
-    name="campus"
-    value={formData.campus}
-    onChange={handleChange}
-    className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-    required
-  >
-    <option value="">Select Campus</option>
-    {campuses.map(campus => (
-      <option key={campus._id} value={campus._id}>
-        {campus.name} ({campus.type})
-      </option>
-    ))}
-  </select>
-</div>
+              <div className="md:col-span-2">
+                <label className="block text-gray-700 mb-1 font-medium">Campus *</label>
+                <div className="flex items-center gap-2 mb-1">
+                  {student?.campus?.name && (
+                    <span className="text-sm text-gray-600">
+                      Current: {student.campus.name} ({student.campus.type})
+                    </span>
+                  )}
+                </div>
+                <select
+                  name="campus"
+                  value={formData.campus}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  required
+                >
+                  <option value="">Select Campus</option>
+                  {campuses.map(campus => (
+                    <option key={campus._id} value={campus._id}>
+                      {campus.name} ({campus.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Admission Year */}
               <div>
@@ -523,27 +526,26 @@ export default function StudentSettings() {
                 )}
 
                 {/* Preview Uploaded Image */}
-                {/* Preview Uploaded Image */}
-{previewUrl && (
-  <div className="mt-3 relative">
-    <img
-      src={previewUrl}
-      alt="Preview"
-      className="h-24 w-24 object-cover rounded-md border border-gray-300"
-    />
-    <button
-      type="button"
-      onClick={deleteImage}
-      disabled={loading}
-      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50"
-      title="Delete image"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    </button>
-  </div>
-)}
+                {previewUrl && (
+                  <div className="mt-3 relative">
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="h-24 w-24 object-cover rounded-md border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={deleteImage}
+                      disabled={loading}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50"
+                      title="Delete image"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Gender */}
@@ -636,6 +638,19 @@ export default function StudentSettings() {
                 />
               </div>
 
+              {/* Email ID */}
+              <div>
+                <label className="block text-gray-700 mb-1 font-medium">Parent's Email</label>
+                <input
+                  type="email"
+                  name="emailId"
+                  value={formData.emailId}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+                  placeholder="parent@example.com"
+                />
+              </div>
+
               {/* Address */}
               <div className="md:col-span-2">
                 <label className="block text-gray-700 mb-1 font-medium">Address *</label>
@@ -719,23 +734,26 @@ export default function StudentSettings() {
             </form>
           ) : (
             <div className="bg-red-50 p-6 rounded-lg">
-  <h3 className="text-xl font-medium text-red-800 mb-4">Delete Student</h3>
-  <div className="mb-4 flex items-center space-x-4">
-    {previewUrl && (
-      <img
-        src={previewUrl}
-        alt={student.studentName}
-        className="h-16 w-16 object-cover rounded-full border-2 border-red-300"
-      />
-    )}
-    <div>
-      <p className="font-medium text-lg">{student.studentName}</p>
-      <p className="text-gray-600">Registration: {student.regNumber}</p>
-      {student.campus?.name && (
-        <p className="text-gray-600">Campus: {student.campus.name}</p>
-      )}
-    </div>
-  </div>
+              <h3 className="text-xl font-medium text-red-800 mb-4">Delete Student</h3>
+              <div className="mb-4 flex items-center space-x-4">
+                {previewUrl && (
+                  <img
+                    src={previewUrl}
+                    alt={student.studentName}
+                    className="h-16 w-16 object-cover rounded-full border-2 border-red-300"
+                  />
+                )}
+                <div>
+                  <p className="font-medium text-lg">{student.studentName}</p>
+                  <p className="text-gray-600">Registration: {student.regNumber}</p>
+                  {student.campus?.name && (
+                    <p className="text-gray-600">Campus: {student.campus.name}</p>
+                  )}
+                  {student.emailId && (
+                    <p className="text-gray-600">Email: {student.emailId}</p>
+                  )}
+                </div>
+              </div>
               <p className="mb-6 text-red-700">
                 Warning: This action cannot be undone. All data associated with this student will be permanently removed.
               </p>

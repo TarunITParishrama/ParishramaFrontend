@@ -216,6 +216,30 @@ export default function AdmissionForm() {
     }
   };
 
+  const downloadTemplate = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/download-student-template`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      }
+    );
+    
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'student_template.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (error) {
+    toast.error("Failed to download template");
+    console.error("Template download error:", error);
+  }
+};
+
   const processBulkUpload = async () => {
     if (!bulkFile) {
       toast.error("Please select a file to upload");
@@ -252,11 +276,12 @@ export default function AdmissionForm() {
               regNumber: row.regNumber || row.RegNumber || row.reg_number || row.registration_number || "",
               studentName: row.studentName || row.StudentName || row.student_name || row.name || "",
               dateOfBirth: row.dateOfBirth || row.DateOfBirth || row.dob || row.DOB || "",
-              studentImageURL: null, // No image for bulk uploads
+              studentImageURL: null,
               allotmentType: row.allotmentType || row.AllotmentType || row.allotment_type || "11th PUC",
               section: row.section || row.Section || "",
               fatherName: row.parentName || row.FatherName || row.father_name || row.Parent || "",
               fatherMobile: row.parentMobile || row.FatherMobile || row.father_mobile || row.father_contact || "",
+              emailId: row.emailId || row.EmailId || row.email || row.Email || '',
               address: row.address || row.Address || "",
               contact: row.contact || row.Contact || row.alternate_contact || "",
               medicalIssues: row.medicalIssues || row.MedicalIssues || row.medical_issues || "No",
@@ -502,6 +527,16 @@ export default function AdmissionForm() {
           <p className="text-sm text-gray-600 mb-4">
             Upload a CSV or Excel file with student data. The file should contain columns matching the form fields.
           </p>
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center gap-2"
+          >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download Template
+          </button>
           
           <div
             className={`border-2 border-dashed rounded-lg p-6 text-center mb-4 ${
@@ -523,6 +558,7 @@ export default function AdmissionForm() {
                   accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                   onChange={handleBulkFileChange}
                   className="hidden"
+                  key={bulkFile ? 'file-selected' : 'no-file'}
                 />
               </label>
             </div>
@@ -571,17 +607,36 @@ export default function AdmissionForm() {
               )}
             </button>
             {failedStudents.length > 0 && (
-              <div className="mt-6 bg-white p-4 border border-red-300 rounded-md">
-                <h4 className="text-red-600 text-lg font-semibold mb-3">Failed to Upload Students</h4>
-                <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
-                  {failedStudents.map((student, idx) => (
-                  <li key={idx}>
-                  {student.regNumber || 'Unknown RegNumber'} - {student.reason || 'Unknown Error'}
-                  </li>
-                ))}
-                </ul>
-              </div>
-            )}
+  <div className="mt-4 max-h-60 overflow-y-auto border border-red-200 rounded-lg">
+    <div className="bg-red-50 p-3 sticky top-0 border-b border-red-200 flex justify-between items-center">
+      <h4 className="text-red-600 font-semibold">
+        Failed to upload {failedStudents.length} students
+      </h4>
+      <button 
+        onClick={() => setFailedStudents([])} 
+        className="text-red-500 hover:text-red-700 text-sm"
+      >
+        Clear
+      </button>
+    </div>
+    <div className="divide-y divide-red-100">
+      {failedStudents.map((student, idx) => (
+        <div key={idx} className="p-3 hover:bg-red-50">
+          <div className="font-medium text-red-700">
+            {student.regNumber || 'No Reg Number'} - {student.reason}
+          </div>
+          {student.details && student.details.length > 0 && (
+            <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
+              {student.details.map((detail, i) => (
+                <li key={i}>{detail}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
           </div>
         </div>
@@ -832,6 +887,19 @@ export default function AdmissionForm() {
           />
         </div>
 
+        {/*Email Id */}
+        <div>
+        <label className="block text-gray-700 mb-1 font-medium">Parent's Email</label>
+        <input
+          type="email"
+          name="emailId"
+          value={formData.emailId || ''}
+          onChange={handleChange}
+          className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+          placeholder="parent@example.com"
+        />
+        </div>  
+
         {/* Address */}
         <div className="md:col-span-2">
           <label className="block text-gray-700 mb-1 font-medium">Address *</label>
@@ -916,5 +984,3 @@ export default function AdmissionForm() {
     </div>
   );
 }
-
-          

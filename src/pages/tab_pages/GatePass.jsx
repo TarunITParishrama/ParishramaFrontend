@@ -37,6 +37,7 @@ export default function GatePass() {
   const [imageUploaded, setImageUploaded] = useState(false);
   const [gatePasses, setGatePasses] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [studentHasEmail, setStudentHasEmail] = useState(false);
 
   // Fetch student details when regNumber changes
   const fetchStudentDetails = async () => {
@@ -56,8 +57,20 @@ export default function GatePass() {
         parentName: student.parentName,
         parentMobile: student.parentMobile
       }));
+
+      // Check if student has email and set states accordingly
+      if (student.emailId && validateEmail(student.emailId)) {
+        setEmail(student.emailId);
+        setEmailValid(true);
+        setStudentHasEmail(true);
+      } else {
+        setEmail('');
+        setEmailValid(false);
+        setStudentHasEmail(false);
+      }
     } catch (error) {
       toast.error("Student not found");
+      setStudentHasEmail(false);
     }
   };
 
@@ -134,7 +147,6 @@ export default function GatePass() {
       const ext = file.name.split('.').pop();
       const token = localStorage.getItem('token');
       
-      // Updated URL to match backend route
       const response = await axios.get(
         `${process.env.REACT_APP_URL}/api/generate-gatepass-upload-url/${formData.studentRegNumber}/${ext}`,
         {
@@ -152,7 +164,7 @@ export default function GatePass() {
 
       setFormData(prev => ({ 
         ...prev, 
-        imageKey: response.data.key // Updated to match backend response
+        imageKey: response.data.key
       }));
       setImageUploaded(true);
       toast.success("Image uploaded successfully");
@@ -225,6 +237,7 @@ export default function GatePass() {
     setOtpSent(false);
     setOtpVerified(false);
     setImageUploaded(false);
+    setStudentHasEmail(false);
   };
 
   // Fetch gate passes for staff view
@@ -345,118 +358,258 @@ export default function GatePass() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto mt-6 p-2 sm:p-4">
         
-{activeTab === "generate" && (
-  <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
-    <h2 className="text-lg font-semibold mb-4">Generate E-Pass</h2>
+        {activeTab === "generate" && (
+          <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
+            <h2 className="text-lg font-semibold mb-4">Generate E-Pass</h2>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-      {/* Pass Type */}
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Pass Type</label>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setFormData({ ...formData, passType: 'check-out' })} className={`px-4 py-2 rounded-md ${formData.passType === 'check-out' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Check-Out Pass</button>
-          <button onClick={() => setFormData({ ...formData, passType: 'check-in' })} className={`px-4 py-2 rounded-md ${formData.passType === 'check-in' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>Check-In Pass</button>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+              {/* Pass Type */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pass Type</label>
+                <div className="flex flex-wrap gap-2">
+                  <button 
+                    onClick={() => setFormData({ ...formData, passType: 'check-out' })} 
+                    className={`px-4 py-2 rounded-md ${formData.passType === 'check-out' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                  >
+                    Check-Out Pass
+                  </button>
+                  <button 
+                    onClick={() => setFormData({ ...formData, passType: 'check-in' })} 
+                    className={`px-4 py-2 rounded-md ${formData.passType === 'check-in' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+                  >
+                    Check-In Pass
+                  </button>
+                </div>
+              </div>
 
-      {/* Student Reg Number & Fetch */}
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Student Registration Number</label>
-        <div className="flex flex-col md:flex-row gap-2">
-          <input type="text" value={formData.studentRegNumber} onChange={(e) => setFormData({ ...formData, studentRegNumber: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="Enter 6-digit reg number" maxLength="6" pattern="\d{6}" inputMode="numeric" />
-          <button onClick={fetchStudentDetails} disabled={!formData.studentRegNumber.match(/^\d{6}$/)} className="w-full md:w-auto bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400">Fetch</button>
-        </div>
-      </div>
+              {/* Student Reg Number & Fetch */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student Registration Number</label>
+                <div className="flex flex-col md:flex-row gap-2">
+                  <input 
+                    type="text" 
+                    value={formData.studentRegNumber} 
+                    onChange={(e) => setFormData({ ...formData, studentRegNumber: e.target.value })} 
+                    className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                    placeholder="Enter 6-digit reg number" 
+                    maxLength="6" 
+                    pattern="\d{6}" 
+                    inputMode="numeric" 
+                  />
+                  <button 
+                    onClick={fetchStudentDetails} 
+                    disabled={!formData.studentRegNumber.match(/^\d{6}$/)} 
+                    className="w-full md:w-auto bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+                  >
+                    Fetch
+                  </button>
+                </div>
+              </div>
 
-      {/* Student Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
-        <input type="text" value={formData.studentName} readOnly className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100" />
-      </div>
+              {/* Student Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student Name</label>
+                <input 
+                  type="text" 
+                  value={formData.studentName} 
+                  readOnly 
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100" 
+                />
+              </div>
 
-      {/* Parent Name */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Parent Name</label>
-        <input type="text" value={formData.parentName} readOnly className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100" />
-      </div>
+              {/* Parent Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Parent Name</label>
+                <input 
+                  type="text" 
+                  value={formData.parentName} 
+                  readOnly 
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100" 
+                />
+              </div>
 
-      {/* Parent Mobile */}
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Parent Mobile</label>
-        <input type="text" value={formData.parentMobile} readOnly className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100" />
-      </div>
+              {/* Parent Mobile */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Parent Mobile</label>
+                <input 
+                  type="text" 
+                  value={formData.parentMobile} 
+                  readOnly 
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-gray-100" 
+                />
+              </div>
 
-      {/* OTP Channel */}
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-1">Send OTP via</label>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setOtpChannel('sms')} className={`px-4 py-2 rounded-md w-full sm:w-auto ${otpChannel === 'sms' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>SMS</button>
-          <button onClick={() => setOtpChannel('whatsapp')} className={`px-4 py-2 rounded-md w-full sm:w-auto ${otpChannel === 'whatsapp' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>WhatsApp</button>
-          <button onClick={() => setOtpChannel('email')} className={`px-4 py-2 rounded-md w-full sm:w-auto ${otpChannel === 'email' ? 'bg-red-500 text-white' : 'bg-gray-200'}`}>Email</button>
-        </div>
-      </div>
+              {/* OTP Channel */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Send OTP via</label>
+                <div className="flex flex-wrap gap-2">
+                  {/* <button 
+      onClick={() => setOtpChannel('sms')}
+      disabled
+      className={`px-4 py-2 rounded-md w-full sm:w-auto cursor-not-allowed ${otpChannel === 'sms' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}
+    >
+      SMS
+    </button>
+                  <button 
+                    onClick={() => setOtpChannel('whatsapp')} 
+                    disabled
 
-      {otpChannel === 'email' && (
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-          <input type="email" value={email} onChange={handleEmailChange} className="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="Enter email address" />
-          {email && !emailValid && <p className="text-red-500 text-sm mt-1">Please enter a valid email address</p>}
-        </div>
-      )}
+                    className={`px-4 py-2 rounded-md w-full sm:w-auto cursor-not-allowed ${otpChannel === 'whatsapp' ? 'bg-green-500 text-white' : 'bg-gray-200'}`}
+                  >
+                    WhatsApp
+                  </button> */}
+                  <button 
+                    onClick={() => setOtpChannel('email')} 
+                    className={`px-4 py-2 rounded-md w-full sm:w-auto ${otpChannel === 'email' ? 'bg-red-500 text-white' : 'bg-gray-200'}`}
+                  >
+                    Email
+                  </button>
+                </div>
+              </div>
 
-      <div className="md:col-span-2">
-        <button onClick={handleSendOTP} disabled={(otpChannel !== 'email' && !formData.parentMobile) || (otpChannel === 'email' && (!email || !emailValid)) || otpSent || loading} className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400">
-          {loading ? 'Sending...' : otpSent ? 'OTP Sent' : `Send OTP via ${otpChannel.toUpperCase()}`}
-        </button>
-      </div>
+              {/* Email Input - Only shown when email channel is selected and student has no email */}
+              {otpChannel === 'email' && !studentHasEmail && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address*</label>
+                  <input 
+                    type="email" 
+                    value={email} 
+                    onChange={handleEmailChange} 
+                    className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                    placeholder="Enter email address" 
+                    required 
+                  />
+                  {email && !emailValid && (
+                    <p className="text-red-500 text-sm mt-1">Please enter a valid email address</p>
+                  )}
+                </div>
+              )}
 
-      {otpSent && !otpVerified && (
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Enter OTP</label>
-          <div className="flex flex-col md:flex-row gap-2">
-            <input type="text" value={formData.enteredOTP} onChange={(e) => setFormData({ ...formData, enteredOTP: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="Enter 6-digit OTP" maxLength="6" inputMode="numeric" />
-            <button onClick={verifyOTP} disabled={!formData.enteredOTP || formData.enteredOTP.length !== 6} className="w-full md:w-auto bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400">Verify</button>
+              {/* Display student's email if available */}
+              {otpChannel === 'email' && studentHasEmail && (
+                <div className="md:col-span-2">
+                  <div className="flex items-center gap-2 bg-blue-50 p-2 rounded-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-sm text-blue-700">{email}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="md:col-span-2">
+                <button 
+                  onClick={handleSendOTP} 
+                  disabled={
+                    (otpChannel !== 'email' && !formData.parentMobile) || 
+                    (otpChannel === 'email' && ((!studentHasEmail && (!email || !emailValid)) || (studentHasEmail && !emailValid))) || 
+                    otpSent || 
+                    (otpChannel === 'sms' || otpChannel === 'whatsapp') ||
+                    loading
+                  } 
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+                >
+                  {loading ? 'Sending...' : otpSent ? 'OTP Sent' : `Send OTP via ${otpChannel.toUpperCase()}`}
+                </button>
+              </div>
+
+              {otpSent && !otpVerified && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Enter OTP</label>
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <input 
+                      type="text" 
+                      value={formData.enteredOTP} 
+                      onChange={(e) => setFormData({ ...formData, enteredOTP: e.target.value })} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                      placeholder="Enter 6-digit OTP" 
+                      maxLength="6" 
+                      inputMode="numeric" 
+                    />
+                    <button 
+                      onClick={verifyOTP} 
+                      disabled={!formData.enteredOTP || formData.enteredOTP.length !== 6} 
+                      className="w-full md:w-auto bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+                    >
+                      Verify
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {otpVerified && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Escorter Name*</label>
+                    <input 
+                      type="text" 
+                      value={formData.escorterName} 
+                      onChange={(e) => setFormData({ ...formData, escorterName: e.target.value })} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                      required 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Escorter Mobile*</label>
+                    <input 
+                      type="tel" 
+                      value={formData.escorterMobile} 
+                      onChange={(e) => setFormData({ ...formData, escorterMobile: e.target.value })} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                      required 
+                      inputMode="tel" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Warden Name*</label>
+                    <input 
+                      type="text" 
+                      value={formData.wardenName} 
+                      onChange={(e) => setFormData({ ...formData, wardenName: e.target.value })} 
+                      className="w-full border border-gray-300 rounded-md px-3 py-2" 
+                      required 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Escorter Photo*</label>
+                    <input 
+                      type="file" 
+                      onChange={handleImageUpload} 
+                      className="w-full text-sm" 
+                      accept="image/*" 
+                      required 
+                      disabled={loading} 
+                    />
+                    {loading && <p className="text-sm text-gray-500 mt-1">Uploading image...</p>}
+                    {imageUploaded && !loading && <p className="text-sm text-green-500 mt-1">Image uploaded successfully</p>}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-col md:flex-row gap-2 md:justify-end">
+              <button 
+                onClick={resetForm} 
+                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+              >
+                Clear All
+              </button>
+              <button 
+                onClick={handleSubmit} 
+                disabled={!otpVerified || !imageUploaded || loading} 
+                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 disabled:bg-gray-400"
+              >
+                {loading ? 'Processing...' : formData.passType === 'check-out' ? 'Generate Pass' : 'Record Check-In'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {otpVerified && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Escorter Name*</label>
-            <input type="text" value={formData.escorterName} onChange={(e) => setFormData({ ...formData, escorterName: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2" required />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Escorter Mobile*</label>
-            <input type="tel" value={formData.escorterMobile} onChange={(e) => setFormData({ ...formData, escorterMobile: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2" required inputMode="tel" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Warden Name*</label>
-            <input type="text" value={formData.wardenName} onChange={(e) => setFormData({ ...formData, wardenName: e.target.value })} className="w-full border border-gray-300 rounded-md px-3 py-2" required />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Escorter Photo*</label>
-            <input type="file" onChange={handleImageUpload} className="w-full text-sm" accept="image/*" required disabled={loading} />
-            {loading && <p className="text-sm text-gray-500 mt-1">Uploading image...</p>}
-            {imageUploaded && !loading && <p className="text-sm text-green-500 mt-1">Image uploaded successfully</p>}
-          </div>
-        </>
-      )}
-    </div>
-
-    {/* Action Buttons */}
-    <div className="mt-6 flex flex-col md:flex-row gap-2 md:justify-end">
-      <button onClick={resetForm} className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">Clear All</button>
-      <button onClick={handleSubmit} disabled={!otpVerified || !imageUploaded || loading} className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 disabled:bg-gray-400">
-        {loading ? 'Processing...' : formData.passType === 'check-out' ? 'Generate Pass' : 'Record Check-In'}
-      </button>
-    </div>
-  </div>
-)}
-
+        {/* Rest of the tabs (viewall, active, parentview) remain unchanged */}
         {activeTab === "viewall" && (
           <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
             <h2 className="text-lg font-semibold mb-4">All E-Passes</h2>
@@ -601,7 +754,7 @@ export default function GatePass() {
 
         {activeTab === "parentview" && (
           <div className="bg-white shadow-md rounded-lg p-4 sm:p-6">
-            <h2 className="text-lg font-semibold mb-4">My Child's E - Passes</h2>
+            <h2 className="text-lg font-semibold mb-4">My Child's E-Passes</h2>
             {loading ? (
               <div className="flex justify-center items-center py-8">
                 <p>Loading...</p>

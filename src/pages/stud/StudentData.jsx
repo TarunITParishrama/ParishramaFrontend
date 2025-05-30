@@ -317,67 +317,80 @@ const observer = useRef();
                       <div className="overflow-x-auto shadow-sm rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Birth</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent's Name</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent's Mobile</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {campusStudents.map((student) => (
-                              <tr key={student._id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="flex items-center">
-                                    <div className="flex-shrink-0 h-14 w-14 rounded-full bg-gray-100 overflow-hidden border-2 border-gray-300">
-                                      {student.studentImageURL ? (
-                                        <img
-                                          src={student.studentImageURL}
-                                          alt={student.studentName}
-                                          className="h-14 w-14 object-cover rounded-full cursor-pointer"
-                                          onClick={() => {
-                                            setSelectedImage(student.studentImageURL);
-                                            setIsModalOpen(true);
-                                          }}
-                                          onError={(e) => {
-                                            e.target.onerror = null;
-                                            e.target.src = getInitialsAvatar(student.studentName);
-                                          }}
-                                        />
-                                      ) : (
-                                        <img
-                                          src={getInitialsAvatar(student.studentName)}
-                                          alt={student.studentName}
-                                          className="h-14 w-14 object-cover rounded-full"
-                                        />
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                  {student.regNumber}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {student.studentName}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {formatDate(student.dateOfBirth)}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {student.fatherName}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {student.fatherMobile}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {student.section || 'N/A'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
+  <tr>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Birth</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent's Name</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent's Mobile</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Section</th>
+  </tr>
+</thead>
+<tbody className="bg-white divide-y divide-gray-200">
+  {campusStudents.map((student) => (
+    <tr key={student._id} className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-14 w-14 rounded-full bg-gray-100 overflow-hidden border-2 border-gray-300">
+            {student.studentImageURL ? (
+              <img
+                src={student.studentImageURL}
+                alt={student.studentName}
+                className="h-14 w-14 object-cover rounded-full cursor-pointer"
+                onClick={() => {
+                  setSelectedImage(student.studentImageURL);
+                  setIsModalOpen(true);
+                }}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = getInitialsAvatar(student.studentName);
+                }}
+              />
+            ) : (
+              <img
+                src={getInitialsAvatar(student.studentName)}
+                alt={student.studentName}
+                className="h-14 w-14 object-cover rounded-full"
+              />
+            )}
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {student.regNumber}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {student.studentName}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(student.dateOfBirth)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {student.fatherName}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {student.fatherMobile}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+  {student.emailId ? (
+    <a 
+      href={`mailto:${student.emailId}`} 
+      className="text-blue-600 hover:underline"
+    >
+      {student.emailId}
+    </a>
+  ) : (
+    'N/A'
+  )}
+</td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {student.section || 'N/A'}
+      </td>
+    </tr>
+  ))}
+</tbody>
                         </table>
                       </div>
                     )}
