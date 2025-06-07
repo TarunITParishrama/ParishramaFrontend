@@ -58,6 +58,7 @@ function Login() {
     if (isPotentialParentLogin) {
       // Try parent login first
       try {
+        setMessage({text: "Server Down, kindly cooperate", type: "error"});
         // const formattedDob = password.includes("-") ? password : password.replace(/\//g, "-");
         // const response = await axios.post(`${process.env.REACT_APP_URL}/api/parent/login`, {
         //   regNumber: username,
