@@ -58,37 +58,37 @@ function Login() {
     if (isPotentialParentLogin) {
       // Try parent login first
       try {
-        const formattedDob = password.includes("-") ? password : password.replace(/\//g, "-");
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/parent/login`, {
-          regNumber: username,
-          dob: formattedDob
-        });
+        // const formattedDob = password.includes("-") ? password : password.replace(/\//g, "-");
+        // const response = await axios.post(`${process.env.REACT_APP_URL}/api/parent/login`, {
+        //   regNumber: username,
+        //   dob: formattedDob
+        // });
 
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userRole", "parent");
-        localStorage.setItem("loginType", "parent");
-        localStorage.setItem("regNumber", response.data.data.student.regNumber);
-        localStorage.setItem("studentData", JSON.stringify({
-          ...response.data.data, 
-          regNumber: response.data.data.student.regNumber
-        }));
+        // localStorage.setItem("token", response.data.token);
+        // localStorage.setItem("userRole", "parent");
+        // localStorage.setItem("loginType", "parent");
+        // localStorage.setItem("regNumber", response.data.data.student.regNumber);
+        // localStorage.setItem("studentData", JSON.stringify({
+        //   ...response.data.data, 
+        //   regNumber: response.data.data.student.regNumber
+        // }));
         
-        if (rememberMe) {
-          localStorage.setItem("rememberedRegNumber", username);
-        } else {
-          localStorage.removeItem("rememberedRegNumber");
-        }
+        // if (rememberMe) {
+        //   localStorage.setItem("rememberedRegNumber", username);
+        // } else {
+        //   localStorage.removeItem("rememberedRegNumber");
+        // }
         
-        setMessage({ text: "Login Successful!", type: "success" });
-        setTimeout(() => navigate("/home"), 1500);
-        return;
+        // setMessage({ text: "Login Successful!", type: "success" });
+        // setTimeout(() => navigate("/home"), 1500);
+        //return;
       } catch (parentError) {
         // If parent login fails, try staff login if username is 10 digits
         if (username.length === 10) {
           tryStaffLogin();
         } else {
           const errorMessage = parentError.response?.data?.message || "Invalid credentials";
-          setMessage({ text: errorMessage, type: "error" });
+          setMessage({ text: "Server Error", type: "error" });
         }
       }
     } else {
