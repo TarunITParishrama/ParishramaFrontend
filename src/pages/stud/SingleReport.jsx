@@ -12,7 +12,6 @@ import 'react-toastify/dist/ReactToastify.css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -32,30 +31,36 @@ const SingleReport = () => {
   const [groupedCompetitiveTests, setGroupedCompetitiveTests] = useState({});
   const [theoryTests, setTheoryTests] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [patterns, setPatterns] = useState([]);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [showTheoryTab, setShowTheoryTab] = useState(false);
 
-  // Helper function to extract base test name (e.g., "PDT" from "PDT-25")
   const getBaseTestName = (testName) => {
     if (!testName) return '';
     return testName.replace(/[^a-zA-Z]/g, '').toUpperCase();
   };
 
-  // Group tests by their base pattern name and sort them
-  const groupAndSortTests = (tests) => {
+  const groupTestsByPattern = (tests, patterns) => {
     const groups = {};
     
     tests.forEach(test => {
       const baseTestName = getBaseTestName(test.testName);
+      const pattern = patterns.find(p => 
+        getBaseTestName(p.testName) === baseTestName
+      );
+      
       if (!groups[baseTestName]) {
-        groups[baseTestName] = [];
+        groups[baseTestName] = {
+          pattern: pattern || null,
+          tests: []
+        };
       }
-      groups[baseTestName].push(test);
+      groups[baseTestName].tests.push(test);
     });
 
     Object.keys(groups).forEach(baseName => {
-      groups[baseName].sort((a, b) => new Date(b.date) - new Date(a.date));
+      groups[baseName].tests.sort((a, b) => new Date(b.date) - new Date(a.date));
     });
 
     return groups;
@@ -76,7 +81,6 @@ const SingleReport = () => {
         const parsedStudentData = JSON.parse(storedStudentData);
         setStudentData(parsedStudentData);
 
-        // Check if theory tab should be shown (for 11th/12th PUC students)
         const shouldShowTheoryTab = parsedStudentData.student?.stream?.includes('PUC');
         setShowTheoryTab(shouldShowTheoryTab);
 
@@ -87,7 +91,17 @@ const SingleReport = () => {
           return;
         }
 
-        // Fetch detailed reports (MCQ tests)
+        // Fetch patterns first for total marks
+        const patternsRes = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getpatterns`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (patternsRes.data.status === "success") {
+          setPatterns(patternsRes.data.data);
+        }
+
+        // Fetch detailed reports
         const reportsRes = await axios.get(
           `${process.env.REACT_APP_URL}/api/students/${parsedStudentData.regNumber}/reports`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -95,20 +109,27 @@ const SingleReport = () => {
         
         if (reportsRes.data.status === "success") {
           const reportsWithTotalMarks = reportsRes.data.data.flatMap(reportGroup => 
-            reportGroup.reports.map(report => ({
-              ...report,
-              date: reportGroup.date || report.date,
-              isPresent: report.isPresent !== false
-            }))
-            .filter(report => report.isPresent)
+            reportGroup.reports.map(report => {
+              const baseTestName = getBaseTestName(report.testName);
+              const pattern = patternsRes.data.data.find(p => 
+                getBaseTestName(p.testName) === baseTestName
+              );
+              
+              return {
+                ...report,
+                date: reportGroup.date || report.date,
+                fullMarks: pattern?.totalMarks || report.fullMarks || 0,
+                isPresent: report.isPresent !== false
+              };
+            })
           );
 
           setDetailedReports(reportsWithTotalMarks);
-          const grouped = groupAndSortTests(reportsWithTotalMarks);
+          const grouped = groupTestsByPattern(reportsWithTotalMarks, patternsRes.data.data);
           setGroupedCompetitiveTests(grouped);
         }
 
-        // Only fetch theory tests if the tab should be shown
+        // Only fetch theory tests if needed
         if (shouldShowTheoryTab) {
           const theoryRes = await axios.get(
             `${process.env.REACT_APP_URL}/api/getstudenttheory/${parsedStudentData.regNumber}`,
@@ -131,7 +152,7 @@ const SingleReport = () => {
                 })),
                 totalMarks: studentResult.totalMarks,
                 percentage: studentResult.percentage,
-                //fullMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0)
+                fullMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0)
               };
             });
 
@@ -167,7 +188,7 @@ const SingleReport = () => {
 
     const subjectLabels = selectedReport.subjects?.map(sub => sub.subjectName) || [];
     const obtainedMarks = selectedReport.subjects?.map(sub => sub.scored || sub.obtainedMarks || 0) || [];
-    //const fullMarks = selectedReport.subjects?.map(sub => sub.totalMarks || 0) || [];
+    const fullMarks = selectedReport.subjects?.map(sub => sub.totalMarks || 0) || [];
 
     const barData = {
       labels: subjectLabels,
@@ -179,13 +200,13 @@ const SingleReport = () => {
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
         },
-        // {
-        //   label: 'Total Marks',
-        //   data: fullMarks,
-        //   backgroundColor: 'rgba(255, 99, 132, 0.5)',
-        //   borderColor: 'rgba(255, 99, 132, 1)',
-        //   borderWidth: 1,
-        // }
+        {
+          label: 'Total Marks',
+          data: fullMarks,
+          backgroundColor: 'rgba(255, 99, 132, 0.5)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+        }
       ]
     };
 
@@ -338,7 +359,7 @@ const SingleReport = () => {
       </div>
 
       {/* Main Content with Tabs */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+<div className="bg-white rounded-lg shadow-md overflow-hidden">
         <Tabs selectedIndex={activeTab} onSelect={(index) => setActiveTab(index)}>
           <TabList className="flex border-b">
             <Tab className="flex items-center px-4 py-3 font-medium text-sm md:text-base cursor-pointer focus:outline-none">
@@ -351,7 +372,6 @@ const SingleReport = () => {
             )}
           </TabList>
 
-          {/* Competitive Tests Tab */}
           <TabPanel>
             <div className="p-4 md:p-6">
               <h2 className="text-xl font-semibold mb-4 text-gray-800">Competitive Test Reports</h2>
@@ -364,23 +384,36 @@ const SingleReport = () => {
                 <div className="space-y-8">
                   {Object.entries(groupedCompetitiveTests)
                     .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([baseName, tests]) => (
+                    .map(([baseName, group]) => (
                       <div key={baseName} className="mb-8">
                         <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">
                           {baseName} Tests
+                          {group.pattern && (
+                            <span className="ml-2 text-sm font-normal text-gray-500">
+                              (Total Marks: {group.pattern.totalMarks})
+                            </span>
+                          )}
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {filterAndSortTests(tests).map((report, idx) => (
+                          {filterAndSortTests(group.tests).map((report, idx) => (
                             <div 
                               key={idx}
                               onClick={() => handleReportClick(report)}
-                              className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-white"
+                              className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br ${
+                                report.isPresent === false ? 'from-gray-50 to-gray-100' : 'from-blue-50 to-white'
+                              }`}
                             >
+
                               <div className="flex justify-between items-start mb-2">
                                 <span className="text-sm text-gray-500">
                                   {formatDate(report.date)}
                                 </span>
                                 <div className="flex items-center">
+                                  {report.isPresent === false && (
+                                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium mr-2">
+                                      Absent
+                                    </span>
+                                  )}
                                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                                     Competitive
                                   </span>
@@ -391,8 +424,7 @@ const SingleReport = () => {
                                 <div className="flex items-center">
                                   <MdScore className="text-yellow-500 mr-1" />
                                   <span className="font-medium">
-                                    {report.overallTotalMarks} 
-                                    {/* {/ {report.fullMarks}} */}
+                                    {report.overallTotalMarks} / {report.fullMarks}
                                   </span>
                                 </div>
                                 <div className="text-sm text-gray-600">
@@ -417,7 +449,7 @@ const SingleReport = () => {
             </div>
           </TabPanel>
 
-          {/* Theory Tests Tab */}
+          {/* Theory Tests Tab - only shown for PUC students */}
           {showTheoryTab && (
             <TabPanel>
               <div className="p-4 md:p-6">
@@ -448,8 +480,7 @@ const SingleReport = () => {
                           <div className="flex items-center">
                             <MdScore className="text-yellow-500 mr-1" />
                             <span className="font-medium">
-                              {test.totalMarks} 
-                              {/* / {test.fullMarks} */}
+                              {test.totalMarks} / {test.fullMarks}
                             </span>
                           </div>
                           <div className="text-sm text-gray-600">
