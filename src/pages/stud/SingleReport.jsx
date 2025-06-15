@@ -131,7 +131,7 @@ const SingleReport = () => {
                 })),
                 totalMarks: studentResult.totalMarks,
                 percentage: studentResult.percentage,
-                fullMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0)
+                //fullMarks: test.subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0)
               };
             });
 
@@ -167,7 +167,7 @@ const SingleReport = () => {
 
     const subjectLabels = selectedReport.subjects?.map(sub => sub.subjectName) || [];
     const obtainedMarks = selectedReport.subjects?.map(sub => sub.scored || sub.obtainedMarks || 0) || [];
-    const fullMarks = selectedReport.subjects?.map(sub => sub.totalMarks || 0) || [];
+    //const fullMarks = selectedReport.subjects?.map(sub => sub.totalMarks || 0) || [];
 
     const barData = {
       labels: subjectLabels,
@@ -179,13 +179,13 @@ const SingleReport = () => {
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1,
         },
-        {
-          label: 'Total Marks',
-          data: fullMarks,
-          backgroundColor: 'rgba(255, 99, 132, 0.5)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1,
-        }
+        // {
+        //   label: 'Total Marks',
+        //   data: fullMarks,
+        //   backgroundColor: 'rgba(255, 99, 132, 0.5)',
+        //   borderColor: 'rgba(255, 99, 132, 1)',
+        //   borderWidth: 1,
+        // }
       ]
     };
 
@@ -391,7 +391,8 @@ const SingleReport = () => {
                                 <div className="flex items-center">
                                   <MdScore className="text-yellow-500 mr-1" />
                                   <span className="font-medium">
-                                    {report.overallTotalMarks} / {report.fullMarks}
+                                    {report.overallTotalMarks} 
+                                    {/* {/ {report.fullMarks}} */}
                                   </span>
                                 </div>
                                 <div className="text-sm text-gray-600">
@@ -447,7 +448,8 @@ const SingleReport = () => {
                           <div className="flex items-center">
                             <MdScore className="text-yellow-500 mr-1" />
                             <span className="font-medium">
-                              {test.totalMarks} / {test.fullMarks}
+                              {test.totalMarks} 
+                              {/* / {test.fullMarks} */}
                             </span>
                           </div>
                           <div className="text-sm text-gray-600">
