@@ -12,6 +12,7 @@ const FeedbackAdmin = () => {
   const [userRole, setUserRole] = useState("");
   const [existingFeedbacks, setExistingFeedbacks] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [feedbackName, setFeedbackName] = useState("");
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -77,7 +78,7 @@ const FeedbackAdmin = () => {
       const allQuestions = feedbackForms.flatMap(form => 
         form.questions.map(question => ({
           ...question,
-          questionNumber: question.questionNumber // Keep original question number
+          questionNumber: question.questionNumber
         }))
       );
       setSelectedQuestions(allQuestions);
@@ -88,6 +89,11 @@ const FeedbackAdmin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!feedbackName.trim()) {
+      toast.error("Please enter a feedback name");
+      return;
+    }
+
     if (selectedQuestions.length === 0) {
       toast.error("Please select at least one question");
       return;
@@ -105,6 +111,7 @@ const FeedbackAdmin = () => {
       });
 
       const payload = {
+        name: feedbackName,
         date: selectedDate,
         questionNumbers: sortedQuestions.map(q => q.questionNumber),
         createdBy: userRole 
@@ -124,6 +131,7 @@ const FeedbackAdmin = () => {
       toast.success("Feedback created successfully");
       setSelectedQuestions([]);
       setSelectAll(false);
+      setFeedbackName("");
       setSelectedDate(new Date());
       
       // Refresh existing feedbacks
@@ -165,14 +173,17 @@ const FeedbackAdmin = () => {
               }`}
               onClick={() => {
                 setSelectedDate(new Date(feedback.date));
+                setFeedbackName(feedback.name || "");
                 // Load questions from existing feedback when clicked
                 setSelectedQuestions(feedback.questions);
               }}
             >
               <p className="font-medium">
-                {new Date(feedback.date).toLocaleDateString()} - {feedback.questions.length} questions
+                {feedback.name || "Untitled Feedback"}
               </p>
               <p className="text-sm text-gray-500">
+                Date: {new Date(feedback.date).toLocaleDateString()} | 
+                Questions: {feedback.questions.length} | 
                 Created by: {feedback.createdBy}
               </p>
             </div>
@@ -188,17 +199,32 @@ const FeedbackAdmin = () => {
         <h2 className="text-2xl font-bold mb-6 text-gray-800">Create Feedback</h2>
         
         <form onSubmit={handleSubmit}>
-          <div className="mb-6">
-            <label className="block text-lg font-medium text-gray-700 mb-2">
-              Select Date
-            </label>
-            <DatePicker
-              selected={selectedDate}
-              onChange={(date) => setSelectedDate(date)}
-              className="border border-gray-300 rounded-md px-3 py-2 w-full"
-              minDate={new Date()}
-              required
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Feedback Name
+              </label>
+              <input
+                type="text"
+                value={feedbackName}
+                onChange={(e) => setFeedbackName(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter feedback name"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-2">
+                Select Date
+              </label>
+              <DatePicker
+                selected={selectedDate}
+                onChange={(date) => setSelectedDate(date)}
+                className="border border-gray-300 rounded-md px-3 py-2 w-full"
+                //minDate={new Date()}
+                required
+              />
+            </div>
           </div>
 
           <div className="mb-6">

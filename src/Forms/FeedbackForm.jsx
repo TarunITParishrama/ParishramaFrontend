@@ -4,18 +4,21 @@ import { toast } from "react-toastify";
 import { FiEdit2, FiTrash2, FiPlus } from "react-icons/fi";
 
 const FeedbackForm = () => {
-  const [questions, setQuestions] = useState([
-    {
-      questionNumber: "Q1",
-      questionStatement: "",
-      options: {
-        A: "Excellent",
-        B: "Good",
-        C: "Average",
-        D: "Poor"
+  const [formData, setFormData] = useState({
+    name: "",
+    questions: [
+      {
+        questionNumber: "Q1",
+        questionStatement: "",
+        options: {
+          A: "Excellent",
+          B: "Good",
+          C: "Average",
+          D: "Poor"
+        }
       }
-    }
-  ]);
+    ]
+  });
   const [savedForms, setSavedForms] = useState([]);
   const [currentFormId, setCurrentFormId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -30,13 +33,11 @@ const FeedbackForm = () => {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getfeedbackforms`,{
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getfeedbackforms`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
-      }
-
-      );
+      });
       setSavedForms(response.data.data);
       setIsLoading(false);
     } catch (error) {
@@ -45,42 +46,50 @@ const FeedbackForm = () => {
     }
   };
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleQuestionChange = (index, value) => {
-    const updatedQuestions = [...questions];
+    const updatedQuestions = [...formData.questions];
     updatedQuestions[index].questionStatement = value;
-    setQuestions(updatedQuestions);
+    setFormData(prev => ({ ...prev, questions: updatedQuestions }));
   };
 
   const addQuestion = () => {
-    const newQuestionNumber = `Q${questions.length + 1}`;
-    setQuestions([
-      ...questions,
-      {
-        questionNumber: newQuestionNumber,
-        questionStatement: "",
-        options: {
-          A: "Excellent",
-          B: "Good",
-          C: "Average",
-          D: "Poor"
+    const newQuestionNumber = `Q${formData.questions.length + 1}`;
+    setFormData(prev => ({
+      ...prev,
+      questions: [
+        ...prev.questions,
+        {
+          questionNumber: newQuestionNumber,
+          questionStatement: "",
+          options: {
+            A: "Excellent",
+            B: "Good",
+            C: "Average",
+            D: "Poor"
+          }
         }
-      }
-    ]);
+      ]
+    }));
   };
 
   const deleteQuestion = (index) => {
-    if (questions.length <= 1) {
+    if (formData.questions.length <= 1) {
       toast.warning("At least one question is required");
       return;
     }
 
-    const updatedQuestions = questions.filter((_, i) => i !== index);
+    const updatedQuestions = formData.questions.filter((_, i) => i !== index);
     // Renumber remaining questions
     const renumberedQuestions = updatedQuestions.map((q, i) => ({
       ...q,
       questionNumber: `Q${i + 1}`
     }));
-    setQuestions(renumberedQuestions);
+    setFormData(prev => ({ ...prev, questions: renumberedQuestions }));
   };
 
   const startEdit = (index) => {
@@ -96,74 +105,83 @@ const FeedbackForm = () => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Validate questions
-  const emptyQuestions = questions.filter(q => !q.questionStatement.trim());
-  if (emptyQuestions.length > 0) {
-    toast.error("Please fill in all question statements");
-    return;
-  }
-
-  try {
-    setIsLoading(true);
-    const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error("You need to login first");
-      setIsLoading(false);
+    e.preventDefault();
+    
+    // Validate form
+    if (!formData.name.trim()) {
+      toast.error("Please enter a form name");
       return;
     }
 
-    const payload = {
-      questions: questions.map(q => ({
-        questionNumber: q.questionNumber,
-        questionStatement: q.questionStatement
-      }))
-    };
-
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    };
-
-    let response;
-    if (currentFormId) {
-      response = await axios.put(
-        `${process.env.REACT_APP_URL}/api/updatefeedbackform/${currentFormId}`,
-        payload,
-        config
-      );
-      toast.success("Feedback form updated successfully");
-    } else {
-      response = await axios.post(
-        `${process.env.REACT_APP_URL}/api/createfeedbackform`,
-        payload,
-        config
-      );
-      toast.success("Feedback form created successfully");
-      setCurrentFormId(response.data.data._id);
+    const emptyQuestions = formData.questions.filter(q => !q.questionStatement.trim());
+    if (emptyQuestions.length > 0) {
+      toast.error("Please fill in all question statements");
+      return;
     }
 
-    await fetchFeedbackForms();
-    setIsLoading(false);
-  } catch (error) {
-    toast.error(error.response?.data?.message || "Failed to save feedback form");
-    setIsLoading(false);
-  }
-};
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("You need to login first");
+        setIsLoading(false);
+        return;
+      }
+
+      const payload = {
+        name: formData.name,
+        questions: formData.questions.map(q => ({
+          questionNumber: q.questionNumber,
+          questionStatement: q.questionStatement
+        }))
+      };
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      let response;
+      if (currentFormId) {
+        response = await axios.put(
+          `${process.env.REACT_APP_URL}/api/updatefeedbackform/${currentFormId}`,
+          payload,
+          config
+        );
+        toast.success("Feedback form updated successfully");
+      } else {
+        response = await axios.post(
+          `${process.env.REACT_APP_URL}/api/createfeedbackform`,
+          payload,
+          config
+        );
+        toast.success("Feedback form created successfully");
+        setCurrentFormId(response.data.data._id);
+      }
+
+      await fetchFeedbackForms();
+      setIsLoading(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to save feedback form");
+      setIsLoading(false);
+    }
+  };
 
   const loadForm = (form) => {
-    setQuestions(form.questions.map(q => ({
-      ...q,
-      options: {
-        A: "Excellent",
-        B: "Good",
-        C: "Average",
-        D: "Poor"
-      }
-    })));
+    setFormData({
+      name: form.name,
+      questions: form.questions.map(q => ({
+        ...q,
+        options: {
+          A: "Excellent",
+          B: "Good",
+          C: "Average",
+          D: "Poor"
+        }
+      }))
+    });
     setCurrentFormId(form._id);
   };
 
@@ -172,27 +190,30 @@ const FeedbackForm = () => {
       try {
         const token = localStorage.getItem('token');
         setIsLoading(true);
-        await axios.delete(`${process.env.REACT_APP_URL}/api/deletefeedbackform/${id}`,{
+        await axios.delete(`${process.env.REACT_APP_URL}/api/deletefeedbackform/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
-        },);
+        });
         toast.success("Feedback form deleted successfully");
         
         if (currentFormId === id) {
           setCurrentFormId(null);
-          setQuestions([
-            {
-              questionNumber: "Q1",
-              questionStatement: "",
-              options: {
-                A: "Excellent",
-                B: "Good",
-                C: "Average",
-                D: "Poor"
+          setFormData({
+            name: "",
+            questions: [
+              {
+                questionNumber: "Q1",
+                questionStatement: "",
+                options: {
+                  A: "Excellent",
+                  B: "Good",
+                  C: "Average",
+                  D: "Poor"
+                }
               }
-            }
-          ]);
+            ]
+          });
         }
         
         await fetchFeedbackForms();
@@ -206,18 +227,21 @@ const FeedbackForm = () => {
 
   const createNewForm = () => {
     setCurrentFormId(null);
-    setQuestions([
-      {
-        questionNumber: "Q1",
-        questionStatement: "",
-        options: {
-          A: "Excellent",
-          B: "Good",
-          C: "Average",
-          D: "Poor"
+    setFormData({
+      name: "",
+      questions: [
+        {
+          questionNumber: "Q1",
+          questionStatement: "",
+          options: {
+            A: "Excellent",
+            B: "Good",
+            C: "Average",
+            D: "Poor"
+          }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   return (
@@ -228,12 +252,27 @@ const FeedbackForm = () => {
         </h2>
         
         <form onSubmit={handleSubmit}>
+          <div className="mb-6">
+            <label className="block text-lg font-medium text-gray-700 mb-2">
+              Form Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter form name"
+              required
+            />
+          </div>
+
           <div className="mb-8">
             <label className="block text-lg font-medium text-gray-700 mb-4">
               Feedback Questions
             </label>
             
-            {questions.map((question, index) => (
+            {formData.questions.map((question, index) => (
               <div key={index} className="mb-6 p-4 border border-gray-200 rounded-lg">
                 <div className="flex items-center mb-3">
                   <span className="font-medium text-gray-700 mr-2">
@@ -355,10 +394,10 @@ const FeedbackForm = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium text-gray-800">
-                      Form created on: {new Date(form.createdAt).toLocaleDateString()}
+                      {form.name}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {form.questions.length} questions
+                      Created on: {new Date(form.createdAt).toLocaleDateString()} | {form.questions.length} questions
                     </p>
                   </div>
                   <div className="flex space-x-2">

@@ -8,6 +8,7 @@ import * as XLSX from "xlsx";
 const FeedbackData = () => {
   const [userRole, setUserRole] = useState('');
   const [formData, setFormData] = useState({
+    name: '', // Added name field
     date: new Date(),
     streamType: '',
     campus: '',
@@ -149,18 +150,8 @@ const FeedbackData = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.date || !formData.streamType || !formData.studentCount || !file) {
+    if (!formData.name || !formData.date || !formData.streamType || !formData.studentCount || !file) {
       toast.error('Please fill all required fields');
-      return;
-    }
-
-    if (formData.streamType === 'LongTerm' && !formData.campus) {
-      toast.error('Please enter campus name');
-      return;
-    }
-
-    if (formData.streamType === 'PUC' && !formData.section) {
-      toast.error('Please enter section name');
       return;
     }
 
@@ -182,6 +173,7 @@ const FeedbackData = () => {
       });
 
       const payload = {
+        name: formData.name, // Include name in payload
         date: formData.date,
         streamType: formData.streamType,
         campus: formData.streamType === 'LongTerm' ? formData.campus : undefined,
@@ -212,6 +204,7 @@ const FeedbackData = () => {
       setShowUploadForm(false);
       setFile(null);
       setFormData({
+        name: '', // Reset name field
         date: new Date(),
         streamType: '',
         campus: '',
@@ -362,24 +355,31 @@ const FeedbackData = () => {
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
+                <label className="block mb-2">Feedback Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="border rounded p-2 w-full"
+                  placeholder="Enter feedback name"
+                  required
+                />
+              </div>
+              <div>
                 <label className="block mb-2">Date</label>
                 <DatePicker
                   selected={formData.date}
                   onChange={handleDateChange}
                   className="border rounded p-2 w-full"
+                  required
                 />
                 {feedbackDetails && (
                   <p className="text-sm text-green-600 mt-1">
                     Feedback form available with {availableQuestions.length} questions
                   </p>
                 )}
-                {!feedbackDetails && formData.date && (
-                  <p className="text-sm text-red-600 mt-1">
-                    No feedback form found for selected date
-                  </p>
-                )}
-              </div>
-              
+              </div>              
               <div>
                 <label className="block mb-2">Stream Type</label>
                 <select
@@ -544,9 +544,13 @@ const FeedbackData = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-4">
             <h3 className="text-xl font-semibold">
-              Feedback Analysis for {new Date(formData.date).toLocaleDateString()} ({formData.streamType})
+              Feedback Analysis: {feedbackData[0]?.name || 'Unnamed Feedback'}
             </h3>
-            <p className="text-gray-600">Total responses collected: {feedbackData.length} {formData.streamType === 'LongTerm' ? 'campuses' : 'sections'}</p>
+            <p className="text-gray-600">
+              Date: {new Date(formData.date).toLocaleDateString()} | 
+              Stream: {formData.streamType} | 
+              Responses: {feedbackData.length} {formData.streamType === 'LongTerm' ? 'campuses' : 'sections'}
+            </p>
           </div>
           
           <div className="space-y-8">
