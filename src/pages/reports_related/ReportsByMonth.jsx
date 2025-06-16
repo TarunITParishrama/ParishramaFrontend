@@ -224,7 +224,8 @@ const calculateResults = (reports, solutions, marksType) => {
   solutions.forEach(solution => {
     solutionMap[solution.questionNumber] = {
       correctOptions: solution.correctOptions || [],
-      isGrace: solution.isGrace || false
+      isGrace: solution.isGrace || false,
+      subject: solution.subject // Assuming solutions have subject information
     };
   });
 
@@ -237,6 +238,15 @@ const calculateResults = (reports, solutions, marksType) => {
     let wroAns = 0;
     let totalMarks = 0;
     let unattemptedCount = 0;
+    
+    // Subject-wise tracking
+    const subjectStats = {
+      Biology: { correct: 0, wrong: 0, marks: 0 },
+      Botany: { correct: 0, wrong: 0, marks: 0 },
+      Zoology: { correct: 0, wrong: 0, marks: 0 },
+      Chemistry: { correct: 0, wrong: 0, marks: 0 },
+      Physics: { correct: 0, wrong: 0, marks: 0 }
+    };
     
     const questionAnswers = report.questionAnswers instanceof Map 
       ? Object.fromEntries(report.questionAnswers)
@@ -253,20 +263,47 @@ const calculateResults = (reports, solutions, marksType) => {
       }
 
       if (solution) {
-        if (solution.isGrace) {
+        const isCorrect = solution.isGrace || solution.correctOptions.includes(markedOption);
+        const subject = solution.subject;
+        
+        if (isCorrect) {
           corrAns++;
           totalMarks += correctMark;
-        } else if (solution.correctOptions.includes(markedOption)) {
-          corrAns++;
-          totalMarks += correctMark;
+          if (subject && subjectStats[subject]) {
+            subjectStats[subject].correct++;
+            subjectStats[subject].marks += correctMark;
+          }
         } else {
           wroAns++;
           totalMarks += wrongMark;
+          if (subject && subjectStats[subject]) {
+            subjectStats[subject].wrong++;
+            subjectStats[subject].marks += wrongMark;
+          }
         }
       } else {
         unattemptedCount++;
       }
     });
+
+    // Calculate Biology marks (Botany + Zoology or direct Biology)
+    const biologyMarks = subjectStats.Biology.marks > 0 
+      ? subjectStats.Biology.marks 
+      : subjectStats.Botany.marks + subjectStats.Zoology.marks;
+      
+    const chemistryMarks = subjectStats.Chemistry.marks;
+    
+    // Total wrong answers across all subjects
+    const totalWrongAnswers = Object.values(subjectStats).reduce(
+      (sum, sub) => sum + sub.wrong, 0);
+    
+    // Biology wrong answers
+    const biologyWrong = subjectStats.Biology.wrong > 0
+      ? subjectStats.Biology.wrong
+      : subjectStats.Botany.wrong + subjectStats.Zoology.wrong;
+      
+    // Chemistry wrong answers
+    const chemistryWrong = subjectStats.Chemistry.wrong;
 
     const accuracy = corrAns + wroAns > 0 
       ? (corrAns / (corrAns + wroAns)) * 100 
@@ -284,37 +321,62 @@ const calculateResults = (reports, solutions, marksType) => {
         : 0,
       percentile: 0, // Will be calculated later
       rank: 0,       // Will be calculated later
-      date: report.date
+      date: report.date,
+      // Additional fields for tie-breaking
+      biologyMarks,
+      chemistryMarks,
+      totalWrongAnswers,
+      biologyWrong,
+      chemistryWrong,
+      // Assuming regNumber can be used as application number for tie-breaker
+      applicationNumber: parseInt(report.regNumber) || 0
     });
   });
 
-  // Calculate ranks and percentiles
-  if (results.length > 0) {
-    // First sort by marks to calculate ranks
-    const sortedByMarks = [...results].sort((a, b) => b.totalMarks - a.totalMarks);
-    let currentRank = 1;
+// Calculate ranks with tie-breaking
+if (results.length > 0) {
+  // Sort by all tie-breaking criteria
+  const sortedByMarks = [...results].sort((a, b) => {
+    // Primary sort by total marks (descending)
+    if (b.totalMarks !== a.totalMarks) return b.totalMarks - a.totalMarks;
     
-    for (let i = 0; i < sortedByMarks.length; i++) {
-      if (i > 0 && sortedByMarks[i].totalMarks < sortedByMarks[i-1].totalMarks) {
-        currentRank = i + 1;
-      }
-      sortedByMarks[i].rank = currentRank;
-    }
+    // 1. Higher marks in Biology
+    if (b.biologyMarks !== a.biologyMarks) return b.biologyMarks - a.biologyMarks;
+    
+    // 2. Higher marks in Chemistry
+    if (b.chemistryMarks !== a.chemistryMarks) return b.chemistryMarks - a.chemistryMarks;
+    
+    // 3. Fewer total wrong answers
+    if (a.totalWrongAnswers !== b.totalWrongAnswers) return a.totalWrongAnswers - b.totalWrongAnswers;
+    
+    // 4. Fewer wrong answers in Biology
+    if (a.biologyWrong !== b.biologyWrong) return a.biologyWrong - b.biologyWrong;
+    
+    // 5. Fewer wrong answers in Chemistry
+    if (a.chemistryWrong !== b.chemistryWrong) return a.chemistryWrong - b.chemistryWrong;
+    
+    // 6. Earlier application (lower application number)
+    return a.applicationNumber - b.applicationNumber;
+  });
 
-    // Update ranks in original results
-    const rankMap = {};
-    sortedByMarks.forEach(res => {
-      rankMap[res.regNumber] = res.rank;
-    });
-    
-    // Calculate percentiles based on the new formula
-    const totalStudents = results.length;
-    results.forEach(res => {
-      res.rank = rankMap[res.regNumber] || 0;
-      res.percentile = parseFloat(((totalStudents - res.rank) / totalStudents * 100)).toFixed(2);
-    });
+  // Assign ranks - always increment by 1 for each student
+  for (let i = 0; i < sortedByMarks.length; i++) {
+    sortedByMarks[i].rank = i + 1;
   }
+
+  // Update ranks in original results
+  const rankMap = {};
+  sortedByMarks.forEach(res => {
+    rankMap[res.regNumber] = res.rank;
+  });
   
+  // Calculate percentiles based on the new formula
+  const totalStudents = results.length;
+  results.forEach(res => {
+    res.rank = rankMap[res.regNumber] || 0;
+    res.percentile = parseFloat(((totalStudents - res.rank) / totalStudents * 100)).toFixed(2);
+  });
+}
   return results;
 };
 

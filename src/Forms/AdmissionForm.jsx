@@ -310,38 +310,40 @@ export default function AdmissionForm() {
                 console.warn(`Campus not found for: ${studentData.studentName} (${studentData.regNumber})`);
               }
             }
-           if (studentData.dateOfBirth) {
+if (studentData.dateOfBirth) {
   try {
-    if (typeof studentData.dateOfBirth === 'string' && 
-            studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
-          const [datePart] = studentData.dateOfBirth.split(' ');
-          const [year, month, day] = datePart.split('-');
-          studentData.dateOfBirth = `${day}-${month}-${year}`;
-        }
-    else if (typeof studentData.dateOfBirth === 'number') {
-      const date = new Date((studentData.dateOfBirth - (25567 + 1)) * 86400 * 1000);
-      const utcDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate()
-      ));
-      studentData.dateOfBirth = utcDate.toISOString().split('T')[0];
+    // Handle Excel numeric dates (number of days since 1900)
+    if (typeof studentData.dateOfBirth === 'number') {
+      // Excel date (number of days since 1900) to JS Date
+      const excelDate = studentData.dateOfBirth;
+      const jsDate = new Date(Math.round((excelDate - (25567 + 1)) * 86400 * 1000));
+      
+      // Adjust for timezone offset to get the correct date
+      const timezoneOffset = jsDate.getTimezoneOffset() * 60000;
+      const adjustedDate = new Date(jsDate.getTime() + timezoneOffset);
+      
+      studentData.dateOfBirth = adjustedDate.toISOString().split('T')[0];
     } 
     // Handle string dates
     else if (typeof studentData.dateOfBirth === 'string') {
       // Try different date formats
-      if (studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Already in YYYY-MM-DD format, keep as is
-      } 
-      else if (studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-        const [day, month, year] = studentData.dateOfBirth.split('/');
-        const utcDate = new Date(Date.UTC(year, month - 1, day));
-        studentData.dateOfBirth = utcDate.toISOString().split('T')[0];
-      }
-      else if (studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
+      
+      // Handle DD-MM-YYYY format
+      if (studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
         const [day, month, year] = studentData.dateOfBirth.split('-');
-        const utcDate = new Date(Date.UTC(year, month - 1, day));
-        studentData.dateOfBirth = utcDate.toISOString().split('T')[0];
+        // Create date in local timezone (no UTC conversion)
+        const date = new Date(year, month - 1, day);
+        studentData.dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      // Handle YYYY-MM-DD format (keep as is)
+      else if (studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Already in correct format, no conversion needed
+      }
+      // Handle MM/DD/YYYY format
+      else if (studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+        const [month, day, year] = studentData.dateOfBirth.split('/');
+        const date = new Date(year, month - 1, day);
+        studentData.dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
       else {
         console.warn(`Unrecognized date format: ${studentData.dateOfBirth}`);

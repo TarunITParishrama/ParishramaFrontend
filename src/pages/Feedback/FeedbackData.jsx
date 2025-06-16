@@ -82,6 +82,7 @@ const FeedbackData = () => {
         
         const questionMap = new Map();
         const studentCount = jsonData.length - 1;
+        let totalResponsesCount = 0;
         
         availableQuestions.forEach(question => {
           questionMap.set(question.questionNumber, {
@@ -97,6 +98,8 @@ const FeedbackData = () => {
         
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i];
+          let studentResponseCount = 0;
+          
           for (let j = 1; j < row.length; j++) {
             const questionNumber = `Q${j}`;
             if (!questionMap.has(questionNumber)) continue;
@@ -112,9 +115,14 @@ const FeedbackData = () => {
                 case 'C': questionData.countC++; break;
                 case 'D': questionData.countD++; break;
               }
+              studentResponseCount++;
             } else {
               questionData.noResponse++;
             }
+          }
+          
+          if (studentResponseCount > 0) {
+            totalResponsesCount++;
           }
         }
         
@@ -126,7 +134,8 @@ const FeedbackData = () => {
         setFile({
           name: file.name,
           data: questions,
-          studentCount
+          studentCount,
+          totalResponsesCount
         });
       } catch (error) {
         toast.error('Error processing file');
@@ -163,7 +172,6 @@ const FeedbackData = () => {
       let optionCCount = 0;
       let optionDCount = 0;
       let noResponseCount = 0;
-      let responseCount = 0;
 
       file.data.forEach(question => {
         optionACount += question.countA;
@@ -171,10 +179,7 @@ const FeedbackData = () => {
         optionCCount += question.countC;
         optionDCount += question.countD;
         noResponseCount += question.noResponse;
-        responseCount += question.responses.length;
       });
-
-      const averageResponses = Math.round(responseCount / file.data.length);
 
       const payload = {
         date: formData.date,
@@ -182,7 +187,7 @@ const FeedbackData = () => {
         campus: formData.streamType === 'LongTerm' ? formData.campus : undefined,
         section: formData.streamType === 'PUC' ? formData.section : undefined,
         studentCount: formData.studentCount,
-        responseCount: averageResponses,
+        responseCount: file.totalResponsesCount,
         questions: file.data,
         optionACount,
         optionBCount,
@@ -272,6 +277,7 @@ const FeedbackData = () => {
           id: item._id,
           campusOrSection: formData.streamType === 'LongTerm' ? item.campus : item.section,
           studentCount: item.studentCount,
+          responseCount: item.responseCount,
           questions: questionsWithStatements.length > 0 ? 
             questionsWithStatements.map(q => ({
               ...q,
@@ -299,6 +305,7 @@ const FeedbackData = () => {
             acc[idx].responses.push({
               campusOrSection: curr.campusOrSection,
               studentCount: curr.studentCount,
+              responseCount: curr.responseCount,
               countA: q.countA,
               percentA: q.percentA,
               countB: q.countB,
@@ -443,7 +450,8 @@ const FeedbackData = () => {
               {file && (
                 <div className="mt-2 text-sm">
                   <p>Selected file: {file.name}</p>
-                  <p>Students detected: {file.studentCount}</p>
+                  <p>Students in file: {file.studentCount}</p>
+                  <p>Students with responses: {file.totalResponsesCount}</p>
                 </div>
               )}
               {!feedbackDetails && (
@@ -556,7 +564,7 @@ const FeedbackData = () => {
                           {formData.streamType === 'LongTerm' ? 'Campus' : 'Section'}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Students
+                          Students (Responded/Total)
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Excellent (A)
@@ -582,7 +590,7 @@ const FeedbackData = () => {
                             {response.campusOrSection}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {response.studentCount}
+                            {response.responseCount}/{response.studentCount}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {response.percentA}% ({response.countA})
