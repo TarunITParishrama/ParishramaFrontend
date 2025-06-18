@@ -19,7 +19,7 @@ const getNavigationItems = (role) => {
     { name: "Student Profile", path: "studentprofile", show: ["parent"].includes(role)},
     { name: "Students", path: "students", show: ["super_admin","admin"].includes(role) },
     { name: "Questions", path: "questions", show: ["super_admin", "admin", "staff"].includes(role) },
-    { name: "Feedback", path: "feedback", show: ["super_admin"].includes(role) },
+    { name: "Feedback", path: "feedback", show: ["super_admin", "admin"].includes(role) },
     { name: "Leaderboard", path: "leaderboard", show: ["super_admin", "admin", "staff"].includes(role) },
     { name: "Noticeboard", path: "noticeboard", show: ["super_admin", "admin"].includes(role) },
     { name: "Tests", path: "tests", show: ["super_admin", "admin"].includes(role) },
@@ -82,13 +82,11 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
     }
   };
 
-  const handleResultClick = (studentId) => {
-    // Clear search results and query
-    setSearchQuery("");
-    setSearchResults([]);
-    // Navigate to student details page
-    navigate(`/students/${studentId}`);
-  };
+const handleResultClick = (regNumber) => {
+  setSearchQuery("");
+  setSearchResults([]);
+  navigate(`/home/students/${regNumber}`);
+};
 
   return (
     <div className="w-full h-screen bg-white text-gray-700 p-3 font-bold flex flex-col">
@@ -137,7 +135,7 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
               <div
                 key={student._id}
                 className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
-                onClick={() => handleResultClick(student._id)}
+                onClick={() => handleResultClick(student.regNumber)}
               >
                 <img
                   src={student.studentImageURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(student.studentName)}&background=random`}
@@ -147,6 +145,9 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
                 <div>
                   <p className="font-medium">{student.studentName}</p>
                   <p className="text-sm text-gray-500">Reg: {student.regNumber} • {student.campus?.name}</p>
+                  <p className="text-xs text-gray-400">
+                    DOB: {new Date(student.dateOfBirth).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             ))}

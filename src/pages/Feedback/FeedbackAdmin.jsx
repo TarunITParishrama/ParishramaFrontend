@@ -12,6 +12,7 @@ const FeedbackAdmin = () => {
   const [userRole, setUserRole] = useState("");
   const [existingFeedbacks, setExistingFeedbacks] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [selectedFormId, setSelectedFormId] = useState("");
   const [feedbackName, setFeedbackName] = useState("");
 
   useEffect(() => {
@@ -60,6 +61,14 @@ const FeedbackAdmin = () => {
     }
   };
 
+  const handleFormSelect = (e) => {
+    const formId = e.target.value;
+    setSelectedFormId(formId);
+    const selectedForm = feedbackForms.find(form => form._id === formId);
+    setFeedbackName(selectedForm?.name || "");
+    setSelectedQuestions([]);
+  };
+
   const handleQuestionSelect = (question) => {
     setSelectedQuestions(prev => {
       const isSelected = prev.some(q => q.questionNumber === question.questionNumber);
@@ -72,16 +81,21 @@ const FeedbackAdmin = () => {
   };
 
   const handleSelectAll = () => {
+    if (!selectedFormId) {
+      toast.error("Please select a feedback form first");
+      return;
+    }
+
+    const selectedForm = feedbackForms.find(form => form._id === selectedFormId);
+    if (!selectedForm) return;
+
     if (selectAll) {
       setSelectedQuestions([]);
     } else {
-      const allQuestions = feedbackForms.flatMap(form => 
-        form.questions.map(question => ({
-          ...question,
-          questionNumber: question.questionNumber
-        }))
-      );
-      setSelectedQuestions(allQuestions);
+      setSelectedQuestions(selectedForm.questions.map(q => ({
+        ...q,
+        questionNumber: q.questionNumber
+      })));
     }
     setSelectAll(!selectAll);
   };
@@ -89,8 +103,8 @@ const FeedbackAdmin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!feedbackName.trim()) {
-      toast.error("Please enter a feedback name");
+    if (!selectedFormId) {
+      toast.error("Please select a feedback form");
       return;
     }
 
@@ -103,17 +117,11 @@ const FeedbackAdmin = () => {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      // Sort questions by their original question number before sending
-      const sortedQuestions = [...selectedQuestions].sort((a, b) => {
-        const numA = parseInt(a.questionNumber.replace('Q', ''));
-        const numB = parseInt(b.questionNumber.replace('Q', ''));
-        return numA - numB;
-      });
-
       const payload = {
         name: feedbackName,
         date: selectedDate,
-        questionNumbers: sortedQuestions.map(q => q.questionNumber),
+        questionNumbers: selectedQuestions.map(q => q.questionNumber),
+        feedbackFormId: selectedFormId,
         createdBy: userRole 
       };
 
@@ -131,7 +139,6 @@ const FeedbackAdmin = () => {
       toast.success("Feedback created successfully");
       setSelectedQuestions([]);
       setSelectAll(false);
-      setFeedbackName("");
       setSelectedDate(new Date());
       
       // Refresh existing feedbacks
@@ -147,10 +154,6 @@ const FeedbackAdmin = () => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Failed to create feedback";
       toast.error(errorMessage);
-      
-      if (errorMessage.includes("already exists")) {
-        setSelectedDate(new Date(selectedDate.getTime())); 
-      }
     } finally {
       setIsLoading(false);
     }
@@ -173,18 +176,17 @@ const FeedbackAdmin = () => {
               }`}
               onClick={() => {
                 setSelectedDate(new Date(feedback.date));
-                setFeedbackName(feedback.name || "");
-                // Load questions from existing feedback when clicked
+                setFeedbackName(feedback.name);
                 setSelectedQuestions(feedback.questions);
               }}
             >
               <p className="font-medium">
-                {feedback.name || "Untitled Feedback"}
+                {feedback.name}
               </p>
               <p className="text-sm text-gray-500">
                 Date: {new Date(feedback.date).toLocaleDateString()} | 
                 Questions: {feedback.questions.length} | 
-                Created by: {feedback.createdBy}
+                Form: {feedbackForms.find(f => f._id === feedback.feedbackFormId)?.name || 'Unknown'}
               </p>
             </div>
           ))}
@@ -202,14 +204,32 @@ const FeedbackAdmin = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-lg font-medium text-gray-700 mb-2">
+                Select Feedback Form
+              </label>
+              <select
+                value={selectedFormId}
+                onChange={handleFormSelect}
+                className="border border-gray-300 rounded-md px-3 py-2 w-full"
+                required
+              >
+                <option value="">Select a form</option>
+                {feedbackForms.map(form => (
+                  <option key={form._id} value={form._id}>
+                    {form.name} ({form.questions.length} questions)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-lg font-medium text-gray-700 mb-2">
                 Feedback Name
               </label>
               <input
                 type="text"
                 value={feedbackName}
                 onChange={(e) => setFeedbackName(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter feedback name"
+                className="border border-gray-300 rounded-md px-3 py-2 w-full"
+                placeholder="Will auto-fill from selected form"
                 required
               />
             </div>
@@ -221,66 +241,66 @@ const FeedbackAdmin = () => {
                 selected={selectedDate}
                 onChange={(date) => setSelectedDate(date)}
                 className="border border-gray-300 rounded-md px-3 py-2 w-full"
-                //minDate={new Date()}
                 required
               />
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-lg font-medium text-gray-700">
-                Available Questions
-              </label>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectAll}
-                  onChange={handleSelectAll}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="select-all"
-                  className="ml-2 block text-sm text-gray-700"
-                >
-                  Select All
+          {selectedFormId && (
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-lg font-medium text-gray-700">
+                  Available Questions from Selected Form
                 </label>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="select-all"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="select-all"
+                    className="ml-2 block text-sm text-gray-700"
+                  >
+                    Select All
+                  </label>
+                </div>
               </div>
+              
+              {isLoading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto p-2 border rounded">
+                  {feedbackForms
+                    .find(form => form._id === selectedFormId)
+                    ?.questions.map((question, index) => (
+                      <div key={index} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`question-${index}`}
+                          checked={selectedQuestions.some(
+                            q => q.questionNumber === question.questionNumber
+                          )}
+                          onChange={() => handleQuestionSelect(question)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label
+                          htmlFor={`question-${index}`}
+                          className="ml-2 block text-gray-700"
+                        >
+                          <span className="font-medium">{question.questionNumber}:</span> {question.questionStatement}
+                        </label>
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
             </div>
-            
-            {isLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-              </div>
-            ) : feedbackForms.length === 0 ? (
-              <p className="text-gray-500">No questions found</p>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto p-2 border rounded">
-                {feedbackForms.flatMap(form => 
-                  form.questions.map((question, index) => (
-                    <div key={`${form._id}-${index}`} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`question-${form._id}-${index}`}
-                        checked={selectedQuestions.some(
-                          q => q.questionNumber === question.questionNumber
-                        )}
-                        onChange={() => handleQuestionSelect(question)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label
-                        htmlFor={`question-${form._id}-${index}`}
-                        className="ml-2 block text-gray-700"
-                      >
-                        <span className="font-medium">{question.questionNumber}:</span> {question.questionStatement}
-                      </label>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+          )}
 
           {selectedQuestions.length > 0 && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -303,7 +323,7 @@ const FeedbackAdmin = () => {
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !selectedFormId || selectedQuestions.length === 0}
               className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400"
             >
               {isLoading ? "Creating..." : "Create Feedback"}

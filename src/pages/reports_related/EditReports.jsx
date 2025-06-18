@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function EditReports() {
   const navigate = useNavigate();
@@ -19,6 +21,15 @@ export default function EditReports() {
   const [graceQuestionNumbers, setGraceQuestionNumbers] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [editingTestInfo, setEditingTestInfo] = useState(false);
+  const [testMetadata, setTestMetadata] = useState({
+    testName: "",
+    date: "",
+    stream: "LongTerm",
+    questionType: "",
+    marksType: "+4/-1"
+  });
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   const token = localStorage.getItem('token');
 
@@ -87,7 +98,9 @@ export default function EditReports() {
         testMap[testName] = {
           months: {},
           testId: report._id,
-          stream: report.stream
+          stream: report.stream,
+          questionType: report.questionType,
+          marksType: report.marksType
         };
       }
       
@@ -102,6 +115,8 @@ export default function EditReports() {
       testName,
       testId: testData.testId,
       stream: testData.stream,
+      questionType: testData.questionType,
+      marksType: testData.marksType,
       months: Object.values(testData.months).sort((a, b) => new Date(b.date) - new Date(a.date))
     })).sort((a, b) => a.testName.localeCompare(b.testName));
   };
@@ -384,6 +399,93 @@ export default function EditReports() {
     }
   };
 
+  // Update test metadata
+  const updateTestMetadata = async () => {
+    if (!selectedTest?.testId) {
+      setError("No test selected");
+      return;
+    }
+
+    try {
+      setSubmitLoading(true);
+      setError("");
+
+      const response = await axios.put(
+        `${process.env.REACT_APP_URL}/api/updatereport/${selectedTest.testId}`,
+        {
+          testName: testMetadata.testName,
+          date: testMetadata.date,
+          stream: testMetadata.stream,
+          questionType: testMetadata.questionType,
+          marksType: testMetadata.marksType
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.status === "success") {
+        // Refresh the test list
+        const testDataResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getallreports`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const filteredReports = testDataResponse.data.data.filter(
+          report => report.stream === testMetadata.stream
+        );
+
+        setTests(processTestData(filteredReports));
+        setSelectedTest(null);
+        setSelectedDate(null);
+        setReports([]);
+        setEditingTestInfo(false);
+        toast.success("Test information updated successfully!");
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Failed to update test information");
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  // Delete the current test
+  const deleteTest = async () => {
+    if (!selectedTest?.testId) {
+      setError("No test selected");
+      return;
+    }
+
+    try {
+      setSubmitLoading(true);
+      setError("");
+
+      const response = await axios.delete(
+        `${process.env.REACT_APP_URL}/api/deletereport/${selectedTest.testId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.status === "success") {
+        // Refresh the test list
+        const testDataResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getallreports`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const filteredReports = testDataResponse.data.data.filter(
+          report => report.stream === selectedStream
+        );
+
+        setTests(processTestData(filteredReports));
+        setSelectedTest(null);
+        setSelectedDate(null);
+        setReports([]);
+        setShowDeleteConfirmation(false);
+        toast.success("Test deleted successfully!");
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Failed to delete test");
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-7xl mx-auto mt-6 bg-white shadow-md rounded-lg p-6">
@@ -396,7 +498,11 @@ export default function EditReports() {
               name="stream"
               value="LongTerm"
               checked={selectedStream === "LongTerm"}
-              onChange={() => setSelectedStream("LongTerm")}
+              onChange={() => {
+                setSelectedStream("LongTerm");
+                setSelectedTest(null);
+                setSelectedDate(null);
+              }}
             />
             <span className="ml-2">Long Term</span>
           </label>
@@ -407,7 +513,11 @@ export default function EditReports() {
               name="stream"
               value="PUC"
               checked={selectedStream === "PUC"}
-              onChange={() => setSelectedStream("PUC")}
+              onChange={() => {
+                setSelectedStream("PUC");
+                setSelectedTest(null);
+                setSelectedDate(null);
+              }}
             />
             <span className="ml-2">PUC</span>
           </label>
@@ -424,6 +534,15 @@ export default function EditReports() {
                 const test = tests.find(t => t.testName === e.target.value);
                 setSelectedTest(test);
                 setSelectedDate(null);
+                if (test) {
+                  setTestMetadata({
+                    testName: test.testName,
+                    date: test.months[0]?.date || "",
+                    stream: test.stream,
+                    questionType: test.questionType,
+                    marksType: test.marksType
+                  });
+                }
               }}
             >
               <option value="">Select a test</option>
@@ -453,8 +572,142 @@ export default function EditReports() {
           </div>
         </div>
 
-        {/* Search Section */}
+        {/* Test Management Buttons */}
         {selectedTest && selectedDate && (
+          <div className="flex justify-between mb-6">
+            <div className="space-x-2">
+              <button
+                onClick={() => setEditingTestInfo(!editingTestInfo)}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+              >
+                {editingTestInfo ? "Cancel Edit" : "Edit Test Info"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirmation(true)}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
+              >
+                Delete Test
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Test Info Section */}
+        {editingTestInfo && selectedTest && (
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 className="text-lg font-medium mb-4">Edit Test Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
+                <input
+                  type="text"
+                  name="testName"
+                  value={testMetadata.testName}
+                  onChange={(e) => setTestMetadata({...testMetadata, testName: e.target.value})}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={testMetadata.date}
+                  onChange={(e) => setTestMetadata({...testMetadata, date: e.target.value})}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stream</label>
+                <select
+                  name="stream"
+                  value={testMetadata.stream}
+                  onChange={(e) => setTestMetadata({...testMetadata, stream: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="LongTerm">Long Term</option>
+                  <option value="PUC">PUC</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
+                <select
+                  name="questionType"
+                  value={testMetadata.questionType}
+                  onChange={(e) => setTestMetadata({...testMetadata, questionType: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="MCQ">MCQ</option>
+                  <option value="Theory">Theory</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Marks Type</label>
+                <select
+                  name="marksType"
+                  value={testMetadata.marksType}
+                  onChange={(e) => setTestMetadata({...testMetadata, marksType: e.target.value})}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="+4/-1">+4/-1</option>
+                  <option value="+1/0">+1/0</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => setEditingTestInfo(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={updateTestMetadata}
+                disabled={submitLoading}
+                className={`px-4 py-2 rounded text-white ${
+                  submitLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+                } transition`}
+              >
+                {submitLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full">
+              <h3 className="text-lg font-medium mb-4">Confirm Deletion</h3>
+              <p className="mb-4">Are you sure you want to delete this test and all its associated reports? This action cannot be undone.</p>
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteTest}
+                  disabled={submitLoading}
+                  className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition ${
+                    submitLoading ? 'opacity-50' : ''
+                  }`}
+                >
+                  {submitLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Search Section */}
+        {selectedTest && selectedDate && !editingTestInfo && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
@@ -495,7 +748,7 @@ export default function EditReports() {
         )}
 
         {/* Found Report Section */}
-        {foundReport && (
+        {foundReport && !editingTestInfo && (
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <h3 className="text-lg font-medium mb-4">Edit Report</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -559,7 +812,7 @@ export default function EditReports() {
         )}
 
         {/* Grace Marks Section */}
-        {selectedTest && selectedDate && (
+        {selectedTest && selectedDate && !editingTestInfo && (
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium">Grace Marks</h3>
@@ -600,7 +853,7 @@ export default function EditReports() {
         )}
 
         {/* Submit All Changes Button */}
-        {reports.length > 0 && (
+        {reports.length > 0 && !editingTestInfo && (
           <div className="flex justify-end mt-6">
             <button
               onClick={submitAllChanges}
@@ -620,7 +873,7 @@ export default function EditReports() {
           </div>
         )}
 
-        {!loading && selectedTest && selectedDate && reports.length === 0 && (
+        {!loading && selectedTest && selectedDate && reports.length === 0 && !editingTestInfo && (
           <div className="p-4 bg-yellow-100 text-yellow-800 rounded-md">
             No reports found for the selected test and date.
           </div>

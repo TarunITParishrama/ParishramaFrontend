@@ -15,6 +15,13 @@ const EditSolutionsForm = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [imageUploads, setImageUploads] = useState({});
   const [modifiedQuestions, setModifiedQuestions] = useState(new Set());
+  const [editingTestInfo, setEditingTestInfo] = useState(false);
+  const [testMetadata, setTestMetadata] = useState({
+    testName: "",
+    date: "",
+    stream: "LongTerm",
+    questionType: ""
+  });
 
   // Fetch test names when stream changes
   useEffect(() => {
@@ -38,11 +45,17 @@ const EditSolutionsForm = ({ onSuccess }) => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleTestMetadataChange = (e) => {
+    const { name, value } = e.target;
+    setTestMetadata(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     setLoading(true);
     setSolutions([]);
     setImageUploads({});
+    setEditingTestInfo(false);
 
     try {
       const params = new URLSearchParams();
@@ -57,6 +70,13 @@ const EditSolutionsForm = ({ onSuccess }) => {
         toast.info("No solutions found matching your criteria");
       } else {
         toast.success(`Found solutions for ${groupedSolutions.length} tests`);
+        // Set test metadata when solutions are found
+        setTestMetadata({
+          testName: groupedSolutions[0].solutionRef.testName,
+          date: groupedSolutions[0].solutionRef.date.split('T')[0],
+          stream: groupedSolutions[0].solutionRef.stream,
+          questionType: groupedSolutions[0].solutionRef.questionType
+        });
       }
       
       setSolutions(groupedSolutions);
@@ -152,12 +172,98 @@ const EditSolutionsForm = ({ onSuccess }) => {
     setModifiedQuestions(prev => new Set(prev).add(questionIndex));
   };
   
-  const handleImageUpload = (index, file) => {
-    setImageUploads(prev => ({
-      ...prev,
-      [index]: file
-    }));
-    setModifiedQuestions(prev => new Set(prev).add(index));
+  const handleImageUpload = (index, e) => {
+    if (e.target.files && e.target.files[0]) {
+      setImageUploads(prev => ({
+        ...prev,
+        [index]: e.target.files[0]
+      }));
+      setModifiedQuestions(prev => new Set(prev).add(index));
+    }
+  };
+
+  const handleAddNewQuestion = () => {
+    if (solutions.length === 0) return;
+    
+    const newQuestionNumber = solutions[0].solutionBank.length > 0 
+      ? Math.max(...solutions[0].solutionBank.map(q => q.questionNumber)) + 1
+      : 1;
+
+    setSolutions(prevSolutions => {
+      return prevSolutions.map(test => ({
+        ...test,
+        solutionBank: [
+          ...test.solutionBank,
+          {
+            questionNumber: newQuestionNumber,
+            correctOptions: [],
+            correctSolution: "",
+            isGrace: false,
+            solutionRef: test.solutionRef._id,
+            date: test.solutionRef.date
+          }
+        ]
+      }));
+    });
+  };
+
+  const handleRemoveQuestion = (questionNumber) => {
+    if (solutions.length === 0) return;
+    
+    setSolutions(prevSolutions => {
+      return prevSolutions.map(test => ({
+        ...test,
+        solutionBank: test.solutionBank.filter(q => q.questionNumber !== questionNumber)
+      }));
+    });
+  };
+
+  const updateTestMetadata = async () => {
+    if (solutions.length === 0) return;
+    setLoading(true);
+
+    try {
+      const solutionId = solutions[0].solutionRef._id;
+      const response = await axios.put(
+        `${process.env.REACT_APP_URL}/api/updatesolution/${solutionId}`,
+        {
+          testName: testMetadata.testName,
+          date: testMetadata.date,
+          stream: testMetadata.stream,
+          questionType: testMetadata.questionType
+        }
+      );
+
+      // Update local state
+      setSolutions(prevSolutions => {
+        return prevSolutions.map(test => ({
+          ...test,
+          solutionRef: {
+            ...test.solutionRef,
+            testName: testMetadata.testName,
+            date: testMetadata.date,
+            stream: testMetadata.stream,
+            questionType: testMetadata.questionType
+          }
+        }));
+      });
+
+      setFilters(prev => ({
+        ...prev,
+        testName: testMetadata.testName,
+        date: testMetadata.date,
+        stream: testMetadata.stream,
+        questionType: testMetadata.questionType
+      }));
+
+      toast.success("Test information updated successfully!");
+      setEditingTestInfo(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update test information");
+      console.error("Update test metadata error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateSolutions = async () => {
@@ -271,7 +377,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
     } finally {
       setLoading(false);
     }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -354,35 +460,142 @@ const EditSolutionsForm = ({ onSuccess }) => {
         {solutions.length > 0 && (
           <div className="border-t pt-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">
-                {solutions[0].solutionRef.testName} - {new Date(solutions[0].solutionRef.date).toLocaleDateString()}
-              </h2>
-              <div className="text-sm text-gray-500">
-                {solutions[0].solutionBank.length} questions | {solutions[0].solutionRef.questionType}
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {solutions[0].solutionRef.testName} - {new Date(solutions[0].solutionRef.date).toLocaleDateString()}
+                </h2>
+                <div className="text-sm text-gray-500">
+                  {solutions[0].solutionBank.length} questions | {solutions[0].solutionRef.questionType} | {solutions[0].solutionRef.stream}
+                </div>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => setEditingTestInfo(!editingTestInfo)}
+                className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+              >
+                {editingTestInfo ? "Cancel Edit" : "Edit Test Info"}
+              </button>
+            </div>
+
+            {editingTestInfo && (
+              <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <h3 className="font-medium mb-3">Edit Test Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Test Name</label>
+                    <input
+                      type="text"
+                      name="testName"
+                      value={testMetadata.testName}
+                      onChange={handleTestMetadataChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Date</label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={testMetadata.date}
+                      onChange={handleTestMetadataChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Stream</label>
+                    <select
+                      name="stream"
+                      value={testMetadata.stream}
+                      onChange={handleTestMetadataChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="LongTerm">Long Term</option>
+                      <option value="PUC">PUC</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Question Type</label>
+                    <select
+                      name="questionType"
+                      value={testMetadata.questionType}
+                      onChange={handleTestMetadataChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="MCQ">MCQ</option>
+                      <option value="Theory">Theory</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end mt-4 space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTestInfo(false)}
+                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={updateTestMetadata}
+                    disabled={loading}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                  >
+                    {loading ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-medium">Questions</h3>
+              <div className="space-x-2">
+                <button
+                  type="button"
+                  onClick={handleAddNewQuestion}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                >
+                  Add Question
+                </button>
               </div>
             </div>
 
             <div className="space-y-4">
               {solutions[0].solutionBank.map((solution, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
+                <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 relative">
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="font-medium">Question {solution.questionNumber}</h3>
                     
-                    {/* Grace (E) checkbox */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`grace-${index}`}
-                        checked={solution.isGrace}
-                        onChange={() => handleGraceToggle(index)}
-                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                      />
-                      <label 
-                        htmlFor={`grace-${index}`}
-                        className="ml-2 text-sm font-medium text-gray-700"
+                    <div className="flex items-center space-x-2">
+                      {/* Remove question button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQuestion(solution.questionNumber)}
+                        className="text-red-600 hover:text-red-800 text-sm"
                       >
-                        Grace
-                      </label>
+                        Remove
+                      </button>
+                      
+                      {/* Grace (E) checkbox */}
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={`grace-${index}`}
+                          checked={solution.isGrace}
+                          onChange={() => handleGraceToggle(index)}
+                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <label 
+                          htmlFor={`grace-${index}`}
+                          className="ml-2 text-sm font-medium text-gray-700"
+                        >
+                          Grace
+                        </label>
+                      </div>
                     </div>
                   </div>
 
@@ -468,7 +681,18 @@ const EditSolutionsForm = ({ onSuccess }) => {
             </div>
 
             <div className="mt-6 border-t pt-4">
-              <div className="flex justify-end">
+              <div className="flex justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSolutions([]);
+                    setImageUploads({});
+                    setModifiedQuestions(new Set());
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Clear Results
+                </button>
                 <button
                   type="button"
                   onClick={handleUpdateSolutions}

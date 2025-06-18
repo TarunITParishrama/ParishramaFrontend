@@ -8,7 +8,7 @@ import * as XLSX from "xlsx";
 const FeedbackData = () => {
   const [userRole, setUserRole] = useState('');
   const [formData, setFormData] = useState({
-    name: '', // Added name field
+    name: '',
     date: new Date(),
     streamType: '',
     campus: '',
@@ -22,11 +22,28 @@ const FeedbackData = () => {
   const [availableQuestions, setAvailableQuestions] = useState([]);
   const [feedbackDetails, setFeedbackDetails] = useState(null);
   const [aggregatedData, setAggregatedData] = useState([]);
+  const [availableFeedbacks, setAvailableFeedbacks] = useState([]);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
     setUserRole(role);
+    fetchAvailableFeedbacks();
   }, []);
+
+  const fetchAvailableFeedbacks = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getfeedbacks`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      setAvailableFeedbacks(response.data.data);
+    } catch (error) {
+      toast.error('Failed to fetch available feedbacks');
+    }
+  };
 
   useEffect(() => {
     if (formData.date && showUploadForm) {
@@ -50,6 +67,7 @@ const FeedbackData = () => {
         const feedback = response.data.data[0];
         setFeedbackDetails(feedback);
         setAvailableQuestions(feedback.questions);
+        setFormData(prev => ({ ...prev, name: feedback.name }));
       } else {
         setFeedbackDetails(null);
         setAvailableQuestions([]);
@@ -68,6 +86,20 @@ const FeedbackData = () => {
 
   const handleDateChange = (date) => {
     setFormData(prev => ({ ...prev, date }));
+  };
+
+  const handleFeedbackSelect = (e) => {
+    const feedbackId = e.target.value;
+    const selectedFeedback = availableFeedbacks.find(f => f._id === feedbackId);
+    if (selectedFeedback) {
+      setFormData(prev => ({
+        ...prev,
+        name: selectedFeedback.name,
+        date: new Date(selectedFeedback.date)
+      }));
+      setFeedbackDetails(selectedFeedback);
+      setAvailableQuestions(selectedFeedback.questions);
+    }
   };
 
   const handleFileUpload = (e) => {
@@ -355,6 +387,21 @@ const FeedbackData = () => {
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
+                <label className="block mb-2">Select Feedback</label>
+                <select
+                  onChange={handleFeedbackSelect}
+                  className="border rounded p-2 w-full"
+                  required
+                >
+                  <option value="">Select a feedback</option>
+                  {availableFeedbacks.map(feedback => (
+                    <option key={feedback._id} value={feedback._id}>
+                      {feedback.name} ({new Date(feedback.date).toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block mb-2">Feedback Name</label>
                 <input
                   type="text"
@@ -362,8 +409,7 @@ const FeedbackData = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   className="border rounded p-2 w-full"
-                  placeholder="Enter feedback name"
-                  required
+                  readOnly
                 />
               </div>
               <div>
@@ -499,7 +545,7 @@ const FeedbackData = () => {
     </div>
   );
 
-  const renderSuperAdminView = () => (
+   const renderSuperAdminView = () => (
     <div className="container mx-auto px-4 py-8">
       <h2 className="text-2xl font-bold mb-6">Feedback Data Analysis</h2>
       
@@ -544,7 +590,7 @@ const FeedbackData = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-4">
             <h3 className="text-xl font-semibold">
-              Feedback Analysis: {feedbackData[0]?.name || 'Unnamed Feedback'}
+              {formData.name || 'Feedback Analysis'}
             </h3>
             <p className="text-gray-600">
               Date: {new Date(formData.date).toLocaleDateString()} | 
