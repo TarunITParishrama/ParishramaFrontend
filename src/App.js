@@ -28,6 +28,7 @@ import StudentProfile from './pages/stud/StudentProfile.jsx';
 import { ToastContainer } from 'react-toastify';
 import GoToTop from './utils/GoToTop.jsx';
 import ScrollDown from './utils/ScrollDown.jsx';
+import DownloadReports from './pages/stud/DownloadReports.jsx';
 
 function App() {
   return (
@@ -56,7 +57,7 @@ function App() {
           <Route path="studentprofile/:regNumber" element={<StudentProfile />} />
           <Route path="singlereport" element={<SingleReport />} />
           <Route path="singlereport/:regNumber" element={<SingleReport />} /> 
-
+          <Route path="downloadreports" element={<DownloadReports/>} />
           <Route path="students/:regNumber" element={<Students />} />
           <Route path="batches" element={<Batches />} />
           <Route path="tests" element={<Tests />} />

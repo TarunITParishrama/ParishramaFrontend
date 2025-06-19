@@ -409,7 +409,6 @@ const FeedbackData = () => {
                   value={formData.name}
                   onChange={handleInputChange}
                   className="border rounded p-2 w-full"
-                  readOnly
                 />
               </div>
               <div>

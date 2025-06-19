@@ -19,6 +19,7 @@ export default function NewReport({ onClose }) {
   const [fileData, setFileData] = useState(null);
   const [parsedData, setParsedData] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [duplicateRegNumbers, setDuplicateRegNumbers] = useState({});
   const [editableRegNumbers, setEditableRegNumbers] = useState({});
   const [showAllInvalid, setShowAllInvalid] = useState(false);
   const [isTheoryTest, setIsTheoryTest] = useState(false);
@@ -255,12 +256,13 @@ export default function NewReport({ onClose }) {
         }
       });
       setEditableRegNumbers(invalidRegNumbers);
-      
+      setDuplicateRegNumbers(findDuplicateRegNumbers(processed));      
       setError("");
     } catch (err) {
       setError("Error processing file data");
       console.error("Processing error:", err);
       setParsedData([]);
+
     }
   };
 
@@ -335,6 +337,7 @@ export default function NewReport({ onClose }) {
         }
       });
       setEditableRegNumbers(invalidRegNumbers);
+      setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
       
       setError("");
     } catch (err) {
@@ -358,6 +361,7 @@ export default function NewReport({ onClose }) {
     });
     setParsedData(updatedData);
     setEditableRegNumbers({});
+    setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
   };
 
   const handleSubmit = async (e) => {
@@ -456,6 +460,30 @@ export default function NewReport({ onClose }) {
       isValid: /^\d{6}$/.test(String(row.regNumber).trim())
     }))
     .filter(item => item.isValid);
+
+const findDuplicateRegNumbers = (data) => {
+  const regMap = {};
+  const duplicates = {};
+
+  data.forEach((row, index) => {
+    const reg = String(row.regNumber).trim();
+    if (!regMap[reg]) {
+      regMap[reg] = [index];
+    } else {
+      regMap[reg].push(index);
+    }
+  });
+
+  Object.entries(regMap).forEach(([reg, indices]) => {
+    if (indices.length > 1) {
+      indices.forEach((i) => {
+        duplicates[i] = reg;
+      });
+    }
+  });
+
+  return duplicates; // key: index, value: duplicate regNumber
+};
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -708,6 +736,64 @@ export default function NewReport({ onClose }) {
               </div>
             )}
 
+{/* Duplicate Registration Numbers Section */}
+{Object.keys(duplicateRegNumbers).length > 0 && (
+  <div className="mt-6">
+    <div className="flex justify-between items-center mb-2">
+      <h3 className="text-sm font-medium text-gray-700">
+        Duplicate Registration Numbers ({Object.keys(duplicateRegNumbers).length} entries)
+      </h3>
+    </div>
+    <div className="bg-red-50 p-4 rounded-md border border-red-200">
+      <p className="text-sm text-red-700 mb-3">
+        These registration numbers are duplicated. Please modify at least one in each group:
+      </p>
+      <div className="space-y-4">
+        {Object.entries(
+          // Group by regNumber
+          Object.entries(duplicateRegNumbers).reduce((acc, [index, reg]) => {
+            if (!acc[reg]) acc[reg] = [];
+            acc[reg].push(Number(index));
+            return acc;
+          }, {})
+        ).map(([reg, indices]) => (
+          <div key={reg} className="border border-red-200 rounded-md p-3 bg-white">
+            <p className="text-sm font-semibold text-gray-700 mb-2">
+              RegNo: {reg} (used in {indices.length} rows)
+            </p>
+            {indices.map((index) => (
+              <div key={index} className="flex items-center space-x-2 mb-2">
+                <span className="text-sm font-medium w-24">Row {index + 1}:</span>
+                <input
+                  type="text"
+                  value={
+                    editableRegNumbers[index] !== undefined
+                      ? editableRegNumbers[index]
+                      : reg
+                  }
+                  onChange={(e) => handleRegNumberChange(index, e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                />
+                <span className="text-sm text-gray-500">Original: {reg}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={updateParsedDataWithEdits}
+        className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+      >
+        Apply Changes
+      </button>
+    </div>
+  </div>
+)}
+
+
+
             {/* Preview Section */}
             {validRegNumbers.length > 0 && (
               <div className="mt-6">
@@ -811,7 +897,7 @@ export default function NewReport({ onClose }) {
               </button>
               <button
                 type="submit"
-                disabled={loading || isUploading || (!isTheoryTest && testNames.length === 0) || invalidRegNumbers.length > 0}
+                disabled={loading || isUploading || (!isTheoryTest && testNames.length === 0) || invalidRegNumbers.length > 0 || Object.keys(duplicateRegNumbers).length > 0}
                 className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                   loading || isUploading || (!isTheoryTest && testNames.length === 0) || invalidRegNumbers.length > 0 ? "opacity-50 cursor-not-allowed" : ""
                 }`}
@@ -824,4 +910,5 @@ export default function NewReport({ onClose }) {
       </div>
     </div>
   );
+  
 }

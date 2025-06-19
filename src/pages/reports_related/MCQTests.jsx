@@ -100,47 +100,85 @@ export default function MCQTests({
 const combinedData = useMemo(() => {
   if (!filtersApplied || !selectedTestName) return [];
 
-  // Get regNumbers of students who took the test
-  const presentRegNumbers = new Set(testResults.map(r => r.regNumber));
+  const normalize = (val) => val?.toString().trim();
 
-  return filteredStudents.map(student => {
-    const studentReg = Object.keys(students).find(reg => students[reg].studentName === student.studentName);
-    const isPresent = presentRegNumbers.has(studentReg);
+  // Step 1: Build filtered student map
+  const filteredStudents = Object.entries(students).filter(([reg, student]) => {
+    const matchesCampus = selectedCampus === "All" || student.campus === selectedCampus;
+    const matchesSection = selectedSection === "All" || student.section === selectedSection;
+    const matchesYear = selectedAdmissionYear === "All" || student.admissionYear?.toString() === selectedAdmissionYear;
+    return matchesCampus && matchesSection && matchesYear;
+  });
 
-    if (isPresent) {
-      const result = testResults.find(r => r.regNumber === studentReg);
-      return {
+  const studentMap = new Map(filteredStudents.map(([reg, student]) => [normalize(reg), { ...student, regNumber: normalize(reg) }]));
+  const fullStudentMap = new Map(Object.entries(students).map(([reg, student]) => [normalize(reg), { ...student, regNumber: normalize(reg) }]));
+
+  const usedRegs = new Set();
+  const unknowns = [];
+  const present = [];
+
+  testResults.forEach(result => {
+    const reg = normalize(result.regNumber);
+    const student = fullStudentMap.get(reg);
+    const filteredStudent = studentMap.get(reg);
+
+    const isKnown = !!student;
+    const isInFilter = !!filteredStudent;
+
+    usedRegs.add(reg);
+
+    if (!isKnown) {
+      unknowns.push({
         ...result,
+        regNumber: reg,
+        studentName: "⚠ Unknown",
+        campus: "⚠ Unknown",
+        section: "⚠ Unknown",
+        isPresent: true,
+        isUnknown: true
+      });
+    } else if (!filtersApplied || isInFilter) {
+      present.push({
+        ...result,
+        regNumber: reg,
         studentName: student.studentName,
         campus: student.campus,
         section: student.section,
-        isPresent: true
-      };
-    } else {
-      // For absent students, create a record with all test values as 0
-      const emptySubjects = testResults[0]?.subjects ? 
-        Object.keys(testResults[0].subjects).reduce((acc, subject) => {
-          acc[subject] = { scored: 0, marks: testResults[0].subjects[subject].marks };
-          return acc;
-        }, {}) : {};
-      
-      return {
-        regNumber: studentReg,
-        studentName: student.studentName,
-        campus: student.campus,
-        section: student.section,
-        isPresent: false,
-        rank: 0,
-        subjects: emptySubjects,
-        totalMarks: 0,
-        percentage: 0,
-        percentile: 0,
-        date: testResults[0]?.date || new Date().toISOString(),
-        fullMarks: testResults[0]?.fullMarks || 0
-      };
+        isPresent: true,
+        isUnknown: false
+      });
     }
   });
-}, [testResults, students, filteredStudents, filtersApplied, selectedTestName]);
+
+  const subjectTemplate = testResults[0]?.subjects
+    ? Object.entries(testResults[0].subjects).reduce((acc, [sub, val]) => {
+        acc[sub] = { scored: 0, marks: val.marks };
+        return acc;
+      }, {})
+    : {};
+
+  const absent = [...studentMap.values()]
+    .filter(student => !usedRegs.has(student.regNumber))
+    .map(student => ({
+      regNumber: student.regNumber,
+      studentName: student.studentName,
+      campus: student.campus,
+      section: student.section,
+      isPresent: false,
+      rank: 0,
+      subjects: subjectTemplate,
+      totalMarks: 0,
+      percentage: 0,
+      percentile: 0,
+      date: testResults[0]?.date || new Date().toISOString(),
+      fullMarks: testResults[0]?.fullMarks || 0,
+      isUnknown: false
+    }));
+
+  // Final result: unknowns first, then present, then absent
+  return [...unknowns, ...present, ...absent];
+}, [testResults, students, filtersApplied, selectedTestName, selectedCampus, selectedSection, selectedAdmissionYear]);
+
 
   // Sort the combined data
   const sortedData = useMemo(() => {
