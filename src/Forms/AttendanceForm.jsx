@@ -227,7 +227,8 @@ const AttendanceForm = () => {
   };
 
   return (
-    <div className='overflow-auto max-h-screen p-4'>
+    // <div className='overflow-auto max-h-screen p-4'>
+    <div className='overflow-visible p-4'>
     <div className="bg-white rounded-lg shadow-md p-6">
       <h2 className="text-2xl font-bold mb-6 bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400 bg-clip-text text-transparent">
         Mark Attendance
@@ -241,7 +242,11 @@ const AttendanceForm = () => {
             name="campus"
             value={filters.campus}
             onChange={handleFilterChange}
-            className="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            className="
+              relative z-50
+              w-full p-2 border rounded 
+              focus:ring-2 focus:ring-orange-500 focus:border-orange-500
+            "
             disabled={loading}
           >
             <option value="">All Campuses</option>
