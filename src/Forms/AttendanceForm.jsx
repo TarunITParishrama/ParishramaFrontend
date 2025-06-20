@@ -92,7 +92,7 @@ const AttendanceForm = () => {
     if (filters.campus) {
       filtered = filtered.filter(student => 
         student.campus === filters.campus || 
-        (typeof student.campus === 'object' && student.campus._id === filters.campus)
+        (typeof student.campus === 'object' && student.campus._id?.toString() === filters.campus)
       );
     }
     
@@ -251,7 +251,7 @@ const AttendanceForm = () => {
           >
             <option value="">All Campuses</option>
             {campuses.map(campus => (
-              <option key={campus._id} value={campus._id}>
+              <option key={campus._id} value={campus._id.toString()}>
                 {campus.name}
               </option>
             ))}
@@ -285,7 +285,7 @@ const AttendanceForm = () => {
           >
             <option value="">Select Subject</option>
             {subjects.map(subject => (
-              <option key={subject._id} value={subject._id}>
+              <option key={subject._id} value={subject._id.toString()}>
                 {subject.subjectName}
               </option>
             ))}
