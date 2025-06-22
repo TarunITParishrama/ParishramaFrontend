@@ -99,101 +99,108 @@ const FeedbackAdmin = () => {
     }
     setSelectAll(!selectAll);
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!selectedFormId) {
+    toast.error("Please select a feedback form");
+    return;
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  if (!feedbackName.trim()) {
+    toast.error("Please enter a feedback name");
+    return;
+  }
+
+  if (selectedQuestions.length === 0) {
+    toast.error("Please select at least one question");
+    return;
+  }
+
+  try {
+    setIsLoading(true);
+    const token = localStorage.getItem('token');
     
-    if (!selectedFormId) {
-      toast.error("Please select a feedback form");
-      return;
-    }
+    const payload = {
+      name: feedbackName,
+      date: selectedDate,
+      questionNumbers: selectedQuestions.map(q => q.questionNumber),
+      feedbackFormId: selectedFormId,
+      createdBy: userRole 
+    };
 
-    if (selectedQuestions.length === 0) {
-      toast.error("Please select at least one question");
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const payload = {
-        name: feedbackName,
-        date: selectedDate,
-        questionNumbers: selectedQuestions.map(q => q.questionNumber),
-        feedbackFormId: selectedFormId,
-        createdBy: userRole 
-      };
-
-      const response = await axios.post(
-        `${process.env.REACT_APP_URL}/api/createfeedback`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
+    const response = await axios.post(
+      `${process.env.REACT_APP_URL}/api/createfeedback`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
-      );
+      }
+    );
 
-      toast.success("Feedback created successfully");
-      setSelectedQuestions([]);
-      setSelectAll(false);
-      setSelectedDate(new Date());
-      
-      // Refresh existing feedbacks
-      const feedbacksResponse = await axios.get(
-        `${process.env.REACT_APP_URL}/api/getfeedbacks`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+    toast.success("Feedback created successfully");
+    setSelectedQuestions([]);
+    setSelectAll(false);
+    setSelectedDate(new Date());
+    setFeedbackName("");
+    setSelectedFormId("");
+    
+    // Refresh existing feedbacks
+    const feedbacksResponse = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getfeedbacks`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      );
-      setExistingFeedbacks(feedbacksResponse.data.data);
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || "Failed to create feedback";
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      }
+    );
+    setExistingFeedbacks(feedbacksResponse.data.data);
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || "Failed to create feedback";
+    toast.error(errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const renderExistingFeedbacks = () => (
-    <div className="mt-8">
-      <h3 className="text-xl font-semibold mb-4">Existing Feedbacks</h3>
-      {existingFeedbacks.length === 0 ? (
-        <p className="text-gray-500">No existing feedbacks found</p>
-      ) : (
-        <div className="space-y-2">
-          {existingFeedbacks.map(feedback => (
-            <div 
-              key={feedback._id} 
-              className={`p-3 border rounded cursor-pointer hover:bg-gray-50 ${
-                selectedDate.toDateString() === new Date(feedback.date).toDateString() 
-                  ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-200'
-              }`}
-              onClick={() => {
-                setSelectedDate(new Date(feedback.date));
-                setFeedbackName(feedback.name);
-                setSelectedQuestions(feedback.questions);
-              }}
-            >
-              <p className="font-medium">
-                {feedback.name}
-              </p>
-              <p className="text-sm text-gray-500">
-                Date: {new Date(feedback.date).toLocaleDateString()} | 
-                Questions: {feedback.questions.length} | 
-                Form: {feedbackForms.find(f => f._id === feedback.feedbackFormId)?.name || 'Unknown'}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+const renderExistingFeedbacks = () => (
+  <div className="mt-8">
+    <h3 className="text-xl font-semibold mb-4">Existing Feedbacks</h3>
+    {existingFeedbacks.length === 0 ? (
+      <p className="text-gray-500">No existing feedbacks found</p>
+    ) : (
+      <div className="space-y-2">
+        {existingFeedbacks.map(feedback => (
+          <div 
+            key={feedback._id} 
+            className={`p-3 border rounded cursor-pointer hover:bg-gray-50 ${
+              selectedDate.toDateString() === new Date(feedback.date).toDateString() 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-200'
+            }`}
+            onClick={() => {
+              setSelectedDate(new Date(feedback.date));
+              setFeedbackName(feedback.name);
+              setSelectedFormId(feedback.feedbackForm?._id || "");
+              setSelectedQuestions(feedback.questions);
+            }}
+          >
+            <p className="font-medium">
+              {feedback.name}
+            </p>
+            <p className="text-sm text-gray-500">
+              Date: {new Date(feedback.date).toLocaleDateString()} | 
+              Questions: {feedback.questions.length} | 
+              Form: {feedback.feedbackForm?.name || 'Unknown'}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
 
   return (
     <div className="container mx-auto px-4 py-8">

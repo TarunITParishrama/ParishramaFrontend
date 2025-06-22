@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import DatePicker from 'react-datepicker';
+import { FiTrash2 } from 'react-icons/fi';
 import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from "xlsx";
 
@@ -23,6 +24,7 @@ const FeedbackData = () => {
   const [feedbackDetails, setFeedbackDetails] = useState(null);
   const [aggregatedData, setAggregatedData] = useState([]);
   const [availableFeedbacks, setAvailableFeedbacks] = useState([]);
+  const [availableFeedbackNames, setAvailableFeedbackNames] = useState([]);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
@@ -40,6 +42,10 @@ const FeedbackData = () => {
         }
       );
       setAvailableFeedbacks(response.data.data);
+      
+      // Extract unique feedback names
+      const names = [...new Set(response.data.data.map(f => f.name))];
+      setAvailableFeedbackNames(names);
     } catch (error) {
       toast.error('Failed to fetch available feedbacks');
     }
@@ -205,7 +211,7 @@ const FeedbackData = () => {
       });
 
       const payload = {
-        name: formData.name, // Include name in payload
+        name: formData.name,
         date: formData.date,
         streamType: formData.streamType,
         campus: formData.streamType === 'LongTerm' ? formData.campus : undefined,
@@ -236,7 +242,7 @@ const FeedbackData = () => {
       setShowUploadForm(false);
       setFile(null);
       setFormData({
-        name: '', // Reset name field
+        name: '',
         date: new Date(),
         streamType: '',
         campus: '',
@@ -251,6 +257,14 @@ const FeedbackData = () => {
     }
   };
 
+  const handleRemoveFile = () => {
+    setFile(null);
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
   const fetchFeedbackData = async () => {
     if (!formData.date || !formData.streamType) return;
     
@@ -259,13 +273,13 @@ const FeedbackData = () => {
       const token = localStorage.getItem('token');
       const dateString = formData.date.toISOString().split('T')[0];
 
-      // First get all feedback data for this date and stream type
       const response = await axios.get(
         `${process.env.REACT_APP_URL}/api/getfeedbackdata`,
         {
           params: {
             date: dateString,
-            streamType: formData.streamType
+            streamType: formData.streamType,
+            name: formData.name || undefined
           },
           headers: {
             Authorization: `Bearer ${token}`
@@ -274,11 +288,13 @@ const FeedbackData = () => {
       );
       
       if (response.data.data.length > 0) {
-        // Get the feedback form for question statements
         const feedbackResponse = await axios.get(
           `${process.env.REACT_APP_URL}/api/getfeedbacks`,
           {
-            params: { date: dateString },
+            params: { 
+              date: dateString,
+              name: formData.name || undefined
+            },
             headers: { Authorization: `Bearer ${token}` }
           }
         );
@@ -297,7 +313,6 @@ const FeedbackData = () => {
           }));
         }
 
-        // Process data for tabular display
         const processedData = response.data.data.map(item => ({
           id: item._id,
           campusOrSection: formData.streamType === 'LongTerm' ? item.campus : item.section,
@@ -317,7 +332,6 @@ const FeedbackData = () => {
 
         setFeedbackData(processedData);
 
-        // Aggregate data for summary view
         const aggregated = processedData.reduce((acc, curr) => {
           curr.questions.forEach((q, idx) => {
             if (!acc[idx]) {
@@ -493,10 +507,20 @@ const FeedbackData = () => {
                 disabled={!feedbackDetails}
               />
               {file && (
-                <div className="mt-2 text-sm">
-                  <p>Selected file: {file.name}</p>
-                  <p>Students in file: {file.studentCount}</p>
-                  <p>Students with responses: {file.totalResponsesCount}</p>
+                <div className="mt-2 text-sm bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">Selected file: {file.name}</p>
+                    <p>Students in file: {file.studentCount}</p>
+                    <p>Students with responses: {file.totalResponsesCount}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="text-red-500 hover:text-red-700 p-2"
+                    title="Remove file"
+                  >
+                    <FiTrash2 size={20} />
+                  </button>
                 </div>
               )}
               {!feedbackDetails && (
@@ -544,12 +568,12 @@ const FeedbackData = () => {
     </div>
   );
 
-   const renderSuperAdminView = () => (
+  const renderSuperAdminView = () => (
     <div className="container mx-auto px-4 py-8">
       <h2 className="text-2xl font-bold mb-6">Feedback Data Analysis</h2>
       
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <div>
             <label className="block mb-2">Stream Type</label>
             <select
@@ -571,6 +595,21 @@ const FeedbackData = () => {
               onChange={handleDateChange}
               className="border rounded p-2 w-full"
             />
+          </div>
+          
+          <div>
+            <label className="block mb-2">Feedback Name</label>
+            <select
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              className="border rounded p-2 w-full"
+            >
+              <option value="">All Feedback Names</option>
+              {availableFeedbackNames.map((name, index) => (
+                <option key={index} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
           
           <div className="flex items-end">
@@ -615,20 +654,20 @@ const FeedbackData = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Students (Responded/Total)
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-violet-500 uppercase tracking-wider">
                           Excellent (A)
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-green-500 uppercase tracking-wider">
                           Good (B)
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-yellow-500 uppercase tracking-wider">
                           Average (C)
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-red-500 uppercase tracking-wider">
                           Poor (D)
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          No Response
+                          No Response/Invalid Response
                         </th>
                       </tr>
                     </thead>

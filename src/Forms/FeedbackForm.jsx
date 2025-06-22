@@ -24,6 +24,7 @@ const FeedbackForm = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+
   // Fetch existing feedback forms on component mount
   useEffect(() => {
     fetchFeedbackForms();
@@ -244,6 +245,23 @@ const FeedbackForm = () => {
     });
   };
 
+    const duplicateForm = (form) => {
+  setCurrentFormId(null); // Clear existing ID to avoid updating
+  setFormData({
+    name: `${form.name} (Copy)`,
+    questions: form.questions.map((q, index) => ({
+      questionNumber: `Q${index + 1}`,
+      questionStatement: q.questionStatement,
+      options: {
+        A: "Excellent",
+        B: "Good",
+        C: "Average",
+        D: "Poor"
+      }
+    }))
+  });
+};
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -389,7 +407,7 @@ const FeedbackForm = () => {
             {savedForms.map((form) => (
               <div
                 key={form._id}
-                className={`p-4 border rounded-lg ${currentFormId === form._id ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
+                className={`p-4 border rounded-lg group relative hover:shadow-md transition-all duration-150 ${currentFormId === form._id ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
               >
                 <div className="flex justify-between items-start">
                   <div>
@@ -400,19 +418,25 @@ const FeedbackForm = () => {
                       Created on: {new Date(form.createdAt).toLocaleDateString()} | {form.questions.length} questions
                     </p>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => loadForm(form)}
-                      className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
-                    >
-                      {currentFormId === form._id ? "Currently Editing" : "Load"}
-                    </button>
-                    <button
-                      onClick={() => deleteForm(form._id)}
-                      className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 text-sm"
-                    >
-                      Delete
-                    </button>
+                  <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+  <button
+    onClick={() => loadForm(form)}
+    className="px-3 py-1 bg-blue-500 text-black rounded-md hover:bg-blue-600 text-sm"
+  >
+    {currentFormId === form._id ? "Currently Editing" : "Load"}
+  </button>
+  <button
+    onClick={() => duplicateForm(form)}
+    className="px-3 py-1 bg-yellow-500 text-black rounded-md hover:bg-yellow-600 text-sm"
+  >
+    Duplicate
+  </button>
+  <button
+    onClick={() => deleteForm(form._id)}
+    className="px-3 py-1 bg-red-500 text-black rounded-md hover:bg-red-600 text-sm"
+  >
+    Delete
+  </button>
                   </div>
                 </div>
                 
