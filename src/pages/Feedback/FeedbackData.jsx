@@ -26,13 +26,36 @@ const FeedbackData = () => {
   const [aggregatedData, setAggregatedData] = useState([]);
   const [availableFeedbacks, setAvailableFeedbacks] = useState([]);
   const [availableFeedbackNames, setAvailableFeedbackNames] = useState([]);
+  const [availableDates, setAvailableDates] = useState([]);
   const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole');
     setUserRole(role);
     fetchAvailableFeedbacks();
+    fetchAvailableDates();
   }, []);
+
+  const fetchAvailableDates = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getfeedbackdata/dates`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    // Format as ISO dates or strings
+    const uniqueDates = [...new Set(response.data.data.map(d => new Date(d).toISOString().split('T')[0]))];
+    setAvailableDates(uniqueDates);
+  } catch (error) {
+    toast.error('Failed to fetch available feedback dates');
+  }
+};
+
 
   const fetchAvailableFeedbacks = async () => {
     try {
@@ -343,120 +366,117 @@ const FeedbackData = () => {
     }
   };
 
-  const fetchFeedbackData = async (selectedName = ' ') => {
-    if (!formData.date || !formData.streamType) return;
-    
-    try {
-      setIsLoading(true);
-      const token = localStorage.getItem('token');
-      const dateString = formData.date.toISOString().split('T')[0];
+  const fetchFeedbackData = async (selectedName = '') => {
+  if (!formData.date || !formData.streamType) return;
 
-      const response = await axios.get(
-        `${process.env.REACT_APP_URL}/api/getfeedbackdata`,
+  try {
+    setIsLoading(true);
+    const token = localStorage.getItem('token');
+    const dateString = formData.date.toISOString().split('T')[0];
+
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/getfeedbackdata`,
+      {
+        params: {
+          date: dateString,
+          streamType: formData.streamType,
+          name: formData.name || undefined
+        },
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    if (response.data.data.length > 0) {
+      // Fetch feedback form to get question statements
+      const feedbackResponse = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getfeedbacks`,
         {
           params: {
             date: dateString,
-            streamType: formData.streamType,
             name: formData.name || undefined
           },
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
-      
-      if (response.data.data.length > 0) {
-        const feedbackResponse = await axios.get(
-          `${process.env.REACT_APP_URL}/api/getfeedbacks`,
-          {
-            params: { 
-              date: dateString,
-              name: formData.name || undefined
-            },
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
 
-        let questionsWithStatements = [];
-        if (feedbackResponse.data.data.length > 0) {
-          let feedbackForm = feedbackResponse.data.data[0];
-          const matchName = selectedName || formData.name;
+      let questionMap = new Map();
+      if (feedbackResponse.data.data.length > 0) {
+        let feedbackForm = feedbackResponse.data.data[0];
 
+        const matchName = selectedName || formData.name;
         if (matchName) {
-          const matchingFeedback = response.data.data.find(f => f.name === matchName);
-          if (matchingFeedback) {
-            feedbackForm = matchingFeedback;
-          }
-        }
-          const questionMap = new Map();
-          feedbackForm.questions.forEach(q => {
-            questionMap.set(q.questionNumber, q.questionStatement);
-          });
-
-          questionsWithStatements = response.data.data[0].questions.map(q => ({
-            ...q,
-            questionStatement: questionMap.get(q.questionNumber) || 'Question statement not available'
-          }));
+          const matchingForm = feedbackResponse.data.data.find(f => f.name === matchName);
+          if (matchingForm) feedbackForm = matchingForm;
         }
 
-        const processedData = response.data.data.map(item => ({
+        // Map questionNumber to questionStatement
+        feedbackForm.questions.forEach(q => {
+          questionMap.set(q.questionNumber, q.questionStatement);
+        });
+      }
+
+      // Now process each campus/section's data
+      const processedData = response.data.data.map(item => {
+        const enrichedQuestions = item.questions.map(q => ({
+          ...q,
+          questionStatement: questionMap.get(q.questionNumber) || 'Question statement not available',
+          ...calculatePercentages(q)
+        }));
+
+        return {
           id: item._id,
           campusOrSection: formData.streamType === 'LongTerm' ? item.campus : item.section,
           studentCount: item.studentCount,
           responseCount: item.responseCount,
-          questions: questionsWithStatements.length > 0 ? 
-            questionsWithStatements.map(q => ({
-              ...q,
-              ...calculatePercentages(q)
-            })) : 
-            item.questions.map(q => ({
-              ...q,
-              questionStatement: 'Question statement not available',
-              ...calculatePercentages(q)
-            }))
-        }));
+          questions: enrichedQuestions
+        };
+      });
 
-        setFeedbackData(processedData);
+      setFeedbackData(processedData);
 
-        const aggregated = processedData.reduce((acc, curr) => {
-          curr.questions.forEach((q, idx) => {
-            if (!acc[idx]) {
-              acc[idx] = {
-                questionNumber: q.questionNumber,
-                questionStatement: q.questionStatement,
-                responses: []
-              };
-            }
-            acc[idx].responses.push({
-              campusOrSection: curr.campusOrSection,
-              studentCount: curr.studentCount,
-              responseCount: curr.responseCount,
-              countA: q.countA,
-              percentA: q.percentA,
-              countB: q.countB,
-              percentB: q.percentB,
-              countC: q.countC,
-              percentC: q.percentC,
-              countD: q.countD,
-              percentD: q.percentD,
-              noResponse: q.noResponse,
-              percentNoResponse: q.percentNoResponse
-            });
+      // Aggregate across all responses
+      const aggregated = processedData.reduce((acc, curr) => {
+        curr.questions.forEach((q, idx) => {
+          if (!acc[idx]) {
+            acc[idx] = {
+              questionNumber: q.questionNumber,
+              questionStatement: q.questionStatement,
+              responses: []
+            };
+          }
+          acc[idx].responses.push({
+            campusOrSection: curr.campusOrSection,
+            studentCount: curr.studentCount,
+            responseCount: curr.responseCount,
+            countA: q.countA,
+            percentA: q.percentA,
+            countB: q.countB,
+            percentB: q.percentB,
+            countC: q.countC,
+            percentC: q.percentC,
+            countD: q.countD,
+            percentD: q.percentD,
+            noResponse: q.noResponse,
+            percentNoResponse: q.percentNoResponse
           });
-          return acc;
-        }, []);
+        });
+        return acc;
+      }, []);
 
-        setAggregatedData(aggregated);
-      } else {
-        setFeedbackData([]);
-        setAggregatedData([]);
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to fetch feedback data');
-    } finally {
-      setIsLoading(false);
+      setAggregatedData(aggregated);
+    } else {
+      setFeedbackData([]);
+      setAggregatedData([]);
     }
-  };
+  } catch (error) {
+    toast.error(error.response?.data?.message || 'Failed to fetch feedback data');
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const calculatePercentages = (question) => {
     const totalResponses = question.countA + question.countB + question.countC + question.countD + question.noResponse;
@@ -823,13 +843,24 @@ const FeedbackData = () => {
           </div>
           
           <div>
-            <label className="block mb-2">Date</label>
-            <DatePicker
-              selected={formData.date}
-              onChange={handleDateChange}
-              className="border rounded p-2 w-full"
-            />
-          </div>
+  <label className="block mb-2">Date</label>
+  <select
+    value={formData.date ? new Date(formData.date).toISOString().split('T')[0] : ''}
+    onChange={(e) => {
+      const selectedDate = new Date(e.target.value);
+      setFormData(prev => ({ ...prev, date: selectedDate }));
+    }}
+    className="border rounded p-2 w-full"
+  >
+    <option value="">Select Date</option>
+    {availableDates.map((dateStr, i) => (
+      <option key={i} value={dateStr}>
+        {new Date(dateStr).toLocaleDateString()}
+      </option>
+    ))}
+  </select>
+</div>
+
           
           <div>
             <label className="block mb-2">Feedback Name</label>
