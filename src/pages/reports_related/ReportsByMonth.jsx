@@ -643,8 +643,8 @@ const handleSubmit = async (date, marksType) => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempted</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correct</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wrong</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-green-500 uppercase tracking-wider">Correct</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-500 uppercase tracking-wider">Wrong</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Marks</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Accuracy</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentage</th>
@@ -661,19 +661,19 @@ const handleSubmit = async (date, marksType) => {
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {result.regNumber} {renderRankBadge(result.rank)}
-                      {isDangerZone &&(
+                      {/* {isDangerZone &&(
                         <span className="ml-2 bg-red-800 text-white text-xs font-semibold px-2.5 py-0.5 rounded">
                           Needs Attention
                         </span>
-                      )}
+                      )} */}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {attempted}/{totalQuestions}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-green-600 text-white font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-white text-green-600 font-bold">
                       {result.correctAnswers}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-red-600 text-white font-semibold">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm bg-white text-red-600 font-bold">
                       {result.wrongAnswers}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">

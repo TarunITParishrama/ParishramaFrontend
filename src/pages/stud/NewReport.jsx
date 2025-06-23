@@ -5,6 +5,22 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
 export default function NewReport({ onClose }) {
+
+  const fetchStudentByRegNumber = async (regNumber) => {
+  const token = localStorage.getItem('token');
+  const response = await axios.get(
+    `${process.env.REACT_APP_URL}/api/searchstudents?query=${regNumber}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data?.data?.find(
+    (student) => student.regNumber === regNumber
+  );
+};
+
   const [formData, setFormData] = useState({
     stream: "LongTerm",
     questionType: "",
@@ -192,6 +208,7 @@ export default function NewReport({ onClose }) {
       key.match(/^(regno|rollno|registration|id)/i)
     );
     
+    
     const questionKeys = Object.keys(firstRow)
       .filter(key => key.match(/^q\d+$/i))
       .sort((a, b) => {
@@ -242,6 +259,7 @@ export default function NewReport({ onClose }) {
   
         return {
           regNumber: row[regNoKey],
+          filePath: row["File"],
           questionAnswer,
           totalQuestions: maxQuestionNum
         };
@@ -354,15 +372,157 @@ export default function NewReport({ onClose }) {
     }));
   };
 
-  const updateParsedDataWithEdits = () => {
-    const updatedData = [...parsedData];
-    Object.entries(editableRegNumbers).forEach(([index, value]) => {
-      updatedData[index].regNumber = value;
+const updateParsedDataWithEdits = async () => {
+  const updatedData = [...parsedData];
+  const regNumbersToCheck = Object.entries(editableRegNumbers);
+
+  let validChanges = [];
+
+  for (const [indexStr, newReg] of regNumbersToCheck) {
+    const index = parseInt(indexStr);
+    const oldReg = updatedData[index].regNumber;
+    if (String(oldReg).trim() !== String(newReg).trim()) {
+      try {
+        const student = await fetchStudentByRegNumber(newReg.trim());
+        if (student) {
+          const confirmUpdate = window.confirm(
+            `RegNo ${newReg} belongs to ${student.studentName}. Do you want to apply this change?`
+          );
+          if (confirmUpdate) {
+            validChanges.push({ index, newReg });
+          }
+        } else {
+          const confirmUpdate = window.confirm(
+            `RegNo ${newReg} not found in Students database. Do you still want to proceed?`
+          );
+          if (confirmUpdate) {
+            validChanges.push({ index, newReg });
+          }
+        }
+      } catch (err) {
+        console.error(`Error validating RegNo ${newReg}`, err);
+      }
+    }
+  }
+
+  // Apply valid changes
+  validChanges.forEach(({ index, newReg }) => {
+    updatedData[index].regNumber = newReg.trim();
+  });
+
+  setParsedData(updatedData);
+  setEditableRegNumbers({});
+  setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+};
+
+const downloadErrorFile = () => {
+  const rows = [];
+
+  // Invalid RegNumbers
+  invalidRegNumbers.forEach((item) => {
+    const filePath = parsedData[item.index]?.filePath || "";
+    rows.push({
+      Row: item.index + 1,
+      Issue: "Invalid RegNumber",
+      RegNumber: item.regNumber,
+      File: filePath,
     });
-    setParsedData(updatedData);
-    setEditableRegNumbers({});
-    setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+  });
+
+  // Duplicate RegNumbers
+  const groupedDuplicates = Object.entries(duplicateRegNumbers).reduce((acc, [index, reg]) => {
+    if (!acc[reg]) acc[reg] = [];
+    acc[reg].push(Number(index));
+    return acc;
+  }, {});
+
+  Object.entries(groupedDuplicates).forEach(([reg, indices]) => {
+    indices.forEach((index) => {
+      const filePath = parsedData[index]?.filePath || "";
+      rows.push({
+        Row: index + 1,
+        Issue: "Duplicate RegNumber",
+        RegNumber: reg,
+        File: filePath,
+      });
+    });
+  });
+
+  const csvContent =
+    "data:text/csv;charset=utf-8," +
+    ["Row,Issue,RegNumber,File", ...rows.map(r =>
+      `${r.Row},${r.Issue},${r.RegNumber},"${r.File}"`
+    )].join("\n");
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "error_report.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const handleReuploadErrorFile = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    Papa.parse(event.target.result, {
+      header: true,
+      complete: async ({ data }) => {
+        const updatedData = [...parsedData];
+        let validChanges = [];
+
+        for (const row of data) {
+          const index = parseInt(row.Row, 10) - 1;
+          const newReg = row.RegNumber?.trim();
+
+          if (!isNaN(index) && newReg) {
+            try {
+              const student = await fetchStudentByRegNumber(newReg);
+              let proceed = false;
+
+              if (student) {
+                proceed = window.confirm(
+                  `Row ${index + 1}: RegNo ${newReg} belongs to ${student.studentName}. Apply this change?`
+                );
+              } else {
+                proceed = window.confirm(
+                  `Row ${index + 1}: RegNo ${newReg} not found in database. Proceed anyway?`
+                );
+              }
+
+              if (proceed) {
+                validChanges.push({ index, newReg });
+              }
+            } catch (err) {
+              //toast.error(`Validation error for RegNo ${newReg}`);
+              console.error(err);
+            }
+          }
+        }
+
+        // Apply valid regNumber changes
+        validChanges.forEach(({ index, newReg }) => {
+          updatedData[index].regNumber = newReg;
+        });
+
+        setParsedData(updatedData);
+        setEditableRegNumbers({});
+        setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+
+        //toast.success("Reuploaded corrections applied successfully!");
+      },
+      error: (err) => {
+        //toast.error("Failed to parse error file");
+        console.error("CSV Parse Error:", err);
+      },
+    });
   };
+  reader.readAsText(file);
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -711,18 +871,23 @@ const findDuplicateRegNumbers = (data) => {
                   </p>
                   <div className="space-y-2">
                     {(showAllInvalid ? invalidRegNumbers : invalidRegNumbers.slice(0, 6)).map((item) => (
-                      <div key={item.index} className="flex items-center space-x-2">
-                        <span className="text-sm font-medium w-24">Row {item.index + 1}:</span>
-                        <input
-                          type="text"
-                          value={editableRegNumbers[item.index] !== undefined ? editableRegNumbers[item.index] : item.regNumber}
-                          onChange={(e) => handleRegNumberChange(item.index, e.target.value)}
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
-                        />
-                        <span className="text-sm text-gray-500">
-                          Original: {item.regNumber}
-                        </span>
-                      </div>
+                     <div key={item.index} className="flex items-center space-x-2">
+    <span className="text-sm font-medium w-24">Row {item.index + 1}:</span>
+    <input
+      type="text"
+      value={editableRegNumbers[item.index] !== undefined ? editableRegNumbers[item.index] : item.regNumber}
+      onChange={(e) => handleRegNumberChange(item.index, e.target.value)}
+      className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+    />
+    <span className="text-sm text-gray-500">
+      Original: {item.regNumber}
+    </span>
+    {parsedData[item.index]?.filePath && (
+      <span className="text-sm text-gray-500 break-all max-w-[200px]">
+        File: {parsedData[item.index].filePath}
+      </span>
+    )}
+  </div>
                     ))}
                   </div>
                   <button
@@ -762,21 +927,27 @@ const findDuplicateRegNumbers = (data) => {
               RegNo: {reg} (used in {indices.length} rows)
             </p>
             {indices.map((index) => (
-              <div key={index} className="flex items-center space-x-2 mb-2">
-                <span className="text-sm font-medium w-24">Row {index + 1}:</span>
-                <input
-                  type="text"
-                  value={
-                    editableRegNumbers[index] !== undefined
-                      ? editableRegNumbers[index]
-                      : reg
-                  }
-                  onChange={(e) => handleRegNumberChange(index, e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
-                />
-                <span className="text-sm text-gray-500">Original: {reg}</span>
-              </div>
-            ))}
+  <div key={index} className="flex items-center space-x-2 mb-2">
+    <span className="text-sm font-medium w-24">Row {index + 1}:</span>
+    <input
+      type="text"
+      value={
+        editableRegNumbers[index] !== undefined
+          ? editableRegNumbers[index]
+          : reg
+      }
+      onChange={(e) => handleRegNumberChange(index, e.target.value)}
+      className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+    />
+    <span className="text-sm text-gray-500">Original: {reg}</span>
+    {parsedData[index]?.filePath && (
+      <span className="text-sm text-gray-500 break-all max-w-[200px]">
+        File: {parsedData[index].filePath}
+      </span>
+    )}
+  </div>
+))}
+
           </div>
         ))}
       </div>
@@ -792,6 +963,19 @@ const findDuplicateRegNumbers = (data) => {
   </div>
 )}
 
+<div className="flex space-x-3 mt-4">
+  <button
+    type="button"
+    onClick={downloadErrorFile}
+    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+  >
+    Download Error File
+  </button>
+  <label className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer">
+    Reupload File
+    <input type="file" accept=".csv" onChange={handleReuploadErrorFile} className="hidden" />
+  </label>
+</div>
 
 
             {/* Preview Section */}
