@@ -5,28 +5,27 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
 export default function NewReport({ onClose }) {
-
   const fetchStudentByRegNumber = async (regNumber) => {
-  const token = localStorage.getItem('token');
-  const response = await axios.get(
-    `${process.env.REACT_APP_URL}/api/searchstudents?query=${regNumber}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-  return response.data?.data?.find(
-    (student) => student.regNumber === regNumber
-  );
-};
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/searchstudents?query=${regNumber}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data?.data?.find(
+      (student) => student.regNumber === regNumber
+    );
+  };
 
   const [formData, setFormData] = useState({
     stream: "LongTerm",
     questionType: "",
     testName: "",
     date: "",
-    marksType: ""
+    marksType: "",
   });
 
   const [testNames, setTestNames] = useState([]);
@@ -45,43 +44,47 @@ export default function NewReport({ onClose }) {
   // Marks type options
   const marksTypeOptions = [
     "+1 CorrectAnswer, 0 WrongAnswer, 0 Unmarked",
-    "+4 CorrectAnswer, -1 WrongAnswer, 0 Unmarked"
+    "+4 CorrectAnswer, -1 WrongAnswer, 0 Unmarked",
   ];
 
   // Fetch test names when stream changes (only for MCQ)
   useEffect(() => {
     if (isTheoryTest) {
       const fetchSubjects = async () => {
-        try{
-          const token = localStorage.getItem('token');
-          const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`,{
-            headers:{
-              Authorization:
-                `Bearer ${token}`
+        try {
+          const token = localStorage.getItem("token");
+          const response = await axios.get(
+            `${process.env.REACT_APP_URL}/api/getsubjects`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
             }
-          });
-          if(response.data?.data){
+          );
+          if (response.data?.data) {
             setSubjects(response.data.data);
-            const initialSubjects = response.data.data.slice(0, 4).map(subject => ({
-              name: subject.subjectName,
-              maxMarks: 25
-            }));
-            setSubjectDetails(initialSubjects)
+            const initialSubjects = response.data.data
+              .slice(0, 4)
+              .map((subject) => ({
+                name: subject.subjectName,
+                maxMarks: 25,
+              }));
+            setSubjectDetails(initialSubjects);
           }
-        }catch(err){
+        } catch (err) {
           setError("Failed to fetch Subjects");
         }
       };
       fetchSubjects();
     }
-    
+
     const fetchTestNames = async () => {
       try {
         setError("");
         const response = await axios.get(
           `${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${formData.stream}`
         );
-        
+
         if (!response.data?.data || response.data.data.length === 0) {
           setTestNames([]);
           setError(`No tests available for ${formData.stream} stream`);
@@ -89,30 +92,36 @@ export default function NewReport({ onClose }) {
         }
 
         const uniqueTestNames = [
-          ...new Set(response.data.data.map(item => item.solutionRef.testName))
+          ...new Set(
+            response.data.data.map((item) => item.solutionRef.testName)
+          ),
         ];
         setTestNames(uniqueTestNames);
       } catch (err) {
-        setError(err.response?.data?.message || err.message || "Failed to fetch test names");
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to fetch test names"
+        );
         setTestNames([]);
       }
     };
     fetchTestNames();
   }, [formData.stream, isTheoryTest]);
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     // When question type changes, update isTheoryTest state
     if (name === "questionType") {
       setIsTheoryTest(value === "Theory");
     }
-    
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubjectChange = (index, field, value) => {
-    setSubjectDetails(prev => {
+    setSubjectDetails((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
@@ -122,23 +131,23 @@ export default function NewReport({ onClose }) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       "application/vnd.ms-excel": [".xls", ".xlsx"],
-      "text/csv": [".csv"]
+      "text/csv": [".csv"],
     },
     maxFiles: 1,
-    onDrop: acceptedFiles => {
+    onDrop: (acceptedFiles) => {
       if (acceptedFiles.length > 0) {
         setFileData(acceptedFiles[0]);
         parseFile(acceptedFiles[0]);
       }
-    }
+    },
   });
 
-  const parseFile = file => {
+  const parseFile = (file) => {
     setIsUploading(true);
     setError("");
 
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = (e) => {
       try {
         const data = e.target.result;
         if (file.name.endsWith(".csv")) {
@@ -156,13 +165,13 @@ export default function NewReport({ onClose }) {
     reader.readAsBinaryString(file);
   };
 
-  const parseExcel = data => {
+  const parseExcel = (data) => {
     try {
       const workbook = XLSX.read(data, { type: "binary" });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
-      
+
       if (isTheoryTest) {
         processTheoryData(jsonData);
       } else {
@@ -174,25 +183,25 @@ export default function NewReport({ onClose }) {
     }
   };
 
-  const parseCSV = data => {
+  const parseCSV = (data) => {
     Papa.parse(data, {
       header: true,
-      complete: results => {
+      complete: (results) => {
         if (results.errors.length > 0) {
           setError("CSV parsing errors detected");
           console.error("CSV errors:", results.errors);
         }
-        
+
         if (isTheoryTest) {
           processTheoryData(results.data);
         } else {
           processMCQData(results.data);
         }
       },
-      error: err => {
+      error: (err) => {
         setError("Error parsing CSV file");
         console.error(err);
-      }
+      },
     });
   };
 
@@ -202,71 +211,72 @@ export default function NewReport({ onClose }) {
       setParsedData([]);
       return;
     }
-  
+
     const firstRow = data[0] || {};
-    const regNoKey = Object.keys(firstRow).find(key => 
+    const regNoKey = Object.keys(firstRow).find((key) =>
       key.match(/^(regno|rollno|registration|id)/i)
     );
-    
-    
+
     const questionKeys = Object.keys(firstRow)
-      .filter(key => key.match(/^q\d+$/i))
+      .filter((key) => key.match(/^q\d+$/i))
       .sort((a, b) => {
-        const numA = parseInt(a.replace(/\D/g, ''));
-        const numB = parseInt(b.replace(/\D/g, ''));
+        const numA = parseInt(a.replace(/\D/g, ""));
+        const numB = parseInt(b.replace(/\D/g, ""));
         return numA - numB;
       });
-  
+
     if (!regNoKey) {
       setError("File must contain student ID column");
       setParsedData([]);
       return;
     }
-  
+
     if (questionKeys.length === 0) {
       setError("File must contain question columns (Q1, Q2, etc.)");
       setParsedData([]);
       return;
     }
-  
+
     try {
       const maxQuestionNum = questionKeys.reduce((max, key) => {
-        const num = parseInt(key.replace(/\D/g, ''));
+        const num = parseInt(key.replace(/\D/g, ""));
         return num > max ? num : max;
       }, 0);
-  
-      const processed = data.map(row => {
+
+      const processed = data.map((row) => {
         const questionAnswer = {};
-        
+
         for (let i = 1; i <= maxQuestionNum; i++) {
           const qKey = `Q${i}`;
           let answer = row[qKey];
-          
+
           // Convert numeric answers to letter format
           if (answer) {
             answer = String(answer).trim();
-            if (answer === '1') answer = 'A';
-            else if (answer === '2') answer = 'B';
-            else if (answer === '3') answer = 'C';
-            else if (answer === '4') answer = 'D';
-            
+            if (answer === "1") answer = "A";
+            else if (answer === "2") answer = "B";
+            else if (answer === "3") answer = "C";
+            else if (answer === "4") answer = "D";
+
             // Only keep valid answers (A/B/C/D)
-            questionAnswer[i] = ['A', 'B', 'C', 'D'].includes(answer) ? answer : '';
+            questionAnswer[i] = ["A", "B", "C", "D"].includes(answer)
+              ? answer
+              : "";
           } else {
-            questionAnswer[i] = '';
+            questionAnswer[i] = "";
           }
         }
-  
+
         return {
           regNumber: row[regNoKey],
           filePath: row["File"],
           questionAnswer,
-          totalQuestions: maxQuestionNum
+          totalQuestions: maxQuestionNum,
         };
       });
-  
+
       setParsedData(processed);
-      
+
       const invalidRegNumbers = {};
       processed.forEach((row, index) => {
         if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
@@ -274,13 +284,12 @@ export default function NewReport({ onClose }) {
         }
       });
       setEditableRegNumbers(invalidRegNumbers);
-      setDuplicateRegNumbers(findDuplicateRegNumbers(processed));      
+      setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
       setError("");
     } catch (err) {
       setError("Error processing file data");
       console.error("Processing error:", err);
       setParsedData([]);
-
     }
   };
 
@@ -293,20 +302,20 @@ export default function NewReport({ onClose }) {
 
     // Expected columns for theory test
     const firstRow = data[0] || {};
-    const regNoKey = Object.keys(firstRow).find(key => 
+    const regNoKey = Object.keys(firstRow).find((key) =>
       key.match(/^(regno|rollno|registration|id)/i)
     );
-    
+
     // Find the column for each subject
     const subjectColumns = {};
-    subjectDetails.forEach(subject => {
+    subjectDetails.forEach((subject) => {
       const subjectLower = subject.name.toLowerCase();
-      const matchingKey = Object.keys(firstRow).find(key => {
-        const keyLower = key.toLowerCase().replace(/[^a-z]/g, '');
+      const matchingKey = Object.keys(firstRow).find((key) => {
+        const keyLower = key.toLowerCase().replace(/[^a-z]/g, "");
         return keyLower.includes(subjectLower);
       });
-      if(matchingKey){
-        subjectColumns[subject.name] =matchingKey;
+      if (matchingKey) {
+        subjectColumns[subject.name] = matchingKey;
       }
     });
 
@@ -316,38 +325,46 @@ export default function NewReport({ onClose }) {
       return;
     }
 
-    const missingSubjects = subjectDetails.filter(subject => !subjectColumns[subject.name]);
+    const missingSubjects = subjectDetails.filter(
+      (subject) => !subjectColumns[subject.name]
+    );
     if (missingSubjects.length > 0) {
-      setError(`Missing columns for: ${missingSubjects.map(s => s.name).join(', ')}`);
+      setError(
+        `Missing columns for: ${missingSubjects.map((s) => s.name).join(", ")}`
+      );
       setParsedData([]);
       return;
     }
 
     try {
-      const processed = data.map(row => {
+      const processed = data.map((row) => {
         const subjectMarks = {};
         let totalMarks = 0;
-        
-        subjectDetails.forEach(subject => {
+
+        subjectDetails.forEach((subject) => {
           const key = subjectColumns[subject.name];
           const marks = parseFloat(row[key]) || 0;
           subjectMarks[subject.name] = marks;
           totalMarks += marks;
         });
 
-        const totalPossible = subjectDetails.reduce((sum, sub) => sum + sub.maxMarks, 0);
-        const percentage = totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
+        const totalPossible = subjectDetails.reduce(
+          (sum, sub) => sum + sub.maxMarks,
+          0
+        );
+        const percentage =
+          totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
 
         return {
           regNumber: row[regNoKey],
           subjectMarks,
           totalMarks,
-          percentage: parseFloat(percentage.toFixed(2))
+          percentage: parseFloat(percentage.toFixed(2)),
         };
       });
 
       setParsedData(processed);
-      
+
       const invalidRegNumbers = {};
       processed.forEach((row, index) => {
         if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
@@ -356,7 +373,7 @@ export default function NewReport({ onClose }) {
       });
       setEditableRegNumbers(invalidRegNumbers);
       setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
-      
+
       setError("");
     } catch (err) {
       setError("Error processing theory test data");
@@ -366,163 +383,171 @@ export default function NewReport({ onClose }) {
   };
 
   const handleRegNumberChange = (index, value) => {
-    setEditableRegNumbers(prev => ({
+    setEditableRegNumbers((prev) => ({
       ...prev,
-      [index]: value
+      [index]: value,
     }));
   };
 
-const updateParsedDataWithEdits = async () => {
-  const updatedData = [...parsedData];
-  const regNumbersToCheck = Object.entries(editableRegNumbers);
+  const updateParsedDataWithEdits = async () => {
+    const updatedData = [...parsedData];
+    const regNumbersToCheck = Object.entries(editableRegNumbers);
 
-  let validChanges = [];
+    let validChanges = [];
 
-  for (const [indexStr, newReg] of regNumbersToCheck) {
-    const index = parseInt(indexStr);
-    const oldReg = updatedData[index].regNumber;
-    if (String(oldReg).trim() !== String(newReg).trim()) {
-      try {
-        const student = await fetchStudentByRegNumber(newReg.trim());
-        if (student) {
-          const confirmUpdate = window.confirm(
-            `RegNo ${newReg} belongs to ${student.studentName}. Do you want to apply this change?`
-          );
-          if (confirmUpdate) {
-            validChanges.push({ index, newReg });
+    for (const [indexStr, newReg] of regNumbersToCheck) {
+      const index = parseInt(indexStr);
+      const oldReg = updatedData[index].regNumber;
+      if (String(oldReg).trim() !== String(newReg).trim()) {
+        try {
+          const student = await fetchStudentByRegNumber(newReg.trim());
+          if (student) {
+            const confirmUpdate = window.confirm(
+              `RegNo ${newReg} belongs to ${student.studentName}. Do you want to apply this change?`
+            );
+            if (confirmUpdate) {
+              validChanges.push({ index, newReg });
+            }
+          } else {
+            const confirmUpdate = window.confirm(
+              `RegNo ${newReg} not found in Students database. Do you still want to proceed?`
+            );
+            if (confirmUpdate) {
+              validChanges.push({ index, newReg });
+            }
           }
-        } else {
-          const confirmUpdate = window.confirm(
-            `RegNo ${newReg} not found in Students database. Do you still want to proceed?`
-          );
-          if (confirmUpdate) {
-            validChanges.push({ index, newReg });
-          }
+        } catch (err) {
+          console.error(`Error validating RegNo ${newReg}`, err);
         }
-      } catch (err) {
-        console.error(`Error validating RegNo ${newReg}`, err);
       }
     }
-  }
 
-  // Apply valid changes
-  validChanges.forEach(({ index, newReg }) => {
-    updatedData[index].regNumber = newReg.trim();
-  });
-
-  setParsedData(updatedData);
-  setEditableRegNumbers({});
-  setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
-};
-
-const downloadErrorFile = () => {
-  const rows = [];
-
-  // Invalid RegNumbers
-  invalidRegNumbers.forEach((item) => {
-    const filePath = parsedData[item.index]?.filePath || "";
-    rows.push({
-      Row: item.index + 1,
-      Issue: "Invalid RegNumber",
-      RegNumber: item.regNumber,
-      File: filePath,
+    // Apply valid changes
+    validChanges.forEach(({ index, newReg }) => {
+      updatedData[index].regNumber = newReg.trim();
     });
-  });
 
-  // Duplicate RegNumbers
-  const groupedDuplicates = Object.entries(duplicateRegNumbers).reduce((acc, [index, reg]) => {
-    if (!acc[reg]) acc[reg] = [];
-    acc[reg].push(Number(index));
-    return acc;
-  }, {});
+    setParsedData(updatedData);
+    setEditableRegNumbers({});
+    setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+  };
 
-  Object.entries(groupedDuplicates).forEach(([reg, indices]) => {
-    indices.forEach((index) => {
-      const filePath = parsedData[index]?.filePath || "";
+  const downloadErrorFile = () => {
+    const rows = [];
+
+    // Invalid RegNumbers
+    invalidRegNumbers.forEach((item) => {
+      const filePath = parsedData[item.index]?.filePath || "";
       rows.push({
-        Row: index + 1,
-        Issue: "Duplicate RegNumber",
-        RegNumber: reg,
+        Row: item.index + 1,
+        Issue: "Invalid RegNumber",
+        RegNumber: item.regNumber,
         File: filePath,
       });
     });
-  });
 
-  const csvContent =
-    "data:text/csv;charset=utf-8," +
-    ["Row,Issue,RegNumber,File", ...rows.map(r =>
-      `${r.Row},${r.Issue},${r.RegNumber},"${r.File}"`
-    )].join("\n");
+    // Duplicate RegNumbers
+    const groupedDuplicates = Object.entries(duplicateRegNumbers).reduce(
+      (acc, [index, reg]) => {
+        if (!acc[reg]) acc[reg] = [];
+        acc[reg].push(Number(index));
+        return acc;
+      },
+      {}
+    );
 
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "error_report.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+    Object.entries(groupedDuplicates).forEach(([reg, indices]) => {
+      indices.forEach((index) => {
+        const filePath = parsedData[index]?.filePath || "";
+        rows.push({
+          Row: index + 1,
+          Issue: "Duplicate RegNumber",
+          RegNumber: reg,
+          File: filePath,
+        });
+      });
+    });
 
-const handleReuploadErrorFile = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        "Row,Issue,RegNumber,File",
+        ...rows.map((r) => `${r.Row},${r.Issue},${r.RegNumber},"${r.File}"`),
+      ].join("\n");
 
-  const reader = new FileReader();
-  reader.onload = async (event) => {
-    Papa.parse(event.target.result, {
-      header: true,
-      complete: async ({ data }) => {
-        const updatedData = [...parsedData];
-        let validChanges = [];
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "error_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
-        for (const row of data) {
-          const index = parseInt(row.Row, 10) - 1;
-          const newReg = row.RegNumber?.trim();
+  const handleReuploadErrorFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-          if (!isNaN(index) && newReg) {
-            try {
-              const student = await fetchStudentByRegNumber(newReg);
-              let proceed = false;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      Papa.parse(event.target.result, {
+        header: true,
+        complete: async ({ data }) => {
+          const updatedData = [...parsedData];
+          let validChanges = [];
 
-              if (student) {
-                proceed = window.confirm(
-                  `Row ${index + 1}: RegNo ${newReg} belongs to ${student.studentName}. Apply this change?`
-                );
-              } else {
-                proceed = window.confirm(
-                  `Row ${index + 1}: RegNo ${newReg} not found in database. Proceed anyway?`
-                );
+          for (const row of data) {
+            const index = parseInt(row.Row, 10) - 1;
+            const newReg = row.RegNumber?.trim();
+
+            if (!isNaN(index) && newReg) {
+              try {
+                const student = await fetchStudentByRegNumber(newReg);
+                let proceed = false;
+
+                if (student) {
+                  proceed = window.confirm(
+                    `Row ${index + 1}: RegNo ${newReg} belongs to ${
+                      student.studentName
+                    }. Apply this change?`
+                  );
+                } else {
+                  proceed = window.confirm(
+                    `Row ${
+                      index + 1
+                    }: RegNo ${newReg} not found in database. Proceed anyway?`
+                  );
+                }
+
+                if (proceed) {
+                  validChanges.push({ index, newReg });
+                }
+              } catch (err) {
+                //toast.error(`Validation error for RegNo ${newReg}`);
+                console.error(err);
               }
-
-              if (proceed) {
-                validChanges.push({ index, newReg });
-              }
-            } catch (err) {
-              //toast.error(`Validation error for RegNo ${newReg}`);
-              console.error(err);
             }
           }
-        }
 
-        // Apply valid regNumber changes
-        validChanges.forEach(({ index, newReg }) => {
-          updatedData[index].regNumber = newReg;
-        });
+          // Apply valid regNumber changes
+          validChanges.forEach(({ index, newReg }) => {
+            updatedData[index].regNumber = newReg;
+          });
 
-        setParsedData(updatedData);
-        setEditableRegNumbers({});
-        setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+          setParsedData(updatedData);
+          setEditableRegNumbers({});
+          setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
 
-        //toast.success("Reuploaded corrections applied successfully!");
-      },
-      error: (err) => {
-        //toast.error("Failed to parse error file");
-        console.error("CSV Parse Error:", err);
-      },
-    });
+          //toast.success("Reuploaded corrections applied successfully!");
+        },
+        error: (err) => {
+          //toast.error("Failed to parse error file");
+          console.error("CSV Parse Error:", err);
+        },
+      });
+    };
+    reader.readAsText(file);
   };
-  reader.readAsText(file);
-};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -541,14 +566,20 @@ const handleReuploadErrorFile = async (e) => {
 
       // Check invalid reg numbers
       const invalidRegNumbers = parsedData.filter(
-        row => !/^\d{6}$/.test(String(row.regNumber).trim())
+        (row) => !/^\d{6}$/.test(String(row.regNumber).trim())
       );
-      
+
       if (invalidRegNumbers.length > 0) {
-        throw new Error(`There are ${invalidRegNumbers.length} invalid registration numbers`);
+        throw new Error(
+          `There are ${invalidRegNumbers.length} invalid registration numbers`
+        );
       }
 
       if (isTheoryTest) {
+        const hasEmptySubject = subjectDetails.some(sub => !sub.name);
+        if (hasEmptySubject) {
+          throw new Error("Please select all subject names");
+        }
         // Submit theory test
         const payload = {
           stream: formData.stream,
@@ -556,15 +587,17 @@ const handleReuploadErrorFile = async (e) => {
           testName: formData.testName,
           date: formData.date,
           subjectDetails,
-          studentResults: parsedData.map(row => ({
+          studentResults: parsedData.map((row) => ({
             regNumber: row.regNumber,
-            subjectMarks: Object.entries(row.subjectMarks).map(([name, marks]) => ({ name, marks })),   
+            subjectMarks: Object.entries(row.subjectMarks).map(
+              ([name, marks]) => ({ name, marks })
+            ),
             totalMarks: row.totalMarks,
-            percentage: row.percentage
-        }))
-      };
-        
-        const token = localStorage.getItem('token');
+            percentage: row.percentage,
+          })),
+        };
+
+        const token = localStorage.getItem("token");
         const response = await axios.post(
           `${process.env.REACT_APP_URL}/api/createtheory`,
           payload,
@@ -583,7 +616,7 @@ const handleReuploadErrorFile = async (e) => {
           testName: formData.testName,
           date: formData.date,
           marksType: formData.marksType,
-          reportBank: parsedData 
+          reportBank: parsedData,
         };
 
         const response = await axios.post(
@@ -597,7 +630,9 @@ const handleReuploadErrorFile = async (e) => {
         }
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to create report");
+      setError(
+        err.response?.data?.message || err.message || "Failed to create report"
+      );
     } finally {
       setLoading(false);
     }
@@ -605,45 +640,45 @@ const handleReuploadErrorFile = async (e) => {
 
   // Get invalid registration numbers
   const invalidRegNumbers = parsedData
-    .map((row, index) => ({ 
-      index, 
+    .map((row, index) => ({
+      index,
       regNumber: row.regNumber,
-      isValid: /^\d{6}$/.test(String(row.regNumber).trim())
+      isValid: /^\d{6}$/.test(String(row.regNumber).trim()),
     }))
-    .filter(item => !item.isValid);
+    .filter((item) => !item.isValid);
 
   // Get valid registration numbers (for preview)
   const validRegNumbers = parsedData
-    .map((row, index) => ({ 
-      index, 
+    .map((row, index) => ({
+      index,
       regNumber: row.regNumber,
-      isValid: /^\d{6}$/.test(String(row.regNumber).trim())
+      isValid: /^\d{6}$/.test(String(row.regNumber).trim()),
     }))
-    .filter(item => item.isValid);
+    .filter((item) => item.isValid);
 
-const findDuplicateRegNumbers = (data) => {
-  const regMap = {};
-  const duplicates = {};
+  const findDuplicateRegNumbers = (data) => {
+    const regMap = {};
+    const duplicates = {};
 
-  data.forEach((row, index) => {
-    const reg = String(row.regNumber).trim();
-    if (!regMap[reg]) {
-      regMap[reg] = [index];
-    } else {
-      regMap[reg].push(index);
-    }
-  });
+    data.forEach((row, index) => {
+      const reg = String(row.regNumber).trim();
+      if (!regMap[reg]) {
+        regMap[reg] = [index];
+      } else {
+        regMap[reg].push(index);
+      }
+    });
 
-  Object.entries(regMap).forEach(([reg, indices]) => {
-    if (indices.length > 1) {
-      indices.forEach((i) => {
-        duplicates[i] = reg;
-      });
-    }
-  });
+    Object.entries(regMap).forEach(([reg, indices]) => {
+      if (indices.length > 1) {
+        indices.forEach((i) => {
+          duplicates[i] = reg;
+        });
+      }
+    });
 
-  return duplicates; // key: index, value: duplicate regNumber
-};
+    return duplicates; // key: index, value: duplicate regNumber
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -651,17 +686,22 @@ const findDuplicateRegNumbers = (data) => {
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">Create New Report</h2>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
               ✕
             </button>
           </div>
 
           {error && (
-            <div className={`mb-4 p-3 rounded-md border ${
-              error.includes("No tests available") 
-                ? "bg-yellow-100 text-yellow-700 border-yellow-200"
-                : "bg-red-100 text-red-700 border-red-200"
-            }`}>
+            <div
+              className={`mb-4 p-3 rounded-md border ${
+                error.includes("No tests available")
+                  ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                  : "bg-red-100 text-red-700 border-red-200"
+              }`}
+            >
               {error}
             </div>
           )}
@@ -779,50 +819,61 @@ const findDuplicateRegNumbers = (data) => {
               {/* Subject Details - Only for Theory */}
               {isTheoryTest && (
                 <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Subject Details *
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {subjectDetails.map((subject, index) => (
-                    <div key={index} className="space-y-2">
-                      <select
-                        value={subject.name}
-                        onChange={(e) => handleSubjectChange(index, 'name', e.target.value)}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        {subjects.map((sub, i) => (
-                          <option key={i} value={sub.subjectName}>
-                            {sub.subjectName}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        value={subject.maxMarks}
-                        onChange={(e) => handleSubjectChange(index, 'maxMarks', parseInt(e.target.value) || 0)}
-                        required
-                        min="1"
-                        max="50"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Max marks"
-                      />
-                    </div>
-                  ))}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subject Details *
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {subjectDetails.map((subject, index) => (
+                      <div key={index} className="space-y-2">
+                        <select
+                          value={subject.name}
+                          onChange={(e) =>
+                            handleSubjectChange(index, "name", e.target.value)
+                          }
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          {subjects.map((sub, i) => (
+                            <option key={i} value={sub.subjectName}>
+                              {sub.subjectName}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          value={subject.maxMarks}
+                          onChange={(e) =>
+                            handleSubjectChange(
+                              index,
+                              "maxMarks",
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          required
+                          min="1"
+                          max="50"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Max marks"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
               )}
             </div>
 
             {/* File Upload Section */}
             <div className="mt-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Student {isTheoryTest ? "Marks" : "Responses"} (Excel/CSV)
+                Upload Student {isTheoryTest ? "Marks" : "Responses"}{" "}
+                (Excel/CSV)
               </label>
               <div
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer ${
-                  isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                  isDragActive
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-300"
                 }`}
               >
                 <input {...getInputProps()} />
@@ -841,8 +892,8 @@ const findDuplicateRegNumbers = (data) => {
                       Drag & drop an Excel or CSV file here, or click to select
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
-                      {isTheoryTest 
-                        ? "File should contain RegNo and 4 subject columns (Physics, Chemistry, Biology, Mathematics)" 
+                      {isTheoryTest
+                        ? "File should contain RegNo and 4 subject columns (Physics, Chemistry, Biology, Mathematics)"
                         : "File should contain RegNo and Question columns (Q1, Q2, etc.)"}
                     </p>
                   </div>
@@ -855,7 +906,8 @@ const findDuplicateRegNumbers = (data) => {
               <div className="mt-6">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-sm font-medium text-gray-700">
-                    Invalid Registration Numbers ({invalidRegNumbers.length} found)
+                    Invalid Registration Numbers ({invalidRegNumbers.length}{" "}
+                    found)
                   </h3>
                   <button
                     type="button"
@@ -867,27 +919,42 @@ const findDuplicateRegNumbers = (data) => {
                 </div>
                 <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
                   <p className="text-sm text-yellow-700 mb-3">
-                    Please correct the following registration numbers (must be 6 digits):
+                    Please correct the following registration numbers (must be 6
+                    digits):
                   </p>
                   <div className="space-y-2">
-                    {(showAllInvalid ? invalidRegNumbers : invalidRegNumbers.slice(0, 6)).map((item) => (
-                     <div key={item.index} className="flex items-center space-x-2">
-    <span className="text-sm font-medium w-24">Row {item.index + 1}:</span>
-    <input
-      type="text"
-      value={editableRegNumbers[item.index] !== undefined ? editableRegNumbers[item.index] : item.regNumber}
-      onChange={(e) => handleRegNumberChange(item.index, e.target.value)}
-      className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
-    />
-    <span className="text-sm text-gray-500">
-      Original: {item.regNumber}
-    </span>
-    {parsedData[item.index]?.filePath && (
-      <span className="text-sm text-gray-500 break-all max-w-[200px]">
-        File: {parsedData[item.index].filePath}
-      </span>
-    )}
-  </div>
+                    {(showAllInvalid
+                      ? invalidRegNumbers
+                      : invalidRegNumbers.slice(0, 6)
+                    ).map((item) => (
+                      <div
+                        key={item.index}
+                        className="flex items-center space-x-2"
+                      >
+                        <span className="text-sm font-medium w-24">
+                          Row {item.index + 1}:
+                        </span>
+                        <input
+                          type="text"
+                          value={
+                            editableRegNumbers[item.index] !== undefined
+                              ? editableRegNumbers[item.index]
+                              : item.regNumber
+                          }
+                          onChange={(e) =>
+                            handleRegNumberChange(item.index, e.target.value)
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                        />
+                        <span className="text-sm text-gray-500">
+                          Original: {item.regNumber}
+                        </span>
+                        {parsedData[item.index]?.filePath && (
+                          <span className="text-sm text-gray-500 break-all max-w-[200px]">
+                            File: {parsedData[item.index].filePath}
+                          </span>
+                        )}
+                      </div>
                     ))}
                   </div>
                   <button
@@ -901,82 +968,102 @@ const findDuplicateRegNumbers = (data) => {
               </div>
             )}
 
-{/* Duplicate Registration Numbers Section */}
-{Object.keys(duplicateRegNumbers).length > 0 && (
-  <div className="mt-6">
-    <div className="flex justify-between items-center mb-2">
-      <h3 className="text-sm font-medium text-gray-700">
-        Duplicate Registration Numbers ({Object.keys(duplicateRegNumbers).length} entries)
-      </h3>
-    </div>
-    <div className="bg-red-50 p-4 rounded-md border border-red-200">
-      <p className="text-sm text-red-700 mb-3">
-        These registration numbers are duplicated. Please modify at least one in each group:
-      </p>
-      <div className="space-y-4">
-        {Object.entries(
-          // Group by regNumber
-          Object.entries(duplicateRegNumbers).reduce((acc, [index, reg]) => {
-            if (!acc[reg]) acc[reg] = [];
-            acc[reg].push(Number(index));
-            return acc;
-          }, {})
-        ).map(([reg, indices]) => (
-          <div key={reg} className="border border-red-200 rounded-md p-3 bg-white">
-            <p className="text-sm font-semibold text-gray-700 mb-2">
-              RegNo: {reg} (used in {indices.length} rows)
-            </p>
-            {indices.map((index) => (
-  <div key={index} className="flex items-center space-x-2 mb-2">
-    <span className="text-sm font-medium w-24">Row {index + 1}:</span>
-    <input
-      type="text"
-      value={
-        editableRegNumbers[index] !== undefined
-          ? editableRegNumbers[index]
-          : reg
-      }
-      onChange={(e) => handleRegNumberChange(index, e.target.value)}
-      className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
-    />
-    <span className="text-sm text-gray-500">Original: {reg}</span>
-    {parsedData[index]?.filePath && (
-      <span className="text-sm text-gray-500 break-all max-w-[200px]">
-        File: {parsedData[index].filePath}
-      </span>
-    )}
-  </div>
-))}
+            {/* Duplicate Registration Numbers Section */}
+            {Object.keys(duplicateRegNumbers).length > 0 && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Duplicate Registration Numbers (
+                    {Object.keys(duplicateRegNumbers).length} entries)
+                  </h3>
+                </div>
+                <div className="bg-red-50 p-4 rounded-md border border-red-200">
+                  <p className="text-sm text-red-700 mb-3">
+                    These registration numbers are duplicated. Please modify at
+                    least one in each group:
+                  </p>
+                  <div className="space-y-4">
+                    {Object.entries(
+                      // Group by regNumber
+                      Object.entries(duplicateRegNumbers).reduce(
+                        (acc, [index, reg]) => {
+                          if (!acc[reg]) acc[reg] = [];
+                          acc[reg].push(Number(index));
+                          return acc;
+                        },
+                        {}
+                      )
+                    ).map(([reg, indices]) => (
+                      <div
+                        key={reg}
+                        className="border border-red-200 rounded-md p-3 bg-white"
+                      >
+                        <p className="text-sm font-semibold text-gray-700 mb-2">
+                          RegNo: {reg} (used in {indices.length} rows)
+                        </p>
+                        {indices.map((index) => (
+                          <div
+                            key={index}
+                            className="flex items-center space-x-2 mb-2"
+                          >
+                            <span className="text-sm font-medium w-24">
+                              Row {index + 1}:
+                            </span>
+                            <input
+                              type="text"
+                              value={
+                                editableRegNumbers[index] !== undefined
+                                  ? editableRegNumbers[index]
+                                  : reg
+                              }
+                              onChange={(e) =>
+                                handleRegNumberChange(index, e.target.value)
+                              }
+                              className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                            />
+                            <span className="text-sm text-gray-500">
+                              Original: {reg}
+                            </span>
+                            {parsedData[index]?.filePath && (
+                              <span className="text-sm text-gray-500 break-all max-w-[200px]">
+                                File: {parsedData[index].filePath}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
 
-          </div>
-        ))}
-      </div>
+                  <button
+                    type="button"
+                    onClick={updateParsedDataWithEdits}
+                    className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Apply Changes
+                  </button>
+                </div>
+              </div>
+            )}
 
-      <button
-        type="button"
-        onClick={updateParsedDataWithEdits}
-        className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-      >
-        Apply Changes
-      </button>
-    </div>
-  </div>
-)}
-
-<div className="flex space-x-3 mt-4">
-  <button
-    type="button"
-    onClick={downloadErrorFile}
-    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-  >
-    Download Error File
-  </button>
-  <label className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer">
-    Reupload File
-    <input type="file" accept=".csv" onChange={handleReuploadErrorFile} className="hidden" />
-  </label>
-</div>
-
+            <div className="flex space-x-3 mt-4">
+              <button
+                type="button"
+                onClick={downloadErrorFile}
+                className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+              >
+                Download Error File
+              </button>
+              <label className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer">
+                Reupload File
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleReuploadErrorFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
 
             {/* Preview Section */}
             {validRegNumbers.length > 0 && (
@@ -1018,13 +1105,15 @@ const findDuplicateRegNumbers = (data) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {validRegNumbers.slice(0, 5).map((item) => {
                         const row = parsedData[item.index];
-                        
+
                         if (isTheoryTest) {
-                          const subjectKeys = Object.keys(row.subjectMarks || {});
+                          const subjectKeys = Object.keys(
+                            row.subjectMarks || {}
+                          );
                           const subjectList = subjectKeys
-                            .map(key => `${key}: ${row.subjectMarks[key]}`)
-                            .join(', ');
-                          
+                            .map((key) => `${key}: ${row.subjectMarks[key]}`)
+                            .join(", ");
+
                           return (
                             <tr key={item.index}>
                               <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border">
@@ -1042,13 +1131,19 @@ const findDuplicateRegNumbers = (data) => {
                             </tr>
                           );
                         } else {
-                          const attempted = Object.values(row.questionAnswer).filter(a => a !== '').length;
-                          const total = row.totalQuestions || Object.keys(row.questionAnswer).length;
-                          const sampleAnswers = Object.entries(row.questionAnswer)
-                            .filter(([_, ans]) => ans !== '')
+                          const attempted = Object.values(
+                            row.questionAnswer
+                          ).filter((a) => a !== "").length;
+                          const total =
+                            row.totalQuestions ||
+                            Object.keys(row.questionAnswer).length;
+                          const sampleAnswers = Object.entries(
+                            row.questionAnswer
+                          )
+                            .filter(([_, ans]) => ans !== "")
                             .slice(0, 5)
                             .map(([q, ans]) => `Q${q}:${ans}`)
-                            .join(', ');
+                            .join(", ");
 
                           return (
                             <tr key={item.index}>
@@ -1059,7 +1154,8 @@ const findDuplicateRegNumbers = (data) => {
                                 {attempted}/{total}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-500 border">
-                                {sampleAnswers}{sampleAnswers.length === 0 ? 'None' : ''}
+                                {sampleAnswers}
+                                {sampleAnswers.length === 0 ? "None" : ""}
                               </td>
                             </tr>
                           );
@@ -1081,9 +1177,20 @@ const findDuplicateRegNumbers = (data) => {
               </button>
               <button
                 type="submit"
-                disabled={loading || isUploading || (!isTheoryTest && testNames.length === 0) || invalidRegNumbers.length > 0 || Object.keys(duplicateRegNumbers).length > 0}
+                disabled={
+                  loading ||
+                  isUploading ||
+                  (!isTheoryTest && testNames.length === 0) ||
+                  invalidRegNumbers.length > 0 ||
+                  Object.keys(duplicateRegNumbers).length > 0
+                }
                 className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                  loading || isUploading || (!isTheoryTest && testNames.length === 0) || invalidRegNumbers.length > 0 ? "opacity-50 cursor-not-allowed" : ""
+                  loading ||
+                  isUploading ||
+                  (!isTheoryTest && testNames.length === 0) ||
+                  invalidRegNumbers.length > 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
                 }`}
               >
                 {loading ? "Creating Report..." : "Create Report"}
@@ -1094,5 +1201,4 @@ const findDuplicateRegNumbers = (data) => {
       </div>
     </div>
   );
-  
 }

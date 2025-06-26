@@ -21,19 +21,19 @@ export default function StudentProfile() {
           navigate("/");
           return;
         }
-  
-        console.log("Token being sent:", token); 
-        console.log("Fetching student with regNumber:", regNumber); 
-  
+
+        console.log("Token being sent:", token);
+        console.log("Fetching student with regNumber:", regNumber);
+
         const response = await axios.get(
           `${process.env.REACT_APP_URL}/api/getstudentbyreg/${regNumber}`,
-          { 
-            headers: { 
-              Authorization: `Bearer ${token}` 
-            } 
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
         );
-        
+
         setStudent(response.data.data);
       } catch (error) {
         console.error("Error details:", error.response); // More detailed error logging
@@ -49,21 +49,23 @@ export default function StudentProfile() {
         setLoading(false);
       }
     };
-  
+
     fetchStudent();
   }, [regNumber, navigate]);
 
   const getInitialsAvatar = (name) => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=150`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      name
+    )}&background=random&color=fff&size=150`;
   };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
     });
   };
 
@@ -78,11 +80,25 @@ export default function StudentProfile() {
   if (!student) {
     return (
       <div className="text-center py-12 bg-gray-50 rounded-lg">
-        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        <svg
+          className="mx-auto h-12 w-12 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+          />
         </svg>
-        <h3 className="mt-2 text-lg font-medium text-gray-900">Student not found</h3>
-        <p className="mt-1 text-gray-500">No student found with registration number: {regNumber}</p>
+        <h3 className="mt-2 text-lg font-medium text-gray-900">
+          Student not found
+        </h3>
+        <p className="mt-1 text-gray-500">
+          No student found with registration number: {regNumber}
+        </p>
       </div>
     );
   }
@@ -90,8 +106,8 @@ export default function StudentProfile() {
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white py-6 px-8">
-        <button 
-          onClick={() => navigate('/home')} 
+        <button
+          onClick={() => navigate("/home")}
           className="text-white text-sm flex items-center mb-2"
         >
           ◀ Back To Dashboard
@@ -130,7 +146,9 @@ export default function StudentProfile() {
             </div>
 
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-800">{student.studentName}</h2>
+              <h2 className="text-2xl font-bold text-gray-800">
+                {student.studentName}
+              </h2>
               <p className="text-gray-600 mb-2">Reg No: {student.regNumber}</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -143,7 +161,9 @@ export default function StudentProfile() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Date of Birth</p>
-                  <p className="font-medium">{formatDate(student.dateOfBirth)}</p>
+                  <p className="font-medium">
+                    {formatDate(student.dateOfBirth)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Gender</p>
@@ -157,7 +177,9 @@ export default function StudentProfile() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Personal Information */}
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Personal Information</h3>
+              <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">
+                Personal Information
+              </h3>
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-500">Parent's Name</p>
@@ -180,7 +202,9 @@ export default function StudentProfile() {
 
             {/* Academic Information */}
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Academic Information</h3>
+              <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">
+                Academic Information
+              </h3>
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-500">Campus</p>
@@ -199,7 +223,9 @@ export default function StudentProfile() {
 
             {/* Medical Information */}
             <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
-              <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">Medical Information</h3>
+              <h3 className="text-lg font-semibold mb-3 text-gray-800 border-b pb-2">
+                Medical Information
+              </h3>
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-gray-500">Medical Issues</p>

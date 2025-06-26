@@ -1,32 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { FiTrash2 } from 'react-icons/fi';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { FiTrash2 } from "react-icons/fi";
 
 export default function Settings() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   // Constants for the protected super admin
-  const PROTECTED_SUPER_ADMIN_PHONE = '9353980418';
-  const isProtectedUser = (user) => user.phonenumber === PROTECTED_SUPER_ADMIN_PHONE && user.role === 'super_admin';
+  const PROTECTED_SUPER_ADMIN_PHONE = "9353980418";
+  const isProtectedUser = (user) =>
+    user.phonenumber === PROTECTED_SUPER_ADMIN_PHONE &&
+    user.role === "super_admin";
 
   // Fetch all users from backend
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/users`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+        const response = await axios.get(
+          `${process.env.REACT_APP_URL}/api/users`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
           }
-        });
+        );
         setUsers(response.data.data);
-        setError('');
+        setError("");
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to fetch users');
-        console.error('Fetch users error:', err);
+        setError(err.response?.data?.message || "Failed to fetch users");
+        console.error("Fetch users error:", err);
       } finally {
         setLoading(false);
       }
@@ -44,17 +49,19 @@ export default function Settings() {
         { approval: !currentApproval },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
-      
-      setUsers(users.map(user => 
-        user._id === userId ? { ...user, approval: !currentApproval } : user
-      ));
+
+      setUsers(
+        users.map((user) =>
+          user._id === userId ? { ...user, approval: !currentApproval } : user
+        )
+      );
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update approval');
-      console.error('Approval update error:', err);
+      setError(err.response?.data?.message || "Failed to update approval");
+      console.error("Approval update error:", err);
     } finally {
       setActionLoading(false);
     }
@@ -69,17 +76,19 @@ export default function Settings() {
         { role: newRole },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
-      
-      setUsers(users.map(user => 
-        user._id === userId ? { ...user, role: newRole } : user
-      ));
+
+      setUsers(
+        users.map((user) =>
+          user._id === userId ? { ...user, role: newRole } : user
+        )
+      );
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update role');
-      console.error('Role update error:', err);
+      setError(err.response?.data?.message || "Failed to update role");
+      console.error("Role update error:", err);
     } finally {
       setActionLoading(false);
     }
@@ -87,30 +96,27 @@ export default function Settings() {
 
   // Delete user with confirmation
   const handleDeleteUser = async (userId) => {
-    const userToDelete = users.find(user => user._id === userId);
+    const userToDelete = users.find((user) => user._id === userId);
     if (isProtectedUser(userToDelete)) {
-      alert('This super admin account cannot be deleted');
+      alert("This super admin account cannot be deleted");
       return;
     }
 
-    if (!window.confirm('Are you sure you want to delete this user?')) {
+    if (!window.confirm("Are you sure you want to delete this user?")) {
       return;
     }
 
     try {
       setActionLoading(true);
-      await axios.delete(
-        `${process.env.REACT_APP_URL}/api/users/${userId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      setUsers(users.filter(user => user._id !== userId));
+      await axios.delete(`${process.env.REACT_APP_URL}/api/users/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      setUsers(users.filter((user) => user._id !== userId));
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete user');
-      console.error('Delete user error:', err);
+      setError(err.response?.data?.message || "Failed to delete user");
+      console.error("Delete user error:", err);
     } finally {
       setActionLoading(false);
     }
@@ -159,15 +165,21 @@ export default function Settings() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {user.phonenumber}
-                        {isProtected && <span className="ml-2 text-xs text-yellow-600">(Protected)</span>}
+                        {isProtected && (
+                          <span className="ml-2 text-xs text-yellow-600">
+                            (Protected)
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
                         value={user.role}
-                        onChange={(e) => handleRoleChange(user._id, e.target.value)}
+                        onChange={(e) =>
+                          handleRoleChange(user._id, e.target.value)
+                        }
                         className={`block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md ${
-                          isProtected ? 'bg-gray-100 cursor-not-allowed' : ''
+                          isProtected ? "bg-gray-100 cursor-not-allowed" : ""
                         }`}
                         disabled={actionLoading || isProtected}
                       >
@@ -178,30 +190,41 @@ export default function Settings() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => !isProtected && handleApprovalToggle(user._id, user.approval)}
+                        onClick={() =>
+                          !isProtected &&
+                          handleApprovalToggle(user._id, user.approval)
+                        }
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                          user.approval ? 'bg-green-600' : 'bg-gray-200'
-                        } ${actionLoading || isProtected ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          user.approval ? "bg-green-600" : "bg-gray-200"
+                        } ${
+                          actionLoading || isProtected
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
                         disabled={actionLoading || isProtected}
                       >
                         <span
                           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            user.approval ? 'translate-x-6' : 'translate-x-1'
+                            user.approval ? "translate-x-6" : "translate-x-1"
                           }`}
                         />
                       </button>
                       <span className="ml-2 text-sm text-gray-600">
-                        {user.approval ? 'Approved' : 'Pending'}
+                        {user.approval ? "Approved" : "Pending"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <button
                         onClick={() => handleDeleteUser(user._id)}
                         className={`text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-100 transition-colors ${
-                          isProtected ? 'opacity-50 cursor-not-allowed' : ''
+                          isProtected ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                         disabled={actionLoading || isProtected}
-                        title={isProtected ? 'Protected account cannot be deleted' : 'Delete User'}
+                        title={
+                          isProtected
+                            ? "Protected account cannot be deleted"
+                            : "Delete User"
+                        }
                       >
                         <FiTrash2 className="w-5 h-5" />
                       </button>

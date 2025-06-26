@@ -27,11 +27,11 @@ export default function EditReports() {
     date: "",
     stream: "LongTerm",
     questionType: "",
-    marksType: "+4/-1"
+    marksType: "+4/-1",
   });
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem("token");
 
   // Calculate marks for each report
   const calculateMarks = (report) => {
@@ -40,7 +40,7 @@ export default function EditReports() {
         correctAnswers: 0,
         wrongAnswers: 0,
         totalMarks: 0,
-        accuracy: 0
+        accuracy: 0,
       };
     }
 
@@ -51,12 +51,15 @@ export default function EditReports() {
     const correctMark = marksType.includes("+4") ? 4 : 1;
     const wrongMark = marksType.includes("-1") ? -1 : 0;
 
-    const markedOptions = report.markedOptions instanceof Map ? 
-      Object.fromEntries(report.markedOptions) : 
-      report.markedOptions;
+    const markedOptions =
+      report.markedOptions instanceof Map
+        ? Object.fromEntries(report.markedOptions)
+        : report.markedOptions;
 
     Object.entries(markedOptions).forEach(([qNum, markedOption]) => {
-      const solution = solutions.find(s => s.questionNumber === parseInt(qNum));
+      const solution = solutions.find(
+        (s) => s.questionNumber === parseInt(qNum)
+      );
       if (solution) {
         if (markedOption === solution.correctOption) {
           correct++;
@@ -68,57 +71,62 @@ export default function EditReports() {
       }
     });
 
-    const accuracy = correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
+    const accuracy =
+      correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
 
     return {
       correctAnswers: correct,
       wrongAnswers: wrong,
       totalMarks,
-      accuracy
+      accuracy,
     };
   };
 
   // Process test data
   const processTestData = (reports) => {
     const testMap = {};
-    
-    reports.forEach(report => {
+
+    reports.forEach((report) => {
       if (!report?.testName || !report?.date) return;
 
       const testName = report.testName;
       const date = new Date(report.date);
       if (isNaN(date.getTime())) return;
 
-      const monthYear = date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        year: 'numeric' 
+      const monthYear = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
       });
-      
+
       if (!testMap[testName]) {
         testMap[testName] = {
           months: {},
           testId: report._id,
           stream: report.stream,
           questionType: report.questionType,
-          marksType: report.marksType
+          marksType: report.marksType,
         };
       }
-      
+
       testMap[testName].months[monthYear] = {
         date: report.date,
         monthName: monthYear,
-        marksType: report.marksType
+        marksType: report.marksType,
       };
     });
-    
-    return Object.entries(testMap).map(([testName, testData]) => ({
-      testName,
-      testId: testData.testId,
-      stream: testData.stream,
-      questionType: testData.questionType,
-      marksType: testData.marksType,
-      months: Object.values(testData.months).sort((a, b) => new Date(b.date) - new Date(a.date))
-    })).sort((a, b) => a.testName.localeCompare(b.testName));
+
+    return Object.entries(testMap)
+      .map(([testName, testData]) => ({
+        testName,
+        testId: testData.testId,
+        stream: testData.stream,
+        questionType: testData.questionType,
+        marksType: testData.marksType,
+        months: Object.values(testData.months).sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        ),
+      }))
+      .sort((a, b) => a.testName.localeCompare(b.testName));
   };
 
   // Fetch all tests data
@@ -126,14 +134,17 @@ export default function EditReports() {
     const fetchTestData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/getallreports`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
+        const response = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getallreports`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
         if (!response.data?.data) throw new Error("Invalid API response");
 
         const filteredReports = response.data.data.filter(
-          report => report.stream === selectedStream
+          (report) => report.stream === selectedStream
         );
 
         setTests(processTestData(filteredReports));
@@ -160,8 +171,8 @@ export default function EditReports() {
               headers: { Authorization: `Bearer ${token}` },
               params: {
                 testName: selectedTest.testName,
-                stream: selectedStream
-              }
+                stream: selectedStream,
+              },
             }
           );
           setSolutions(response.data.data || []);
@@ -183,52 +194,68 @@ export default function EditReports() {
           setError("");
           setFoundReport(null);
           setEditedRegNumber("");
-          
+
           const dateObj = new Date(selectedDate);
-          const monthStart = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
-          const monthEnd = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0);
-          
+          const monthStart = new Date(
+            dateObj.getFullYear(),
+            dateObj.getMonth(),
+            1
+          );
+          const monthEnd = new Date(
+            dateObj.getFullYear(),
+            dateObj.getMonth() + 1,
+            0
+          );
+
           // Get ReportBank entries
-          const reportBankResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getreportbank`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: {
-              testName: selectedTest.testName,
-              stream: selectedStream,
-              dateFrom: monthStart.toISOString(),
-              dateTo: monthEnd.toISOString()
+          const reportBankResponse = await axios.get(
+            `${process.env.REACT_APP_URL}/api/getreportbank`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              params: {
+                testName: selectedTest.testName,
+                stream: selectedStream,
+                dateFrom: monthStart.toISOString(),
+                dateTo: monthEnd.toISOString(),
+              },
             }
-          });
-          
+          );
+
           if (!reportBankResponse.data?.data) {
             throw new Error("No ReportBank entries found");
           }
 
           // Get StudentReports for the same criteria
-          const studentReportsResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getstudentreports`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: {
-              testName: selectedTest.testName,
-              stream: selectedStream,
-              date: selectedDate
+          const studentReportsResponse = await axios.get(
+            `${process.env.REACT_APP_URL}/api/getstudentreports`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              params: {
+                testName: selectedTest.testName,
+                stream: selectedStream,
+                date: selectedDate,
+              },
             }
-          });
+          );
 
           // Combine data
-          const combinedReports = reportBankResponse.data.data.map(reportBank => {
-            const studentReport = studentReportsResponse.data.data?.find(
-              sr => sr.regNumber === reportBank.regNumber
-            );
-            
-            return {
-              ...reportBank,
-              _id: reportBank._id,
-              correctAnswers: studentReport?.correctAnswers || 0,
-              wrongAnswers: studentReport?.wrongAnswers || 0,
-              totalMarks: studentReport?.totalMarks || 0,
-              accuracy: studentReport?.accuracy || 0
-            };
-          });
-          
+          const combinedReports = reportBankResponse.data.data.map(
+            (reportBank) => {
+              const studentReport = studentReportsResponse.data.data?.find(
+                (sr) => sr.regNumber === reportBank.regNumber
+              );
+
+              return {
+                ...reportBank,
+                _id: reportBank._id,
+                correctAnswers: studentReport?.correctAnswers || 0,
+                wrongAnswers: studentReport?.wrongAnswers || 0,
+                totalMarks: studentReport?.totalMarks || 0,
+                accuracy: studentReport?.accuracy || 0,
+              };
+            }
+          );
+
           setReports(combinedReports);
         } catch (err) {
           setError(err.message);
@@ -249,7 +276,7 @@ export default function EditReports() {
       return;
     }
 
-    const report = reports.find(r => 
+    const report = reports.find((r) =>
       r.regNumber.toLowerCase().includes(searchRegNumber.toLowerCase())
     );
 
@@ -270,11 +297,11 @@ export default function EditReports() {
       setError("No valid report selected for editing");
       return;
     }
-  
+
     try {
       setSubmitLoading(true);
       setError("");
-      
+
       // Validate the registration number
       if (!editedRegNumber || editedRegNumber.trim() === "") {
         throw new Error("Registration number cannot be empty");
@@ -285,25 +312,26 @@ export default function EditReports() {
         { regNumber: editedRegNumber },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-  
+
       if (response.data.status === "success") {
         // Update local state
-        setReports(reports.map(report => 
-          report._id === foundReport._id 
-            ? { ...report, regNumber: editedRegNumber } 
-            : report
-        ));
+        setReports(
+          reports.map((report) =>
+            report._id === foundReport._id
+              ? { ...report, regNumber: editedRegNumber }
+              : report
+          )
+        );
         setFoundReport({ ...foundReport, regNumber: editedRegNumber });
         setSubmitSuccess(true);
         setTimeout(() => setSubmitSuccess(false), 3000);
       }
     } catch (err) {
       console.error("Update error:", err);
-      const errorMessage = err.response?.data?.message || 
-                         err.message || 
-                         "Failed to update report";
+      const errorMessage =
+        err.response?.data?.message || err.message || "Failed to update report";
       setError(errorMessage);
-      
+
       // If it's an ID-related error, reset the found report
       if (err.message.includes("Cast to ObjectId failed")) {
         setFoundReport(null);
@@ -321,9 +349,10 @@ export default function EditReports() {
     }
 
     // Parse question numbers (comma separated)
-    const questionNumbers = graceQuestionNumbers.split(',')
-      .map(num => parseInt(num.trim()))
-      .filter(num => !isNaN(num));
+    const questionNumbers = graceQuestionNumbers
+      .split(",")
+      .map((num) => parseInt(num.trim()))
+      .filter((num) => !isNaN(num));
 
     if (questionNumbers.length === 0) {
       setError("Invalid question numbers format");
@@ -331,38 +360,44 @@ export default function EditReports() {
     }
 
     // Update reports with grace marks
-    setReports(reports.map(report => {
-      const newMarkedOptions = { ...report.markedOptions };
-      let updatedCorrect = report.correctAnswers || 0;
-      let updatedWrong = report.wrongAnswers || 0;
-      let updatedTotal = report.totalMarks || 0;
+    setReports(
+      reports.map((report) => {
+        const newMarkedOptions = { ...report.markedOptions };
+        let updatedCorrect = report.correctAnswers || 0;
+        let updatedWrong = report.wrongAnswers || 0;
+        let updatedTotal = report.totalMarks || 0;
 
-      questionNumbers.forEach(qNum => {
-        if (newMarkedOptions[qNum] !== undefined) {
-          const solution = solutions.find(s => s.questionNumber === qNum);
-          if (solution) {
-            // Only update if the student got this question wrong
-            if (newMarkedOptions[qNum] !== solution.correctOption) {
-              // Mark as correct
-              newMarkedOptions[qNum] = solution.correctOption;
-              updatedCorrect++;
-              if (updatedWrong > 0) updatedWrong--;
-              updatedTotal += report.marksType.includes("+4") ? 4 : 1;
+        questionNumbers.forEach((qNum) => {
+          if (newMarkedOptions[qNum] !== undefined) {
+            const solution = solutions.find((s) => s.questionNumber === qNum);
+            if (solution) {
+              // Only update if the student got this question wrong
+              if (newMarkedOptions[qNum] !== solution.correctOption) {
+                // Mark as correct
+                newMarkedOptions[qNum] = solution.correctOption;
+                updatedCorrect++;
+                if (updatedWrong > 0) updatedWrong--;
+                updatedTotal += report.marksType.includes("+4") ? 4 : 1;
+              }
             }
           }
-        }
-      });
+        });
 
-      return {
-        ...report,
-        markedOptions: newMarkedOptions,
-        correctAnswers: updatedCorrect,
-        wrongAnswers: updatedWrong,
-        totalMarks: updatedTotal,
-        accuracy: updatedCorrect / (updatedCorrect + updatedWrong) * 100,
-        percentage: (updatedTotal / (report.totalQuestions * (report.marksType.includes("+4") ? 4 : 1))) * 100
-      };
-    }));
+        return {
+          ...report,
+          markedOptions: newMarkedOptions,
+          correctAnswers: updatedCorrect,
+          wrongAnswers: updatedWrong,
+          totalMarks: updatedTotal,
+          accuracy: (updatedCorrect / (updatedCorrect + updatedWrong)) * 100,
+          percentage:
+            (updatedTotal /
+              (report.totalQuestions *
+                (report.marksType.includes("+4") ? 4 : 1))) *
+            100,
+        };
+      })
+    );
 
     setGraceQuestionNumbers("");
     setShowGraceMarks(false);
@@ -375,14 +410,14 @@ export default function EditReports() {
     try {
       setSubmitLoading(true);
       setError("");
-      
+
       // Update each report
-      const updatePromises = reports.map(report => 
+      const updatePromises = reports.map((report) =>
         axios.put(
           `${process.env.REACT_APP_URL}/api/updatereportbank/${report._id}`,
           {
             regNumber: report.regNumber,
-            markedOptions: report.markedOptions
+            markedOptions: report.markedOptions,
           },
           { headers: { Authorization: `Bearer ${token}` } }
         )
@@ -417,19 +452,22 @@ export default function EditReports() {
           date: testMetadata.date,
           stream: testMetadata.stream,
           questionType: testMetadata.questionType,
-          marksType: testMetadata.marksType
+          marksType: testMetadata.marksType,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.status === "success") {
         // Refresh the test list
-        const testDataResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getallreports`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const testDataResponse = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getallreports`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         const filteredReports = testDataResponse.data.data.filter(
-          report => report.stream === testMetadata.stream
+          (report) => report.stream === testMetadata.stream
         );
 
         setTests(processTestData(filteredReports));
@@ -440,7 +478,11 @@ export default function EditReports() {
         toast.success("Test information updated successfully!");
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to update test information");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to update test information"
+      );
     } finally {
       setSubmitLoading(false);
     }
@@ -464,12 +506,15 @@ export default function EditReports() {
 
       if (response.data.status === "success") {
         // Refresh the test list
-        const testDataResponse = await axios.get(`${process.env.REACT_APP_URL}/api/getallreports`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const testDataResponse = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getallreports`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         const filteredReports = testDataResponse.data.data.filter(
-          report => report.stream === selectedStream
+          (report) => report.stream === selectedStream
         );
 
         setTests(processTestData(filteredReports));
@@ -480,7 +525,9 @@ export default function EditReports() {
         toast.success("Test deleted successfully!");
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to delete test");
+      setError(
+        err.response?.data?.message || err.message || "Failed to delete test"
+      );
     } finally {
       setSubmitLoading(false);
     }
@@ -526,12 +573,14 @@ export default function EditReports() {
         {/* Test Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Test Name
+            </label>
             <select
               className="w-full p-2 border rounded"
               value={selectedTest?.testName || ""}
               onChange={(e) => {
-                const test = tests.find(t => t.testName === e.target.value);
+                const test = tests.find((t) => t.testName === e.target.value);
                 setSelectedTest(test);
                 setSelectedDate(null);
                 if (test) {
@@ -540,7 +589,7 @@ export default function EditReports() {
                     date: test.months[0]?.date || "",
                     stream: test.stream,
                     questionType: test.questionType,
-                    marksType: test.marksType
+                    marksType: test.marksType,
                   });
                 }
               }}
@@ -555,7 +604,9 @@ export default function EditReports() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date
+            </label>
             <select
               className="w-full p-2 border rounded"
               value={selectedDate || ""}
@@ -598,59 +649,88 @@ export default function EditReports() {
             <h3 className="text-lg font-medium mb-4">Edit Test Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Test Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Test Name
+                </label>
                 <input
                   type="text"
                   name="testName"
                   value={testMetadata.testName}
-                  onChange={(e) => setTestMetadata({...testMetadata, testName: e.target.value})}
+                  onChange={(e) =>
+                    setTestMetadata({
+                      ...testMetadata,
+                      testName: e.target.value,
+                    })
+                  }
                   className="w-full p-2 border rounded"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
                 <input
                   type="date"
                   name="date"
                   value={testMetadata.date}
-                  onChange={(e) => setTestMetadata({...testMetadata, date: e.target.value})}
+                  onChange={(e) =>
+                    setTestMetadata({ ...testMetadata, date: e.target.value })
+                  }
                   className="w-full p-2 border rounded"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stream</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stream
+                </label>
                 <select
                   name="stream"
                   value={testMetadata.stream}
-                  onChange={(e) => setTestMetadata({...testMetadata, stream: e.target.value})}
+                  onChange={(e) =>
+                    setTestMetadata({ ...testMetadata, stream: e.target.value })
+                  }
                   className="w-full p-2 border rounded"
                 >
                   <option value="LongTerm">Long Term</option>
                   <option value="PUC">PUC</option>
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Question Type
+                </label>
                 <select
                   name="questionType"
                   value={testMetadata.questionType}
-                  onChange={(e) => setTestMetadata({...testMetadata, questionType: e.target.value})}
+                  onChange={(e) =>
+                    setTestMetadata({
+                      ...testMetadata,
+                      questionType: e.target.value,
+                    })
+                  }
                   className="w-full p-2 border rounded"
                 >
                   <option value="MCQ">MCQ</option>
                   <option value="Theory">Theory</option>
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Marks Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Marks Type
+                </label>
                 <select
                   name="marksType"
                   value={testMetadata.marksType}
-                  onChange={(e) => setTestMetadata({...testMetadata, marksType: e.target.value})}
+                  onChange={(e) =>
+                    setTestMetadata({
+                      ...testMetadata,
+                      marksType: e.target.value,
+                    })
+                  }
                   className="w-full p-2 border rounded"
                 >
                   <option value="+4/-1">+4/-1</option>
@@ -658,7 +738,7 @@ export default function EditReports() {
                 </select>
               </div>
             </div>
-            
+
             <div className="flex justify-end space-x-2 mt-4">
               <button
                 onClick={() => setEditingTestInfo(false)}
@@ -670,10 +750,12 @@ export default function EditReports() {
                 onClick={updateTestMetadata}
                 disabled={submitLoading}
                 className={`px-4 py-2 rounded text-white ${
-                  submitLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+                  submitLoading
+                    ? "bg-blue-400"
+                    : "bg-blue-600 hover:bg-blue-700"
                 } transition`}
               >
-                {submitLoading ? 'Saving...' : 'Save Changes'}
+                {submitLoading ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -684,7 +766,10 @@ export default function EditReports() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg max-w-md w-full">
               <h3 className="text-lg font-medium mb-4">Confirm Deletion</h3>
-              <p className="mb-4">Are you sure you want to delete this test and all its associated reports? This action cannot be undone.</p>
+              <p className="mb-4">
+                Are you sure you want to delete this test and all its associated
+                reports? This action cannot be undone.
+              </p>
               <div className="flex justify-end space-x-2">
                 <button
                   onClick={() => setShowDeleteConfirmation(false)}
@@ -696,10 +781,10 @@ export default function EditReports() {
                   onClick={deleteTest}
                   disabled={submitLoading}
                   className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition ${
-                    submitLoading ? 'opacity-50' : ''
+                    submitLoading ? "opacity-50" : ""
                   }`}
                 >
-                  {submitLoading ? 'Deleting...' : 'Delete'}
+                  {submitLoading ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -802,10 +887,12 @@ export default function EditReports() {
                 onClick={handleSave}
                 disabled={submitLoading}
                 className={`px-4 py-2 rounded text-white ${
-                  submitLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+                  submitLoading
+                    ? "bg-blue-400"
+                    : "bg-blue-600 hover:bg-blue-700"
                 } transition`}
               >
-                {submitLoading ? 'Saving...' : 'Save Changes'}
+                {submitLoading ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -838,7 +925,8 @@ export default function EditReports() {
                     placeholder="e.g., 1, 5, 12"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    These questions will be marked as correct for all students who got them wrong
+                    These questions will be marked as correct for all students
+                    who got them wrong
                   </p>
                 </div>
                 <button
@@ -859,10 +947,12 @@ export default function EditReports() {
               onClick={submitAllChanges}
               disabled={submitLoading}
               className={`px-4 py-2 rounded text-white ${
-                submitLoading ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'
+                submitLoading
+                  ? "bg-gray-400"
+                  : "bg-purple-600 hover:bg-purple-700"
               } transition`}
             >
-              {submitLoading ? 'Submitting...' : 'Submit All Changes'}
+              {submitLoading ? "Submitting..." : "Submit All Changes"}
             </button>
           </div>
         )}
@@ -873,11 +963,15 @@ export default function EditReports() {
           </div>
         )}
 
-        {!loading && selectedTest && selectedDate && reports.length === 0 && !editingTestInfo && (
-          <div className="p-4 bg-yellow-100 text-yellow-800 rounded-md">
-            No reports found for the selected test and date.
-          </div>
-        )}
+        {!loading &&
+          selectedTest &&
+          selectedDate &&
+          reports.length === 0 &&
+          !editingTestInfo && (
+            <div className="p-4 bg-yellow-100 text-yellow-800 rounded-md">
+              No reports found for the selected test and date.
+            </div>
+          )}
       </div>
     </div>
   );

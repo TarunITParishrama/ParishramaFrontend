@@ -13,7 +13,7 @@ export default function StudentSettings() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showMedicalDetails, setShowMedicalDetails] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     admissionYear: new Date().getFullYear(),
     campus: "",
@@ -31,7 +31,7 @@ export default function StudentSettings() {
     address: "",
     contact: "",
     medicalIssues: "No",
-    medicalDetails: ""
+    medicalDetails: "",
   });
 
   // Fetch campuses on component mount
@@ -39,9 +39,12 @@ export default function StudentSettings() {
     const fetchCampuses = async () => {
       try {
         const token = localStorage.getItem("token");
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/getcampuses`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getcampuses`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         setCampuses(response.data.data);
         toast.success("Campuses loaded successfully");
       } catch (error) {
@@ -62,7 +65,7 @@ export default function StudentSettings() {
       toast.error("Please enter a valid 6-digit registration number");
       return;
     }
-  
+
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
@@ -70,23 +73,27 @@ export default function StudentSettings() {
         `${process.env.REACT_APP_URL}/api/getstudentbyreg/${regNumber}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-  
+
       if (!response.data.data) {
         toast.error(`No student found with registration number: ${regNumber}`);
         setStudent(null);
         return;
       }
-  
+
       const studentData = response.data.data;
       setStudent(studentData);
-      
+
       // Format dateOfBirth for display if it exists
       let formattedDOB = "";
       if (studentData.dateOfBirth) {
         const dob = new Date(studentData.dateOfBirth);
-        formattedDOB = `${dob.getDate().toString().padStart(2, '0')}-${(dob.getMonth() + 1).toString().padStart(2, '0')}-${dob.getFullYear()}`;
+        formattedDOB = `${dob.getDate().toString().padStart(2, "0")}-${(
+          dob.getMonth() + 1
+        )
+          .toString()
+          .padStart(2, "0")}-${dob.getFullYear()}`;
       }
-      
+
       // Set form data and handle medical issues state
       setFormData({
         ...studentData,
@@ -94,16 +101,16 @@ export default function StudentSettings() {
         dateOfBirth: formattedDOB,
         emailId: studentData.emailId || "", // Set emailId from student data
         medicalIssues: studentData.medicalIssues || "No",
-        medicalDetails: studentData.medicalDetails || ""
+        medicalDetails: studentData.medicalDetails || "",
       });
-      
+
       // If there's an image URL, set the preview
       if (studentData.studentImageURL) {
         setPreviewUrl(studentData.studentImageURL);
       } else {
         setPreviewUrl("");
       }
-      
+
       toast.success("Student details loaded successfully");
     } catch (error) {
       if (error.response && error.response.status === 404) {
@@ -145,16 +152,16 @@ export default function StudentSettings() {
       setUploadProgress(0);
       toast.info("Uploading image...");
 
-      const fileExt = selectedFile.name.split('.').pop().toLowerCase();
+      const fileExt = selectedFile.name.split(".").pop().toLowerCase();
       const token = localStorage.getItem("token");
 
       const { data } = await axios.get(
         `${process.env.REACT_APP_URL}/api/generate-image-upload-url/${formData.regNumber}/.${fileExt}`,
-        { headers: { Authorization: `Bearer ${token}` }}
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', data.uploadURL);
+      xhr.open("PUT", data.uploadURL);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -165,20 +172,19 @@ export default function StudentSettings() {
 
       xhr.onload = async () => {
         if (xhr.status === 200) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // small delay
-          setFormData(prev => ({ ...prev, studentImageURL: data.viewURL }));
+          await new Promise((resolve) => setTimeout(resolve, 500)); // small delay
+          setFormData((prev) => ({ ...prev, studentImageURL: data.viewURL }));
           toast.success("Image uploaded successfully!");
         } else {
-          throw new Error('Upload failed');
+          throw new Error("Upload failed");
         }
       };
 
       xhr.onerror = () => {
-        throw new Error('Upload failed');
+        throw new Error("Upload failed");
       };
 
       xhr.send(selectedFile);
-
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Image upload failed");
@@ -205,8 +211,10 @@ export default function StudentSettings() {
     }
 
     // Upload image if selected but not yet uploaded
-    if (selectedFile && (!formData.studentImageURL || 
-        formData.studentImageURL !== previewUrl)) {
+    if (
+      selectedFile &&
+      (!formData.studentImageURL || formData.studentImageURL !== previewUrl)
+    ) {
       try {
         await uploadImage();
       } catch (error) {
@@ -224,17 +232,18 @@ export default function StudentSettings() {
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // Refresh student data
       const updatedStudent = await axios.get(
         `${process.env.REACT_APP_URL}/api/getstudentbyreg/${regNumber}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       setStudent(updatedStudent.data.data);
       toast.success("Student updated successfully!");
     } catch (error) {
-      const errorMsg = error.response?.data?.message || "Failed to update student";
+      const errorMsg =
+        error.response?.data?.message || "Failed to update student";
       toast.error(errorMsg);
       console.error("Update error:", error);
     } finally {
@@ -243,7 +252,11 @@ export default function StudentSettings() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Permanently delete ${student.studentName} (Reg: ${student.regNumber})?`)) {
+    if (
+      !window.confirm(
+        `Permanently delete ${student.studentName} (Reg: ${student.regNumber})?`
+      )
+    ) {
       return;
     }
 
@@ -255,7 +268,7 @@ export default function StudentSettings() {
         `${process.env.REACT_APP_URL}/api/deletestudent/${student._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       toast.success(`Student ${student.studentName} deleted successfully`);
       setStudent(null);
       setRegNumber("");
@@ -275,12 +288,13 @@ export default function StudentSettings() {
         address: "",
         contact: "",
         medicalIssues: "No",
-        medicalDetails: ""
+        medicalDetails: "",
       });
       setPreviewUrl("");
       setSelectedFile(null);
     } catch (error) {
-      const errorMsg = error.response?.data?.message || "Failed to delete student";
+      const errorMsg =
+        error.response?.data?.message || "Failed to delete student";
       toast.error(errorMsg);
       console.error("Delete error:", error);
     } finally {
@@ -301,14 +315,15 @@ export default function StudentSettings() {
         `${process.env.REACT_APP_URL}/api/delete-student-image/${formData.regNumber}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // Update local state
-      setFormData(prev => ({ ...prev, studentImageURL: "" }));
+      setFormData((prev) => ({ ...prev, studentImageURL: "" }));
       setPreviewUrl("");
       setSelectedFile(null);
       toast.success("Image deleted successfully");
     } catch (error) {
-      const errorMsg = error.response?.data?.message || "Failed to delete image";
+      const errorMsg =
+        error.response?.data?.message || "Failed to delete image";
       toast.error(errorMsg);
       console.error("Delete image error:", error);
     } finally {
@@ -318,16 +333,16 @@ export default function StudentSettings() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name === "dateOfBirth") {
       // For date input, we get YYYY-MM-DD format from the input
-      const [year, month, day] = value.split('-');
+      const [year, month, day] = value.split("-");
       const formattedDate = `${day}-${month}-${year}`;
-      setFormData(prev => ({ ...prev, [name]: formattedDate }));
+      setFormData((prev) => ({ ...prev, [name]: formattedDate }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
-  
+
     if (name === "medicalIssues") {
       setShowMedicalDetails(value === "Yes");
     }
@@ -335,14 +350,16 @@ export default function StudentSettings() {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Student Settings</h2>
-      
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">
+        Student Settings
+      </h2>
+
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => setActiveTab("edit")}
           className={`px-4 py-2 rounded ${
-            activeTab === "edit" 
-              ? "bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white" 
+            activeTab === "edit"
+              ? "bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white"
               : "bg-gray-200"
           }`}
         >
@@ -351,8 +368,8 @@ export default function StudentSettings() {
         <button
           onClick={() => setActiveTab("delete")}
           className={`px-4 py-2 rounded ${
-            activeTab === "delete" 
-              ? "bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white" 
+            activeTab === "delete"
+              ? "bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white"
               : "bg-gray-200"
           }`}
         >
@@ -361,7 +378,9 @@ export default function StudentSettings() {
       </div>
 
       <div className="mb-4">
-        <label className="block text-gray-700 mb-1 font-medium">Enter Registration Number</label>
+        <label className="block text-gray-700 mb-1 font-medium">
+          Enter Registration Number
+        </label>
         <div className="flex">
           <input
             type="text"
@@ -385,10 +404,15 @@ export default function StudentSettings() {
       {student && (
         <div>
           {activeTab === "edit" ? (
-            <form onSubmit={handleUpdate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form
+              onSubmit={handleUpdate}
+              className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
               {/* Campus Selection */}
               <div className="md:col-span-2">
-                <label className="block text-gray-700 mb-1 font-medium">Campus *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Campus *
+                </label>
                 <div className="flex items-center gap-2 mb-1">
                   {student?.campus?.name && (
                     <span className="text-sm text-gray-600">
@@ -404,7 +428,7 @@ export default function StudentSettings() {
                   required
                 >
                   <option value="">Select Campus</option>
-                  {campuses.map(campus => (
+                  {campuses.map((campus) => (
                     <option key={campus._id} value={campus._id}>
                       {campus.name} ({campus.type})
                     </option>
@@ -414,7 +438,9 @@ export default function StudentSettings() {
 
               {/* Admission Year */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Admission Year *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Admission Year *
+                </label>
                 <select
                   name="admissionYear"
                   value={formData.admissionYear}
@@ -422,15 +448,19 @@ export default function StudentSettings() {
                   className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
                   required
                 >
-                  {[2024, 2025, 2026, 2027, 2028].map(year => (
-                    <option key={year} value={year}>{year}</option>
+                  {[2024, 2025, 2026, 2027, 2028].map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
                   ))}
                 </select>
               </div>
 
               {/* Registration Number (read-only) */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Registration Number</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Registration Number
+                </label>
                 <input
                   type="text"
                   value={formData.regNumber}
@@ -441,7 +471,9 @@ export default function StudentSettings() {
 
               {/* Student Name */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Student Name *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Student Name *
+                </label>
                 <input
                   type="text"
                   name="studentName"
@@ -453,24 +485,28 @@ export default function StudentSettings() {
                 />
               </div>
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Date of Birth *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Date of Birth *
+                </label>
                 <input
                   type="date"
                   name="dateOfBirth"
                   value={
-                  formData.dateOfBirth 
-                  ? formData.dateOfBirth.split('-').reverse().join('-') // Convert DD-MM-YYYY to YYYY-MM-DD for input
-                  : ''
-                }
-                onChange={handleChange}
-                className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
-                required
+                    formData.dateOfBirth
+                      ? formData.dateOfBirth.split("-").reverse().join("-") // Convert DD-MM-YYYY to YYYY-MM-DD for input
+                      : ""
+                  }
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+                  required
                 />
               </div>
 
               {/* Student Image Upload */}
               <div className="md:col-span-2">
-                <label className="block text-gray-700 mb-1 font-medium">Student Photo</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Student Photo
+                </label>
                 <div className="flex items-center gap-4">
                   <div className="relative">
                     <input
@@ -489,7 +525,8 @@ export default function StudentSettings() {
                   </div>
                   {selectedFile && (
                     <span className="text-sm text-gray-600">
-                      {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      {selectedFile.name} (
+                      {(selectedFile.size / 1024).toFixed(1)} KB)
                     </span>
                   )}
                 </div>
@@ -540,8 +577,19 @@ export default function StudentSettings() {
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 disabled:opacity-50"
                       title="Delete image"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -550,7 +598,9 @@ export default function StudentSettings() {
 
               {/* Gender */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Gender *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Gender *
+                </label>
                 <select
                   name="gender"
                   value={formData.gender}
@@ -565,7 +615,9 @@ export default function StudentSettings() {
 
               {/* Admission Type */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Admission Type *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Admission Type *
+                </label>
                 <select
                   name="admissionType"
                   value={formData.admissionType}
@@ -581,7 +633,9 @@ export default function StudentSettings() {
 
               {/* Allotment Type */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Allotment Type *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Allotment Type *
+                </label>
                 <select
                   name="allotmentType"
                   value={formData.allotmentType}
@@ -591,13 +645,17 @@ export default function StudentSettings() {
                 >
                   <option value="11th PUC">11th PUC</option>
                   <option value="12th PUC">12th PUC</option>
-                  <option value="LongTerm">Long Term (NEET/JEE Coaching)</option>
+                  <option value="LongTerm">
+                    Long Term (NEET/JEE Coaching)
+                  </option>
                 </select>
               </div>
 
               {/* Section */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Section *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Section *
+                </label>
                 <input
                   type="text"
                   name="section"
@@ -611,7 +669,9 @@ export default function StudentSettings() {
 
               {/* Father's Name */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Parent's Name *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Parent's Name *
+                </label>
                 <input
                   type="text"
                   name="fatherName"
@@ -624,7 +684,9 @@ export default function StudentSettings() {
 
               {/* Father's Mobile */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Parent's Mobile *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Parent's Mobile *
+                </label>
                 <input
                   type="tel"
                   name="fatherMobile"
@@ -640,7 +702,9 @@ export default function StudentSettings() {
 
               {/* Email ID */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Parent's Email</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Parent's Email
+                </label>
                 <input
                   type="email"
                   name="emailId"
@@ -653,7 +717,9 @@ export default function StudentSettings() {
 
               {/* Address */}
               <div className="md:col-span-2">
-                <label className="block text-gray-700 mb-1 font-medium">Address *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Address *
+                </label>
                 <textarea
                   name="address"
                   value={formData.address}
@@ -666,7 +732,9 @@ export default function StudentSettings() {
 
               {/* Alternate Contact */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Alternate Contact *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Alternate Contact *
+                </label>
                 <input
                   type="tel"
                   name="contact"
@@ -682,7 +750,9 @@ export default function StudentSettings() {
 
               {/* Medical Issues */}
               <div>
-                <label className="block text-gray-700 mb-1 font-medium">Medical Issues *</label>
+                <label className="block text-gray-700 mb-1 font-medium">
+                  Medical Issues *
+                </label>
                 <select
                   name="medicalIssues"
                   value={formData.medicalIssues}
@@ -720,9 +790,25 @@ export default function StudentSettings() {
                 >
                   {loading ? (
                     <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Updating...
                     </span>
@@ -734,7 +820,9 @@ export default function StudentSettings() {
             </form>
           ) : (
             <div className="bg-red-50 p-6 rounded-lg">
-              <h3 className="text-xl font-medium text-red-800 mb-4">Delete Student</h3>
+              <h3 className="text-xl font-medium text-red-800 mb-4">
+                Delete Student
+              </h3>
               <div className="mb-4 flex items-center space-x-4">
                 {previewUrl && (
                   <img
@@ -745,9 +833,13 @@ export default function StudentSettings() {
                 )}
                 <div>
                   <p className="font-medium text-lg">{student.studentName}</p>
-                  <p className="text-gray-600">Registration: {student.regNumber}</p>
+                  <p className="text-gray-600">
+                    Registration: {student.regNumber}
+                  </p>
                   {student.campus?.name && (
-                    <p className="text-gray-600">Campus: {student.campus.name}</p>
+                    <p className="text-gray-600">
+                      Campus: {student.campus.name}
+                    </p>
                   )}
                   {student.emailId && (
                     <p className="text-gray-600">Email: {student.emailId}</p>
@@ -755,7 +847,8 @@ export default function StudentSettings() {
                 </div>
               </div>
               <p className="mb-6 text-red-700">
-                Warning: This action cannot be undone. All data associated with this student will be permanently removed.
+                Warning: This action cannot be undone. All data associated with
+                this student will be permanently removed.
               </p>
               <div className="flex space-x-4">
                 <button

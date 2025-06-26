@@ -1,74 +1,89 @@
-import React, { useState, useEffect } from 'react';
-import { useFormik } from 'formik';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { FiTrash2, FiPlus } from 'react-icons/fi';
+import React, { useState, useEffect } from "react";
+import { useFormik } from "formik";
+import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { FiTrash2, FiPlus } from "react-icons/fi";
 
 const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [markingScheme, setMarkingScheme] = useState('NEET'); // 'NEET' or 'CET'
+  const [markingScheme, setMarkingScheme] = useState("NEET"); // 'NEET' or 'CET'
 
   const formik = useFormik({
     initialValues: initialValues || {
-      type: 'LongTerm',
-      testName: '',
-      subjects: [{ subject: '', totalQuestions: 1, totalMarks: 4 }],
+      type: "LongTerm",
+      testName: "",
+      subjects: [{ subject: "", totalQuestions: 1, totalMarks: 4 }],
     },
     onSubmit: async (values) => {
       setLoading(true);
       try {
-        const isPTT = values.type === 'PUC' && values.testName.toUpperCase() === 'PTT';
-        const isPCT = values.type === 'PUC' && values.testName.toUpperCase() === 'PCT';
+        const isPTT =
+          values.type === "PUC" && values.testName.toUpperCase() === "PTT";
+        const isPCT =
+          values.type === "PUC" && values.testName.toUpperCase() === "PCT";
 
         const payload = {
           ...values,
-          subjects: values.subjects.map(sub => {
+          subjects: values.subjects.map((sub) => {
             if (isPTT) return { ...sub, totalQuestions: 0, totalMarks: 25 };
             if (isPCT) {
-              const marksPerQuestion = markingScheme === 'NEET' ? 4 : 1;
-              return { ...sub, totalMarks: sub.totalQuestions * marksPerQuestion };
+              const marksPerQuestion = markingScheme === "NEET" ? 4 : 1;
+              return {
+                ...sub,
+                totalMarks: sub.totalQuestions * marksPerQuestion,
+              };
             }
             return sub; // For custom test names, keep user-entered values
           }),
-          totalMarks: values.subjects.reduce((sum, sub) => sum + sub.totalMarks, 0)
+          totalMarks: values.subjects.reduce(
+            (sum, sub) => sum + sub.totalMarks,
+            0
+          ),
         };
 
-        const token = localStorage.getItem('token');
-        await axios.post(`${process.env.REACT_APP_URL}/api/createpatterns`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const token = localStorage.getItem("token");
+        await axios.post(
+          `${process.env.REACT_APP_URL}/api/createpatterns`,
+          payload,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-        toast.success('Pattern saved successfully!');
+        toast.success("Pattern saved successfully!");
         onSuccess?.();
       } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to save pattern');
+        toast.error(error.response?.data?.message || "Failed to save pattern");
       } finally {
         setLoading(false);
       }
-    }
+    },
   });
 
   // Check if current test name is a custom one (not PTT or PCT)
   const isCustomTestName = () => {
     const upperTestName = formik.values.testName.toUpperCase();
-    return formik.values.type === 'PUC' ? 
-           (upperTestName !== 'PTT' && upperTestName !== 'PCT') :
-           (formik.values.testName.length > 3); // For non-PUC tests, check length > 3
+    return formik.values.type === "PUC"
+      ? upperTestName !== "PTT" && upperTestName !== "PCT"
+      : formik.values.testName.length > 3; // For non-PUC tests, check length > 3
   };
 
   // Fetch subjects
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const token = localStorage.getItem("token");
+        const res = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getsubjects`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         setSubjects(res.data.data);
       } catch (error) {
-        toast.error('Failed to load subjects');
+        toast.error("Failed to load subjects");
       }
     };
     fetchSubjects();
@@ -76,16 +91,20 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
 
   // Handle test type/name changes
   useEffect(() => {
-    const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isPTT =
+      formik.values.type === "PUC" &&
+      formik.values.testName.toUpperCase() === "PTT";
+    const isPCT =
+      formik.values.type === "PUC" &&
+      formik.values.testName.toUpperCase() === "PCT";
     const isCustom = isCustomTestName();
-    
-    const updatedSubjects = formik.values.subjects.map(sub => {
+
+    const updatedSubjects = formik.values.subjects.map((sub) => {
       if (isPTT) {
         return { ...sub, totalQuestions: 0, totalMarks: 25 };
       }
       if (isPCT) {
-        const marksPerQuestion = markingScheme === 'NEET' ? 4 : 1;
+        const marksPerQuestion = markingScheme === "NEET" ? 4 : 1;
         return { ...sub, totalMarks: sub.totalQuestions * marksPerQuestion };
       }
       if (!isCustom) {
@@ -94,44 +113,58 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
       }
       return sub; // For custom tests, keep existing values
     });
-    
-    formik.setFieldValue('subjects', updatedSubjects);
+
+    formik.setFieldValue("subjects", updatedSubjects);
   }, [formik.values.type, formik.values.testName, markingScheme]);
 
   const addSubject = () => {
-    const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isPTT =
+      formik.values.type === "PUC" &&
+      formik.values.testName.toUpperCase() === "PTT";
+    const isPCT =
+      formik.values.type === "PUC" &&
+      formik.values.testName.toUpperCase() === "PCT";
     const isCustom = isCustomTestName();
-    
-    formik.setFieldValue('subjects', [
+
+    formik.setFieldValue("subjects", [
       ...formik.values.subjects,
-      { 
-        subject: '', 
+      {
+        subject: "",
         totalQuestions: isPTT ? 0 : 1,
-        totalMarks: isPTT ? 25 : 
-                  (isPCT ? (markingScheme === 'NEET' ? 4 : 1) : 
-                  (isCustom ? 1 : 4)) // Default to 1 for custom tests, 4 otherwise
-      }
+        totalMarks: isPTT
+          ? 25
+          : isPCT
+          ? markingScheme === "NEET"
+            ? 4
+            : 1
+          : isCustom
+          ? 1
+          : 4, // Default to 1 for custom tests, 4 otherwise
+      },
     ]);
   };
 
   const removeSubject = (index) => {
     const updated = formik.values.subjects.filter((_, i) => i !== index);
-    formik.setFieldValue('subjects', updated);
+    formik.setFieldValue("subjects", updated);
   };
 
   const handleQuestionChange = (index, value) => {
     const questions = parseInt(value) || 0;
-    const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-    const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+    const isPTT =
+      formik.values.type === "PUC" &&
+      formik.values.testName.toUpperCase() === "PTT";
+    const isPCT =
+      formik.values.type === "PUC" &&
+      formik.values.testName.toUpperCase() === "PCT";
     const isCustom = isCustomTestName();
-    
+
     formik.setFieldValue(`subjects[${index}].totalQuestions`, questions);
-    
+
     if (isPTT) {
       formik.setFieldValue(`subjects[${index}].totalMarks`, 25);
     } else if (isPCT) {
-      const marks = questions * (markingScheme === 'NEET' ? 4 : 1);
+      const marks = questions * (markingScheme === "NEET" ? 4 : 1);
       formik.setFieldValue(`subjects[${index}].totalMarks`, marks);
     } else if (!isCustom) {
       // For non-custom tests, auto-calculate marks (4 per question)
@@ -148,14 +181,18 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
     }
   };
 
-  const isPTT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PTT';
-  const isPCT = formik.values.type === 'PUC' && formik.values.testName.toUpperCase() === 'PCT';
+  const isPTT =
+    formik.values.type === "PUC" &&
+    formik.values.testName.toUpperCase() === "PTT";
+  const isPCT =
+    formik.values.type === "PUC" &&
+    formik.values.testName.toUpperCase() === "PCT";
   const isCustom = isCustomTestName();
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6">
-        {initialValues ? 'Edit Pattern' : 'New Pattern'}
+        {initialValues ? "Edit Pattern" : "New Pattern"}
       </h2>
 
       <form onSubmit={formik.handleSubmit} className="space-y-4">
@@ -194,8 +231,8 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                 <input
                   type="radio"
                   name="markingScheme"
-                  checked={markingScheme === 'NEET'}
-                  onChange={() => setMarkingScheme('NEET')}
+                  checked={markingScheme === "NEET"}
+                  onChange={() => setMarkingScheme("NEET")}
                   className="mr-2"
                 />
                 NEET (+4 per question)
@@ -204,8 +241,8 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                 <input
                   type="radio"
                   name="markingScheme"
-                  checked={markingScheme === 'CET'}
-                  onChange={() => setMarkingScheme('CET')}
+                  checked={markingScheme === "CET"}
+                  onChange={() => setMarkingScheme("CET")}
                   className="mr-2"
                 />
                 CET (+1 per question)
@@ -232,8 +269,11 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                   <td className="p-3">
                     <select
                       value={subject.subject}
-                      onChange={(e) => 
-                        formik.setFieldValue(`subjects[${index}].subject`, e.target.value)
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          `subjects[${index}].subject`,
+                          e.target.value
+                        )
                       }
                       className="w-full p-2 border rounded"
                     >
@@ -251,7 +291,9 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                         type="number"
                         min="1"
                         value={subject.totalQuestions}
-                        onChange={(e) => handleQuestionChange(index, e.target.value)}
+                        onChange={(e) =>
+                          handleQuestionChange(index, e.target.value)
+                        }
                         className="w-full p-2 border rounded"
                       />
                     </td>
@@ -262,7 +304,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
                       value={subject.totalMarks}
                       onChange={(e) => handleMarksChange(index, e.target.value)}
                       className={`w-full p-2 border rounded ${
-                        !isCustom ? 'bg-gray-100' : ''
+                        !isCustom ? "bg-gray-100" : ""
                       }`}
                       readOnly={!isCustom}
                       min="0"
@@ -295,7 +337,11 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
           </button>
 
           <div className="text-lg font-semibold">
-            Total Marks: {formik.values.subjects.reduce((sum, sub) => sum + sub.totalMarks, 0)}
+            Total Marks:{" "}
+            {formik.values.subjects.reduce(
+              (sum, sub) => sum + sub.totalMarks,
+              0
+            )}
           </div>
         </div>
 
@@ -314,7 +360,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
             disabled={loading}
             className="px-4 py-2 bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white rounded disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Save Pattern'}
+            {loading ? "Saving..." : "Save Pattern"}
           </button>
         </div>
       </form>

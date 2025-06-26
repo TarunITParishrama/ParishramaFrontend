@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { format, parseISO } from 'date-fns';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { format, parseISO } from "date-fns";
 //import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import "react-datepicker/dist/react-datepicker.css";
 //import { Calendar as CalendarIcon } from 'react-feather';
-import ReportCard from '../../download/ReportCard';
+import ReportCard from "../../download/ReportCard";
 
 const StudentReport = ({ onClose }) => {
   const [formData, setFormData] = useState({
-    rollNo: '',
-    studentName: '',
-    classSection: '',
+    rollNo: "",
+    studentName: "",
+    classSection: "",
     fromDate: null,
-    toDate: null
+    toDate: null,
   });
   const [reports, setReports] = useState([]);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState("");
   const [isFetching, setIsFetching] = useState(false);
   const [isValidRollNo, setIsValidRollNo] = useState(false);
 
@@ -26,42 +26,47 @@ const StudentReport = ({ onClose }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Fetch student reports when Fetch button is clicked
   const fetchStudentReports = async () => {
     if (!isValidRollNo) return;
-    
+
     setIsFetching(true);
-    setStatus('Fetching reports...');
-    
+    setStatus("Fetching reports...");
+
     try {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getstudentreportbystudentid/${formData.rollNo}`);
-      
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getstudentreportbystudentid/${formData.rollNo}`
+      );
+
       if (!response.data?.data) {
-        throw new Error('No data received from server');
+        throw new Error("No data received from server");
       }
-  
+
       const filteredReports = filterReportsByDate(response.data.data);
       setReports(filteredReports);
-      setStatus(`Found ${filteredReports.length} reports for ${formData.rollNo}`);
+      setStatus(
+        `Found ${filteredReports.length} reports for ${formData.rollNo}`
+      );
     } catch (error) {
-      console.error('Error fetching reports:', error);
-      let errorMessage = 'Failed to fetch reports';
-      
+      console.error("Error fetching reports:", error);
+      let errorMessage = "Failed to fetch reports";
+
       if (error.response) {
         // Server responded with error status
-        errorMessage = error.response.data?.message || 
-                      `Server error: ${error.response.status}`;
+        errorMessage =
+          error.response.data?.message ||
+          `Server error: ${error.response.status}`;
       } else if (error.request) {
         // Request was made but no response
-        errorMessage = 'No response from server. Check your connection.';
+        errorMessage = "No response from server. Check your connection.";
       } else {
         // Other errors
-        errorMessage = error.message || 'Failed to fetch reports';
+        errorMessage = error.message || "Failed to fetch reports";
       }
-      
+
       setStatus(errorMessage);
       setReports([]);
     } finally {
@@ -72,11 +77,11 @@ const StudentReport = ({ onClose }) => {
   // Filter reports by selected date range
   const filterReportsByDate = (reports) => {
     if (!formData.fromDate && !formData.toDate) {
-      setStatus('Showing all available reports (no date filters applied)');
+      setStatus("Showing all available reports (no date filters applied)");
       return reports;
     }
-    
-    const filtered = reports.filter(report => {
+
+    const filtered = reports.filter((report) => {
       const reportDate = parseISO(report.date);
       return (
         (!formData.fromDate || reportDate >= formData.fromDate) &&
@@ -85,9 +90,19 @@ const StudentReport = ({ onClose }) => {
     });
 
     if (formData.fromDate && !formData.toDate) {
-      setStatus(`Showing reports from ${format(formData.fromDate, 'dd/MM/yyyy')} onwards`);
+      setStatus(
+        `Showing reports from ${format(
+          formData.fromDate,
+          "dd/MM/yyyy"
+        )} onwards`
+      );
     } else if (formData.fromDate && formData.toDate) {
-      setStatus(`Showing reports between ${format(formData.fromDate, 'dd/MM/yyyy')} and ${format(formData.toDate, 'dd/MM/yyyy')}`);
+      setStatus(
+        `Showing reports between ${format(
+          formData.fromDate,
+          "dd/MM/yyyy"
+        )} and ${format(formData.toDate, "dd/MM/yyyy")}`
+      );
     }
 
     return filtered;
@@ -96,7 +111,7 @@ const StudentReport = ({ onClose }) => {
   // Generate PDF report
   const generatePDF = () => {
     if (reports.length === 0) {
-      setStatus('No reports available to generate PDF');
+      setStatus("No reports available to generate PDF");
       return;
     }
 
@@ -106,19 +121,21 @@ const StudentReport = ({ onClose }) => {
       classSection: formData.classSection,
       fromDate: formData.fromDate,
       toDate: formData.toDate,
-      reports: reports.map(report => ({
+      reports: reports.map((report) => ({
         testName: report.testName,
-        date: format(parseISO(report.date), 'dd/MM/yyyy'),
+        date: format(parseISO(report.date), "dd/MM/yyyy"),
         correctAnswers: report.correctAnswers,
         wrongAnswers: report.wrongAnswers,
         unattempted: report.unattempted,
         totalMarks: report.totalMarks,
         accuracy: report.accuracy,
-        percentile: report.percentile
+        percentile: report.percentile,
       })),
       totalTestsAttended: reports.length,
       totalMarks: reports.reduce((sum, report) => sum + report.totalMarks, 0),
-      averageMarks: reports.reduce((sum, report) => sum + report.totalMarks, 0) / reports.length
+      averageMarks:
+        reports.reduce((sum, report) => sum + report.totalMarks, 0) /
+        reports.length,
     };
 
     ReportCard.generatePDF(studentData);
@@ -149,10 +166,12 @@ const StudentReport = ({ onClose }) => {
               onClick={fetchStudentReports}
               disabled={!isValidRollNo || isFetching}
               className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md text-white ${
-                isValidRollNo ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'
+                isValidRollNo
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-gray-400 cursor-not-allowed"
               } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
-              {isFetching ? 'Fetching...' : 'Fetch'}
+              {isFetching ? "Fetching..." : "Fetch"}
             </button>
           </div>
         </div>
@@ -237,11 +256,15 @@ const StudentReport = ({ onClose }) => {
 
       {/* Status Message */}
       {status && (
-        <div className={`p-3 rounded-md ${
-          status.includes('Failed') ? 'bg-red-50 text-red-800' : 
-          status.includes('Found') ? 'bg-green-50 text-green-800' : 
-          'bg-blue-50 text-blue-800'
-        }`}>
+        <div
+          className={`p-3 rounded-md ${
+            status.includes("Failed")
+              ? "bg-red-50 text-red-800"
+              : status.includes("Found")
+              ? "bg-green-50 text-green-800"
+              : "bg-blue-50 text-blue-800"
+          }`}
+        >
           {status}
         </div>
       )}
@@ -252,29 +275,59 @@ const StudentReport = ({ onClose }) => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Test Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wrong</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unattempted</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correct</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Marks</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Accuracy</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentile</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Test Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Wrong
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unattempted
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Correct
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total Marks
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Accuracy
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Percentile
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {reports.map((report, index) => (
                 <tr key={index}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{report.testName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(parseISO(report.date), 'dd/MM/yyyy')}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {report.testName}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">{report.wrongAnswers}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.unattempted}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">{report.correctAnswers}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{report.totalMarks}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">{report.accuracy}%</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600">{report.percentile}%</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {format(parseISO(report.date), "dd/MM/yyyy")}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                    {report.wrongAnswers}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {report.unattempted}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                    {report.correctAnswers}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {report.totalMarks}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
+                    {report.accuracy}%
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600">
+                    {report.percentile}%
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -296,7 +349,9 @@ const StudentReport = ({ onClose }) => {
           onClick={generatePDF}
           disabled={reports.length === 0}
           className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-            reports.length > 0 ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'
+            reports.length > 0
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-gray-400 cursor-not-allowed"
           } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
         >
           Generate PDF

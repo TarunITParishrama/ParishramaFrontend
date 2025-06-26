@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import titlelogo from "../assets/loginpagelogo.jpg";
-import { FaEye, FaEyeSlash } from "react-icons/fa"; 
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 function Login() {
   const navigate = useNavigate();
   const [rememberMe, setRememberMe] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); 
+  const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
@@ -17,12 +17,13 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Determine login type based on input patterns
-    const isPotentialParentLogin = /^\d{6}$/.test(username) && 
-                                 (/^\d{2}-\d{2}-\d{4}$/.test(password) || 
-                                  /^\d{2}\/\d{2}\/\d{4}$/.test(password));
-    
+    const isPotentialParentLogin =
+      /^\d{6}$/.test(username) &&
+      (/^\d{2}-\d{2}-\d{4}$/.test(password) ||
+        /^\d{2}\/\d{2}\/\d{4}$/.test(password));
+
     if (!isLogin) {
       // Signup logic (only for staff)
       if (password !== confirmPassword) {
@@ -31,7 +32,10 @@ function Login() {
       }
 
       if (!/^\d{10}$/.test(username)) {
-        setMessage({ text: "Please enter a valid 10-digit phone number for staff registration", type: "error" });
+        setMessage({
+          text: "Please enter a valid 10-digit phone number for staff registration",
+          type: "error",
+        });
         return;
       }
 
@@ -39,16 +43,17 @@ function Login() {
         await axios.post(`${process.env.REACT_APP_URL}/api/user/signup`, {
           phonenumber: username,
           password,
-          role: "staff" // Default role for new signups
+          role: "staff", // Default role for new signups
         });
 
-        setMessage({ 
-          text: "Registration successful! Contact admin for approval.", 
-          type: "success" 
+        setMessage({
+          text: "Registration successful! Contact admin for approval.",
+          type: "success",
         });
         setIsLogin(true); // Switch back to login after successful registration
       } catch (error) {
-        const errorMessage = error.response?.data?.message || "Registration failed";
+        const errorMessage =
+          error.response?.data?.message || "Registration failed";
         setMessage({ text: errorMessage, type: "error" });
       }
       return;
@@ -58,27 +63,35 @@ function Login() {
     if (isPotentialParentLogin) {
       // Try parent login first
       try {
-        const formattedDob = password.includes("-") ? password : password.replace(/\//g, "-");
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/parent/login`, {
-          regNumber: username,
-          dob: formattedDob
-        });
+        const formattedDob = password.includes("-")
+          ? password
+          : password.replace(/\//g, "-");
+        const response = await axios.post(
+          `${process.env.REACT_APP_URL}/api/parent/login`,
+          {
+            regNumber: username,
+            dob: formattedDob,
+          }
+        );
 
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("userRole", "parent");
         localStorage.setItem("loginType", "parent");
         localStorage.setItem("regNumber", response.data.data.student.regNumber);
-        localStorage.setItem("studentData", JSON.stringify({
-          ...response.data.data, 
-          regNumber: response.data.data.student.regNumber
-        }));
-        
+        localStorage.setItem(
+          "studentData",
+          JSON.stringify({
+            ...response.data.data,
+            regNumber: response.data.data.student.regNumber,
+          })
+        );
+
         if (rememberMe) {
           localStorage.setItem("rememberedRegNumber", username);
         } else {
           localStorage.removeItem("rememberedRegNumber");
         }
-        
+
         setMessage({ text: "Login Successful!", type: "success" });
         setTimeout(() => navigate("/home"), 1500);
         return;
@@ -87,7 +100,8 @@ function Login() {
         if (username.length === 10) {
           tryStaffLogin();
         } else {
-          const errorMessage = parentError.response?.data?.message || "Invalid credentials";
+          const errorMessage =
+            parentError.response?.data?.message || "Invalid credentials";
           setMessage({ text: errorMessage, type: "error" });
         }
       }
@@ -99,19 +113,23 @@ function Login() {
 
   const tryStaffLogin = async () => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_URL}/api/user/login`, {
-        phonenumber: username,
-        password
-      });
+      const response = await axios.post(
+        `${process.env.REACT_APP_URL}/api/user/login`,
+        {
+          phonenumber: username,
+          password,
+        }
+      );
 
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("userRole", response.data.data.user.role);
       localStorage.setItem("loginType", "staff");
-      
+
       setMessage({ text: "Login Successful!", type: "success" });
       setTimeout(() => navigate("/home"), 1500);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || "Login failed(Server Error)";
+      const errorMessage =
+        error.response?.data?.message || "Login failed(Server Error)";
       setMessage({ text: errorMessage, type: "error" });
     }
   };
@@ -128,17 +146,21 @@ function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 md:p-8">
         <div className="flex flex-col items-center mb-6">
-          <img 
-            src={titlelogo} 
-            alt="Logo" 
-            className="h-16 md:h-20 w-auto mb-4" 
+          <img
+            src={titlelogo}
+            alt="Logo"
+            className="h-16 md:h-20 w-auto mb-4"
           />
         </div>
 
         {message.text && (
-          <div className={`mb-4 p-3 rounded-lg text-center ${
-            message.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-          }`}>
+          <div
+            className={`mb-4 p-3 rounded-lg text-center ${
+              message.type === "success"
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
             {message.text}
           </div>
         )}
@@ -156,9 +178,8 @@ function Login() {
               placeholder="Enter your username"
               required
             />
-            
           </div>
- <div className="relative">
+          <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
@@ -217,7 +238,10 @@ function Login() {
                 className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                 required
               />
-              <label htmlFor="rememberMe" className="ml-2 block text-sm font-semibold text-orange-500 underline">
+              <label
+                htmlFor="rememberMe"
+                className="ml-2 block text-sm font-semibold text-orange-500 underline"
+              >
                 Remember Me (uses cookies)
               </label>
             </div>
@@ -238,7 +262,9 @@ function Login() {
             }}
             className="w-full text-center text-orange-500 hover:text-orange-700 font-medium text-sm mt-2"
           >
-            {isLogin ? "Need an account? Register" : "Already have an account? Login"}
+            {isLogin
+              ? "Need an account? Register"
+              : "Already have an account? Login"}
           </button>
         </form>
       </div>

@@ -3,7 +3,6 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getMonthDateRange } from "../../utils/dateUtils";
 
-
 export default function AllTests() {
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
@@ -15,20 +14,18 @@ export default function AllTests() {
   const [selectedStream, setSelectedStream] = useState("LongTerm");
   const observer = useRef();
 
-
   // Infinite scroll logic
   const lastElementRef = useCallback(
     (node) => {
       if (loading) return;
       if (observer.current) observer.current.disconnect();
 
-      observer.current = new IntersectionObserver(entries => {
-       if (entries[0].isIntersecting && page < totalPages) {
-  fetchReports(page + 1);
-} else if (entries[0].isIntersecting && page >= totalPages) {
-  console.log("No more pages to load.");
-}
-
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && page < totalPages) {
+          fetchReports(page + 1);
+        } else if (entries[0].isIntersecting && page >= totalPages) {
+          console.log("No more pages to load.");
+        }
       });
 
       if (node) observer.current.observe(node);
@@ -37,61 +34,64 @@ export default function AllTests() {
   );
 
   // Process and group reports into tests by testName
-const processTestData = (allReports) => {
-  console.log("All reports before processing:", allReports);
-  const testMap = {};
-    const longTermReports = allReports.filter(r => r.stream === "LongTerm");
-  console.log("LongTerm reports:", longTermReports); 
-  allReports.forEach(report => {
-    // Skip if essential fields are missing
-    if (!report || !report.testName || !report.date) {
-      console.warn("Skipping report with missing fields:", report);
-      return;
-    }
+  const processTestData = (allReports) => {
+    console.log("All reports before processing:", allReports);
+    const testMap = {};
+    const longTermReports = allReports.filter((r) => r.stream === "LongTerm");
+    console.log("LongTerm reports:", longTermReports);
+    allReports.forEach((report) => {
+      // Skip if essential fields are missing
+      if (!report || !report.testName || !report.date) {
+        console.warn("Skipping report with missing fields:", report);
+        return;
+      }
 
-    // Skip if stream doesn't match
-    if (report.stream !== selectedStream) {
-      return;
-    }
+      // Skip if stream doesn't match
+      if (report.stream !== selectedStream) {
+        return;
+      }
 
-    const date = new Date(report.date);
-    
-    // Skip if date is invalid
-    if (isNaN(date.getTime())) {
-      console.warn("Invalid date in report:", report);
-      return;
-    }
+      const date = new Date(report.date);
 
-    const monthYear = date.toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
+      // Skip if date is invalid
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date in report:", report);
+        return;
+      }
+
+      const monthYear = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+
+      if (!testMap[report.testName]) {
+        testMap[report.testName] = {
+          months: {},
+          testId: report.reportId,
+          stream: report.stream,
+        };
+      }
+
+      testMap[report.testName].months[monthYear] = {
+        date: report.date,
+        monthName: monthYear,
+        marksType: report.marksType,
+      };
     });
 
-    if (!testMap[report.testName]) {
-      testMap[report.testName] = {
-        months: {},
-        testId: report.reportId,
-        stream: report.stream
-      };
-    }
-
-    testMap[report.testName].months[monthYear] = {
-      date: report.date,
-      monthName: monthYear,
-      marksType: report.marksType
-    };
-  });
-
-  return Object.entries(testMap).map(([testName, testData]) => ({
-    testName,
-    testId: testData.testId,
-    stream: testData.stream,
-    months: Object.values(testData.months).sort((a, b) => new Date(b.date) - new Date(a.date))
-  })).sort((a, b) => a.testName.localeCompare(b.testName));
-};
+    return Object.entries(testMap)
+      .map(([testName, testData]) => ({
+        testName,
+        testId: testData.testId,
+        stream: testData.stream,
+        months: Object.values(testData.months).sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        ),
+      }))
+      .sort((a, b) => a.testName.localeCompare(b.testName));
+  };
 
   const fetchReports = async (pageNum) => {
-    
     try {
       setLoading(true);
       const response = await axios.get(
@@ -127,14 +127,14 @@ const processTestData = (allReports) => {
   }, [selectedStream]);
 
   const handleViewData = (testName, date) => {
-      const { dateFrom, dateTo } = getMonthDateRange(date);
+    const { dateFrom, dateTo } = getMonthDateRange(date);
     navigate(`/home/reportsbymonth`, {
       state: {
         testName,
         dateFrom,
         dateTo,
-        stream: selectedStream
-      }
+        stream: selectedStream,
+      },
     });
   };
 
@@ -197,7 +197,9 @@ const processTestData = (allReports) => {
                         </span>
                       </div>
                       <button
-                        onClick={() => handleViewData(test.testName, month.date)}
+                        onClick={() =>
+                          handleViewData(test.testName, month.date)
+                        }
                         className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm"
                       >
                         View Data

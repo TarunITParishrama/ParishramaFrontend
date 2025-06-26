@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {useDropzone} from  "react-dropzone";
+import { useDropzone } from "react-dropzone";
 import axios from "axios";
 
-const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
+const QuestionsForm = () => {
+  const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [subtopics, setSubtopics] = useState([]);
   const [refresh, setRefresh] = useState(false);
@@ -38,7 +39,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
   const fetchSubjects = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubjects`);
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getsubjects`
+      );
 
       console.log("API Response:", response.data);
 
@@ -58,7 +61,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     if (!subject) return;
 
     try {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getchapters?subject=${subject}`);
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getchapters?subject=${subject}`
+      );
 
       console.log("API Response:", response.data);
 
@@ -81,7 +86,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     }
 
     try {
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsubtopics?subject=${subject}&chapter=${chapter}`);
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getsubtopics?subject=${subject}&chapter=${chapter}`
+      );
       setSubtopics(response.data.data);
       console.log("✅ Fetched subtopics:", response.data.data);
     } catch (error) {
@@ -97,9 +104,12 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
     if (type === "subject") {
       try {
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsubject`, {
-          subjectName: value,
-        });
+        const response = await axios.post(
+          `${process.env.REACT_APP_URL}/api/createsubject`,
+          {
+            subjectName: value,
+          }
+        );
         setSubjects((prev) => [...prev, response.data.data]);
         setRefresh((prev) => !prev);
       } catch (error) {
@@ -113,10 +123,13 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
       }
 
       try {
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/createchapter`, {
-          chapterName: value,
-          subject: selectedSubject.subjectName,
-        });
+        const response = await axios.post(
+          `${process.env.REACT_APP_URL}/api/createchapter`,
+          {
+            chapterName: value,
+            subject: selectedSubject.subjectName,
+          }
+        );
 
         setChapters((prev) => [...prev, response.data.data]);
         setRefresh((prev) => !prev);
@@ -126,11 +139,14 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     }
     if (type === "subtopic") {
       try {
-        const response = await axios.post(`${process.env.REACT_APP_URL}/api/createsubtopic`, {
-          subtopicName: value,
-          subject: selectedSubject.subjectName,
-          chapter: selectedChapter.chapterName,
-        });
+        const response = await axios.post(
+          `${process.env.REACT_APP_URL}/api/createsubtopic`,
+          {
+            subtopicName: value,
+            subject: selectedSubject.subjectName,
+            chapter: selectedChapter.chapterName,
+          }
+        );
         setSubtopics((prev) => [...prev, response.data.data]);
         setRefresh((prev) => !prev);
       } catch (error) {
@@ -197,7 +213,8 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     getInputProps: getQuestionInputProps,
   } = useDropzone({
     accept: "image/*",
-    onDrop: (acceptedFiles) => handleFileUpload(acceptedFiles[0], "questionImage"),
+    onDrop: (acceptedFiles) =>
+      handleFileUpload(acceptedFiles[0], "questionImage"),
   });
 
   const {
@@ -205,7 +222,8 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     getInputProps: getSolutionInputProps,
   } = useDropzone({
     accept: "image/*",
-    onDrop: (acceptedFiles) => handleFileUpload(acceptedFiles[0], "solutionImage"),
+    onDrop: (acceptedFiles) =>
+      handleFileUpload(acceptedFiles[0], "solutionImage"),
   });
 
   const validateForm = () => {
@@ -222,7 +240,13 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
     validateForm();
-  }, [selectedSubject, selectedChapter, selectedSubtopic, formData, questionType]);
+  }, [
+    selectedSubject,
+    selectedChapter,
+    selectedSubtopic,
+    formData,
+    questionType,
+  ]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -236,8 +260,10 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     formDataToSend.append("questionType", questionType);
     formDataToSend.append("solution", formData.solution);
 
-    if (formData.questionImage) formDataToSend.append("questionImage", formData.questionImage);
-    if (formData.solutionImage) formDataToSend.append("solutionImage", formData.solutionImage);
+    if (formData.questionImage)
+      formDataToSend.append("questionImage", formData.questionImage);
+    if (formData.solutionImage)
+      formDataToSend.append("solutionImage", formData.solutionImage);
 
     Object.entries(formData.options).forEach(([key, value]) => {
       formDataToSend.append(`options[${key}]`, value);
@@ -255,12 +281,16 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
     console.log("Form Data:", formDataToSend);
 
     try {
-      await axios.post(`${process.env.REACT_APP_URL}/api/createquestions`, formDataToSend);
+      await axios.post(
+        `${process.env.REACT_APP_URL}/api/createquestions`,
+        formDataToSend
+      );
       alert("✅ Question added successfully!");
     } catch (error) {
       console.error("❌ Error submitting question", error);
     }
-  };return (
+  };
+  return (
     <form
       onSubmit={handleSubmit}
       className="p-6 border border-gray-300 rounded-lg shadow-lg bg-white max-w-4xl mx-auto"
@@ -269,7 +299,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         {/* Subject */}
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Subject</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Subject
+          </label>
 
           {/* Text Input */}
           <input
@@ -284,9 +316,14 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
           <select
             value={inputValues.subject} // ✅ Set selected value in the dropdown
             onChange={(e) => {
-              const selectedSubject = subjects.find((subj) => subj._id === e.target.value);
+              const selectedSubject = subjects.find(
+                (subj) => subj._id === e.target.value
+              );
               if (selectedSubject) {
-                setInputValues({ ...inputValues, subject: selectedSubject.subjectName }); // ✅ Update text input
+                setInputValues({
+                  ...inputValues,
+                  subject: selectedSubject.subjectName,
+                }); // ✅ Update text input
               }
             }}
             className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring focus:ring-blue-300 mb-2"
@@ -294,7 +331,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
             <option value="">Select Subject</option>
             {subjects
               .filter((subj) =>
-                subj.subjectName.toLowerCase().includes(inputValues.subject.toLowerCase())
+                subj.subjectName
+                  .toLowerCase()
+                  .includes(inputValues.subject.toLowerCase())
               )
               .map((subj) => (
                 <option key={subj._id} value={subj._id}>
@@ -305,7 +344,11 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
           {/* Show Add It! button only if user input doesn't exist in the list */}
           {inputValues.subject &&
-            !subjects.some((s) => s.subjectName.toLowerCase() === inputValues.subject.toLowerCase()) && (
+            !subjects.some(
+              (s) =>
+                s.subjectName.toLowerCase() ===
+                inputValues.subject.toLowerCase()
+            ) && (
               <button
                 type="button"
                 onClick={() => handleAddItem("subject")}
@@ -317,7 +360,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
         </div>
         {/* Chapter */}
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Chapter</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Chapter
+          </label>
 
           {/* Input Field for Typing Chapter Name */}
           <input
@@ -346,7 +391,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
           {/* Button to Add a New Chapter if it Doesn't Exist */}
           {inputValues.chapter &&
-            !chapters.concat(newChapters).some((c) => c.chapterName === inputValues.chapter) && (
+            !chapters
+              .concat(newChapters)
+              .some((c) => c.chapterName === inputValues.chapter) && (
               <button
                 type="button"
                 onClick={() => handleAddItem("chapter")}
@@ -358,7 +405,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
         </div>
         {/* Subtopic */}
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Subtopic</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Subtopic
+          </label>
           <input
             type="text"
             value={inputValues.subtopic}
@@ -378,8 +427,14 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
             ))}
           </select>
           {inputValues.subtopic &&
-            !subtopics.concat(newSubtopics).some((c) => c.name === inputValues.subtopic) && (
-              <button type="button" onClick={() => handleAddItem("subtopic")} className="bg-yellow-600 text-white p-1">
+            !subtopics
+              .concat(newSubtopics)
+              .some((c) => c.name === inputValues.subtopic) && (
+              <button
+                type="button"
+                onClick={() => handleAddItem("subtopic")}
+                className="bg-yellow-600 text-white p-1"
+              >
                 Oops, might be last one, Add.
               </button>
             )}
@@ -387,7 +442,9 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
 
         {/* Question Type */}
         <div>
-          <label className="block text-gray-700 font-medium mb-1">Question Type</label>
+          <label className="block text-gray-700 font-medium mb-1">
+            Question Type
+          </label>
           <select
             onChange={(e) => setQuestionType(e.target.value)}
             value={questionType}
@@ -398,7 +455,7 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
             <option value="Fill in the blanks">Fill in the blanks</option>
           </select>
         </div>
-      </div>  
+      </div>
       {/* Question Section */}
       <div className="border border-gray-300 rounded-md p-4 mb-4">
         <label className="block text-gray-700 font-medium mb-2">Question</label>
@@ -410,113 +467,123 @@ const QuestionsForm = () => {const [subjects, setSubjects] = useState([]);
           placeholder="Enter the question..."
         />
         <div className="w-full">
-      {/* Drag and Drop Area */}
-      <div className="w-full">
-          <div
-            {...getQuestionRootProps()}
-            className="h-24 p-4 border-2 border-dashed border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-100"
-          >
-            <input {...getQuestionInputProps()} />
-            <p className="text-gray-700">Drag & Drop your Image here.</p>
-          </div>
-
-          {/* File Input as Backup */}
-          <input
-            type="file"
-            onChange={(e) => handleFileUpload(e.target.files[0], "questionImage")}
-            className="mt-2 block w-full text-sm text-gray-500 file:border file:border-gray-300 file:rounded-md file:py-1 file:px-2 file:bg-gray-100 file:text-gray-700"
-          />
-
-          {/* Image Preview */}
-          {formData.questionImage && (
-            <div className="mt-3">
-              <p className="text-sm text-gray-600">Preview:</p>
-              <img
-                src={URL.createObjectURL(formData.questionImage)}
-                alt="Uploaded"
-                className="mt-2 w-32 h-32 object-cover rounded-md border"
-              />
+          {/* Drag and Drop Area */}
+          <div className="w-full">
+            <div
+              {...getQuestionRootProps()}
+              className="h-24 p-4 border-2 border-dashed border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-100"
+            >
+              <input {...getQuestionInputProps()} />
+              <p className="text-gray-700">Drag & Drop your Image here.</p>
             </div>
-          )}
+
+            {/* File Input as Backup */}
+            <input
+              type="file"
+              onChange={(e) =>
+                handleFileUpload(e.target.files[0], "questionImage")
+              }
+              className="mt-2 block w-full text-sm text-gray-500 file:border file:border-gray-300 file:rounded-md file:py-1 file:px-2 file:bg-gray-100 file:text-gray-700"
+            />
+
+            {/* Image Preview */}
+            {formData.questionImage && (
+              <div className="mt-3">
+                <p className="text-sm text-gray-600">Preview:</p>
+                <img
+                  src={URL.createObjectURL(formData.questionImage)}
+                  alt="Uploaded"
+                  className="mt-2 w-32 h-32 object-cover rounded-md border"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Options Section (Only for MCQ) */}
+        {questionType === "MCQ" && (
+          <div className="border border-gray-600 rounded-md p-4 mb-4">
+            <label className="block text-gray-700 font-medium mb-2">
+              Options
+            </label>
+            {["A", "B", "C", "D"].map((key) => (
+              <div key={key} className="flex items-center gap-4 mb-2">
+                <span className="text-gray-600 font-medium w-16">
+                  Option {key}
+                </span>
+                <input
+                  type="text"
+                  placeholder={`Enter Option ${key}`}
+                  onChange={(e) => handleOptionChange(key, e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring focus:ring-blue-300"
+                />
+                <input
+                  type="file"
+                  onChange={(e) => handleFileUpload(e, `optionImages[${key}]`)}
+                  className="text-sm text-gray-500 file:border file:border-gray-300 file:rounded-md file:py-1 file:px-2 file:bg-gray-100 file:text-gray-700"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Solution Section */}
+        <div className="border border-gray-300 rounded-md p-4 mb-4">
+          <label className="block text-gray-700 font-medium mb-2">
+            Solution
+          </label>
+          <textarea
+            name="solution"
+            value={formData.solution}
+            onChange={handleFormInputChange}
+            className="w-full border border-gray-600 rounded-md p-2 mb-2 focus:outline-none focus:ring focus:ring-blue-300"
+            placeholder="Enter the solution..."
+          />
+          {/* Drag and Drop Area */}
+          <div className="w-full">
+            <div
+              {...getSolutionRootProps()}
+              className="p-4 h-24 border-2 border-dashed border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-100"
+            >
+              <input {...getSolutionInputProps()} />
+              <p className="text-gray-700">Drag & Drop your Image here.</p>
+            </div>
+
+            {/* File Input as Backup */}
+            <input
+              type="file"
+              onChange={(e) =>
+                handleFileUpload(e.target.files[0], "solutionImage")
+              }
+              className="mt-2 block w-full text-sm text-gray-500 file:border file:border-gray-300 file:rounded-md file:py-1 file:px-2 file:bg-gray-100 file:text-gray-700"
+            />
+
+            {/* Image Preview */}
+            {formData.solutionImage && (
+              <div className="mt-3">
+                <p className="text-sm text-gray-600">Preview:</p>
+                <img
+                  src={URL.createObjectURL(formData.solutionImage)}
+                  alt="Uploaded"
+                  className="mt-2 w-32 h-32 object-cover rounded-md border"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-  
-      {/* Options Section (Only for MCQ) */}
-      {questionType === "MCQ" && (
-        <div className="border border-gray-600 rounded-md p-4 mb-4">
-          <label className="block text-gray-700 font-medium mb-2">Options</label>
-          {["A", "B", "C", "D"].map((key) => (
-            <div key={key} className="flex items-center gap-4 mb-2">
-              <span className="text-gray-600 font-medium w-16">Option {key}</span>
-              <input
-                type="text"
-                placeholder={`Enter Option ${key}`}
-                onChange={(e) => handleOptionChange(key, e.target.value)}
-                className="flex-1 border border-gray-300 rounded-md p-2 focus:outline-none focus:ring focus:ring-blue-300"
-              />
-              <input
-                type="file"
-                onChange={(e) => handleFileUpload(e, `optionImages[${key}]`)}
-                className="text-sm text-gray-500 file:border file:border-gray-300 file:rounded-md file:py-1 file:px-2 file:bg-gray-100 file:text-gray-700"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-  
-      {/* Solution Section */}
-      <div className="border border-gray-300 rounded-md p-4 mb-4">
-    <label className="block text-gray-700 font-medium mb-2">Solution</label>
-    <textarea
-      name="solution"
-      value={formData.solution}
-      onChange={handleFormInputChange}
-      className="w-full border border-gray-600 rounded-md p-2 mb-2 focus:outline-none focus:ring focus:ring-blue-300"
-      placeholder="Enter the solution..."
-    />
-    {/* Drag and Drop Area */}
-    <div className="w-full">
-          <div
-            {...getSolutionRootProps()}
-            className="p-4 h-24 border-2 border-dashed border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-100"
-          >
-            <input {...getSolutionInputProps()} />
-            <p className="text-gray-700">Drag & Drop your Image here.</p>
-          </div>
-
-          {/* File Input as Backup */}
-          <input
-            type="file"
-            onChange={(e) => handleFileUpload(e.target.files[0], "solutionImage")}
-            className="mt-2 block w-full text-sm text-gray-500 file:border file:border-gray-300 file:rounded-md file:py-1 file:px-2 file:bg-gray-100 file:text-gray-700"
-          />
-
-          {/* Image Preview */}
-          {formData.solutionImage && (
-            <div className="mt-3">
-              <p className="text-sm text-gray-600">Preview:</p>
-              <img
-                src={URL.createObjectURL(formData.solutionImage)}
-                alt="Uploaded"
-                className="mt-2 w-32 h-32 object-cover rounded-md border"
-              />
-            </div>
-          )}
-        </div>
-    </div>
-
-  </div>
       {/* Submit Button */}
       <button
         type="submit"
         disabled={!isFormValid}
-        className={`px-4 py-2 bg-blue-500 text-white rounded ${!isFormValid && "opacity-50 cursor-not-allowed"}`}
+        className={`px-4 py-2 bg-blue-500 text-white rounded ${
+          !isFormValid && "opacity-50 cursor-not-allowed"
+        }`}
       >
-        Submit 
+        Submit
       </button>
     </form>
   );
-  
 };
 
 export default QuestionsForm;

@@ -14,16 +14,15 @@ const FeedbackForm = () => {
           A: "Excellent",
           B: "Good",
           C: "Average",
-          D: "Poor"
-        }
-      }
-    ]
+          D: "Poor",
+        },
+      },
+    ],
   });
   const [savedForms, setSavedForms] = useState([]);
   const [currentFormId, setCurrentFormId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
 
   // Fetch existing feedback forms on component mount
   useEffect(() => {
@@ -33,34 +32,39 @@ const FeedbackForm = () => {
   const fetchFeedbackForms = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getfeedbackforms`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getfeedbackforms`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
       setSavedForms(response.data.data);
       setIsLoading(false);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to fetch feedback forms");
+      toast.error(
+        error.response?.data?.message || "Failed to fetch feedback forms"
+      );
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleQuestionChange = (index, value) => {
     const updatedQuestions = [...formData.questions];
     updatedQuestions[index].questionStatement = value;
-    setFormData(prev => ({ ...prev, questions: updatedQuestions }));
+    setFormData((prev) => ({ ...prev, questions: updatedQuestions }));
   };
 
   const addQuestion = () => {
     const newQuestionNumber = `Q${formData.questions.length + 1}`;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       questions: [
         ...prev.questions,
@@ -71,10 +75,10 @@ const FeedbackForm = () => {
             A: "Excellent",
             B: "Good",
             C: "Average",
-            D: "Poor"
-          }
-        }
-      ]
+            D: "Poor",
+          },
+        },
+      ],
     }));
   };
 
@@ -88,9 +92,9 @@ const FeedbackForm = () => {
     // Renumber remaining questions
     const renumberedQuestions = updatedQuestions.map((q, i) => ({
       ...q,
-      questionNumber: `Q${i + 1}`
+      questionNumber: `Q${i + 1}`,
     }));
-    setFormData(prev => ({ ...prev, questions: renumberedQuestions }));
+    setFormData((prev) => ({ ...prev, questions: renumberedQuestions }));
   };
 
   const startEdit = (index) => {
@@ -107,14 +111,16 @@ const FeedbackForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate form
     if (!formData.name.trim()) {
       toast.error("Please enter a form name");
       return;
     }
 
-    const emptyQuestions = formData.questions.filter(q => !q.questionStatement.trim());
+    const emptyQuestions = formData.questions.filter(
+      (q) => !q.questionStatement.trim()
+    );
     if (emptyQuestions.length > 0) {
       toast.error("Please fill in all question statements");
       return;
@@ -122,7 +128,7 @@ const FeedbackForm = () => {
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (!token) {
         toast.error("You need to login first");
         setIsLoading(false);
@@ -131,17 +137,17 @@ const FeedbackForm = () => {
 
       const payload = {
         name: formData.name,
-        questions: formData.questions.map(q => ({
+        questions: formData.questions.map((q) => ({
           questionNumber: q.questionNumber,
-          questionStatement: q.questionStatement
-        }))
+          questionStatement: q.questionStatement,
+        })),
       };
 
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       };
 
       let response;
@@ -165,7 +171,9 @@ const FeedbackForm = () => {
       await fetchFeedbackForms();
       setIsLoading(false);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to save feedback form");
+      toast.error(
+        error.response?.data?.message || "Failed to save feedback form"
+      );
       setIsLoading(false);
     }
   };
@@ -173,15 +181,15 @@ const FeedbackForm = () => {
   const loadForm = (form) => {
     setFormData({
       name: form.name,
-      questions: form.questions.map(q => ({
+      questions: form.questions.map((q) => ({
         ...q,
         options: {
           A: "Excellent",
           B: "Good",
           C: "Average",
-          D: "Poor"
-        }
-      }))
+          D: "Poor",
+        },
+      })),
     });
     setCurrentFormId(form._id);
   };
@@ -189,15 +197,18 @@ const FeedbackForm = () => {
   const deleteForm = async (id) => {
     if (window.confirm("Are you sure you want to delete this feedback form?")) {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         setIsLoading(true);
-        await axios.delete(`${process.env.REACT_APP_URL}/api/deletefeedbackform/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`
+        await axios.delete(
+          `${process.env.REACT_APP_URL}/api/deletefeedbackform/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
+        );
         toast.success("Feedback form deleted successfully");
-        
+
         if (currentFormId === id) {
           setCurrentFormId(null);
           setFormData({
@@ -210,17 +221,19 @@ const FeedbackForm = () => {
                   A: "Excellent",
                   B: "Good",
                   C: "Average",
-                  D: "Poor"
-                }
-              }
-            ]
+                  D: "Poor",
+                },
+              },
+            ],
           });
         }
-        
+
         await fetchFeedbackForms();
         setIsLoading(false);
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to delete feedback form");
+        toast.error(
+          error.response?.data?.message || "Failed to delete feedback form"
+        );
         setIsLoading(false);
       }
     }
@@ -238,29 +251,29 @@ const FeedbackForm = () => {
             A: "Excellent",
             B: "Good",
             C: "Average",
-            D: "Poor"
-          }
-        }
-      ]
+            D: "Poor",
+          },
+        },
+      ],
     });
   };
 
-    const duplicateForm = (form) => {
-  setCurrentFormId(null); // Clear existing ID to avoid updating
-  setFormData({
-    name: `${form.name} (Copy)`,
-    questions: form.questions.map((q, index) => ({
-      questionNumber: `Q${index + 1}`,
-      questionStatement: q.questionStatement,
-      options: {
-        A: "Excellent",
-        B: "Good",
-        C: "Average",
-        D: "Poor"
-      }
-    }))
-  });
-};
+  const duplicateForm = (form) => {
+    setCurrentFormId(null); // Clear existing ID to avoid updating
+    setFormData({
+      name: `${form.name} (Copy)`,
+      questions: form.questions.map((q, index) => ({
+        questionNumber: `Q${index + 1}`,
+        questionStatement: q.questionStatement,
+        options: {
+          A: "Excellent",
+          B: "Good",
+          C: "Average",
+          D: "Poor",
+        },
+      })),
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -268,7 +281,7 @@ const FeedbackForm = () => {
         <h2 className="text-2xl font-bold mb-6 text-gray-800">
           {currentFormId ? "Edit Feedback Form" : "Create New Feedback Form"}
         </h2>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <label className="block text-lg font-medium text-gray-700 mb-2">
@@ -289,20 +302,25 @@ const FeedbackForm = () => {
             <label className="block text-lg font-medium text-gray-700 mb-4">
               Feedback Questions
             </label>
-            
+
             {formData.questions.map((question, index) => (
-              <div key={index} className="mb-6 p-4 border border-gray-200 rounded-lg">
+              <div
+                key={index}
+                className="mb-6 p-4 border border-gray-200 rounded-lg"
+              >
                 <div className="flex items-center mb-3">
                   <span className="font-medium text-gray-700 mr-2">
                     {question.questionNumber}.
                   </span>
-                  
+
                   {isEditing === index ? (
                     <div className="flex-1 flex items-center">
                       <input
                         type="text"
                         value={question.questionStatement}
-                        onChange={(e) => handleQuestionChange(index, e.target.value)}
+                        onChange={(e) =>
+                          handleQuestionChange(index, e.target.value)
+                        }
                         className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         autoFocus
                       />
@@ -347,13 +365,17 @@ const FeedbackForm = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="ml-6">
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Options:</h4>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">
+                    Options:
+                  </h4>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(question.options).map(([key, value]) => (
                       <div key={key} className="flex items-center">
-                        <span className="font-medium text-gray-700 mr-2">{key}:</span>
+                        <span className="font-medium text-gray-700 mr-2">
+                          {key}:
+                        </span>
                         <span className="text-gray-600">{value}</span>
                       </div>
                     ))}
@@ -361,7 +383,7 @@ const FeedbackForm = () => {
                 </div>
               </div>
             ))}
-            
+
             <button
               type="button"
               onClick={addQuestion}
@@ -371,7 +393,7 @@ const FeedbackForm = () => {
               Add Question
             </button>
           </div>
-          
+
           <div className="flex justify-end">
             <button
               type="submit"
@@ -383,11 +405,13 @@ const FeedbackForm = () => {
           </div>
         </form>
       </div>
-      
+
       {/* Saved Forms Section */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">Saved Feedback Forms</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Saved Feedback Forms
+          </h2>
           <button
             onClick={createNewForm}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
@@ -395,58 +419,71 @@ const FeedbackForm = () => {
             Create New Form
           </button>
         </div>
-        
+
         {isLoading && savedForms.length === 0 ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
           </div>
         ) : savedForms.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No saved feedback forms found</p>
+          <p className="text-gray-500 text-center py-8">
+            No saved feedback forms found
+          </p>
         ) : (
           <div className="space-y-4">
             {savedForms.map((form) => (
               <div
                 key={form._id}
-                className={`p-4 border rounded-lg group relative hover:shadow-md transition-all duration-150 ${currentFormId === form._id ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
+                className={`p-4 border rounded-lg group relative hover:shadow-md transition-all duration-150 ${
+                  currentFormId === form._id
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200"
+                }`}
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium text-gray-800">
-                      {form.name}
-                    </h3>
+                    <h3 className="font-medium text-gray-800">{form.name}</h3>
                     <p className="text-sm text-gray-500">
-                      Created on: {new Date(form.createdAt).toLocaleDateString()} | {form.questions.length} questions
+                      Created on:{" "}
+                      {new Date(form.createdAt).toLocaleDateString()} |{" "}
+                      {form.questions.length} questions
                     </p>
                   </div>
                   <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-  <button
-    onClick={() => loadForm(form)}
-    className="px-3 py-1 bg-blue-500 text-black rounded-md hover:bg-blue-600 text-sm"
-  >
-    {currentFormId === form._id ? "Currently Editing" : "Load"}
-  </button>
-  <button
-    onClick={() => duplicateForm(form)}
-    className="px-3 py-1 bg-yellow-500 text-black rounded-md hover:bg-yellow-600 text-sm"
-  >
-    Duplicate
-  </button>
-  <button
-    onClick={() => deleteForm(form._id)}
-    className="px-3 py-1 bg-red-500 text-black rounded-md hover:bg-red-600 text-sm"
-  >
-    Delete
-  </button>
+                    <button
+                      onClick={() => loadForm(form)}
+                      className="px-3 py-1 bg-blue-500 text-black rounded-md hover:bg-blue-600 text-sm"
+                    >
+                      {currentFormId === form._id
+                        ? "Currently Editing"
+                        : "Load"}
+                    </button>
+                    <button
+                      onClick={() => duplicateForm(form)}
+                      className="px-3 py-1 bg-yellow-500 text-black rounded-md hover:bg-yellow-600 text-sm"
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      onClick={() => deleteForm(form._id)}
+                      className="px-3 py-1 bg-red-500 text-black rounded-md hover:bg-red-600 text-sm"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
-                
+
                 {currentFormId === form._id && (
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <h4 className="font-medium text-gray-700 mb-2">Questions:</h4>
+                    <h4 className="font-medium text-gray-700 mb-2">
+                      Questions:
+                    </h4>
                     <ul className="list-disc pl-5 space-y-1">
                       {form.questions.map((q, i) => (
                         <li key={i} className="text-gray-600">
-                          <span className="font-medium">{q.questionNumber}</span>: {q.questionStatement}
+                          <span className="font-medium">
+                            {q.questionNumber}
+                          </span>
+                          : {q.questionStatement}
                         </li>
                       ))}
                     </ul>

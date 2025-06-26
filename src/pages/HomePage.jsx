@@ -43,9 +43,12 @@ function ParishramaHomePage() {
     // }
 
     // return () => clearInterval(slideInterval);
-  // }, [navigate, showSlideshow, slides.length]);
-},[navigate]);
-  const activeTab = location.pathname === "/home" ? "dashboard" : location.pathname.split('/').pop();
+    // }, [navigate, showSlideshow, slides.length]);
+  }, [navigate]);
+  const activeTab =
+    location.pathname === "/home"
+      ? "dashboard"
+      : location.pathname.split("/").pop();
 
   if (!userRole) return null;
 
@@ -98,20 +101,21 @@ function ParishramaHomePage() {
 
       {/* Navigation Sidebar - only show if userRole is not "parent" */}
       {shouldShowNavigation && (
-        <div className={`fixed inset-y-0 left-0 transform ${
-          isNavOpen ? "translate-x-0" : "-translate-x-full"
-        } w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out z-40`}>
-          <Navigation 
-            userRole={userRole} 
-            activeTab={activeTab}
-          />
+        <div
+          className={`fixed inset-y-0 left-0 transform ${
+            isNavOpen ? "translate-x-0" : "-translate-x-full"
+          } w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out z-40`}
+        >
+          <Navigation userRole={userRole} activeTab={activeTab} />
         </div>
       )}
 
       {/* Main Content Area */}
-      <div className={`flex-1 transition-all duration-300 ${
-        isNavOpen && shouldShowNavigation ? "ml-64" : "ml-0"
-      }`}>
+      <div
+        className={`flex-1 transition-all duration-300 ${
+          isNavOpen && shouldShowNavigation ? "ml-64" : "ml-0"
+        }`}
+      >
         {/* Top Navigation Bar */}
         <header className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 shadow-sm h-48">
           <div className="flex items-center justify-between h-full px-4">
@@ -121,12 +125,22 @@ function ParishramaHomePage() {
                 onClick={() => setIsNavOpen(!isNavOpen)}
                 className="p-2 rounded-md text-white hover:bg-white hover:text-yellow-400 focus:outline-none"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
               </button>
             )}
-            
+
             {/* Center Logo + Bubbles */}
             <div className="flex flex-col items-center">
               <div className="h-20 w-auto">
@@ -152,18 +166,22 @@ function ParishramaHomePage() {
             <div className="flex items-center">
               {isParent ? (
                 <div className="absolute right-4 top-8">
-                  <img 
-                    src={mdlogo} 
-                    alt="MDPic" 
-                    className="w-20 h-18 object-cover rounded-full  shadow-md" 
+                  <img
+                    src={mdlogo}
+                    alt="MDPic"
+                    className="w-20 h-18 object-cover rounded-full  shadow-md"
                   />
                 </div>
               ) : (
                 <>
                   <div className="flex flex-col items-center">
-                    <img src={mdlogo} alt="MDPic" className="w-32 h-34 object-cover" />
+                    <img
+                      src={mdlogo}
+                      alt="MDPic"
+                      className="w-32 h-34 object-cover"
+                    />
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       localStorage.removeItem("token");
                       localStorage.removeItem("userRole");
@@ -180,7 +198,7 @@ function ParishramaHomePage() {
             </div>
           </div>
         </header>
-        
+
         {/* Content Area */}
         <main className="p-2 bg-white">
           {activeTab === "dashboard" ? (

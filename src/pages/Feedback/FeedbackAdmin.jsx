@@ -24,18 +24,20 @@ const FeedbackAdmin = () => {
   useEffect(() => {
     const fetchExistingFeedbacks = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         const response = await axios.get(
           `${process.env.REACT_APP_URL}/api/getfeedbacks`,
           {
             headers: {
-              Authorization: `Bearer ${token}`
-            }
+              Authorization: `Bearer ${token}`,
+            },
           }
         );
         setExistingFeedbacks(response.data.data);
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to fetch existing feedbacks");
+        toast.error(
+          error.response?.data?.message || "Failed to fetch existing feedbacks"
+        );
       }
     };
     fetchExistingFeedbacks();
@@ -49,14 +51,16 @@ const FeedbackAdmin = () => {
         `${process.env.REACT_APP_URL}/api/getfeedbackforms`,
         {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
       setFeedbackForms(response.data.data);
       setIsLoading(false);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to fetch feedback forms");
+      toast.error(
+        error.response?.data?.message || "Failed to fetch feedback forms"
+      );
       setIsLoading(false);
     }
   };
@@ -64,16 +68,18 @@ const FeedbackAdmin = () => {
   const handleFormSelect = (e) => {
     const formId = e.target.value;
     setSelectedFormId(formId);
-    const selectedForm = feedbackForms.find(form => form._id === formId);
+    const selectedForm = feedbackForms.find((form) => form._id === formId);
     setFeedbackName(selectedForm?.name || "");
     setSelectedQuestions([]);
   };
 
   const handleQuestionSelect = (question) => {
-    setSelectedQuestions(prev => {
-      const isSelected = prev.some(q => q.questionNumber === question.questionNumber);
+    setSelectedQuestions((prev) => {
+      const isSelected = prev.some(
+        (q) => q.questionNumber === question.questionNumber
+      );
       if (isSelected) {
-        return prev.filter(q => q.questionNumber !== question.questionNumber);
+        return prev.filter((q) => q.questionNumber !== question.questionNumber);
       } else {
         return [...prev, question];
       }
@@ -86,127 +92,133 @@ const FeedbackAdmin = () => {
       return;
     }
 
-    const selectedForm = feedbackForms.find(form => form._id === selectedFormId);
+    const selectedForm = feedbackForms.find(
+      (form) => form._id === selectedFormId
+    );
     if (!selectedForm) return;
 
     if (selectAll) {
       setSelectedQuestions([]);
     } else {
-      setSelectedQuestions(selectedForm.questions.map(q => ({
-        ...q,
-        questionNumber: q.questionNumber
-      })));
+      setSelectedQuestions(
+        selectedForm.questions.map((q) => ({
+          ...q,
+          questionNumber: q.questionNumber,
+        }))
+      );
     }
     setSelectAll(!selectAll);
   };
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!selectedFormId) {
-    toast.error("Please select a feedback form");
-    return;
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!feedbackName.trim()) {
-    toast.error("Please enter a feedback name");
-    return;
-  }
+    if (!selectedFormId) {
+      toast.error("Please select a feedback form");
+      return;
+    }
 
-  if (selectedQuestions.length === 0) {
-    toast.error("Please select at least one question");
-    return;
-  }
+    if (!feedbackName.trim()) {
+      toast.error("Please enter a feedback name");
+      return;
+    }
 
-  try {
-    setIsLoading(true);
-    const token = localStorage.getItem('token');
-    
-    const payload = {
-      name: feedbackName,
-      date: selectedDate,
-      questionNumbers: selectedQuestions.map(q => q.questionNumber),
-      feedbackFormId: selectedFormId,
-      createdBy: userRole 
-    };
+    if (selectedQuestions.length === 0) {
+      toast.error("Please select at least one question");
+      return;
+    }
 
-    const response = await axios.post(
-      `${process.env.REACT_APP_URL}/api/createfeedback`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem("token");
+
+      const payload = {
+        name: feedbackName,
+        date: selectedDate,
+        questionNumbers: selectedQuestions.map((q) => q.questionNumber),
+        feedbackFormId: selectedFormId,
+        createdBy: userRole,
+      };
+
+      const response = await axios.post(
+        `${process.env.REACT_APP_URL}/api/createfeedback`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      }
-    );
+      );
 
-    toast.success("Feedback created successfully");
-    setSelectedQuestions([]);
-    setSelectAll(false);
-    setSelectedDate(new Date());
-    setFeedbackName("");
-    setSelectedFormId("");
-    
-    // Refresh existing feedbacks
-    const feedbacksResponse = await axios.get(
-      `${process.env.REACT_APP_URL}/api/getfeedbacks`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
+      toast.success("Feedback created successfully");
+      setSelectedQuestions([]);
+      setSelectAll(false);
+      setSelectedDate(new Date());
+      setFeedbackName("");
+      setSelectedFormId("");
+
+      // Refresh existing feedbacks
+      const feedbacksResponse = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getfeedbacks`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      }
-    );
-    setExistingFeedbacks(feedbacksResponse.data.data);
-  } catch (error) {
-    const errorMessage = error.response?.data?.message || "Failed to create feedback";
-    toast.error(errorMessage);
-  } finally {
-    setIsLoading(false);
-  }
-};
+      );
+      setExistingFeedbacks(feedbacksResponse.data.data);
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message || "Failed to create feedback";
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-const renderExistingFeedbacks = () => (
-  <div className="mt-8">
-    <h3 className="text-xl font-semibold mb-4">Existing Feedbacks</h3>
-    {existingFeedbacks.length === 0 ? (
-      <p className="text-gray-500">No existing feedbacks found</p>
-    ) : (
-      <div className="space-y-2">
-        {existingFeedbacks.map(feedback => (
-          <div 
-            key={feedback._id} 
-            className={`p-3 border rounded cursor-pointer hover:bg-gray-50 ${
-              selectedDate.toDateString() === new Date(feedback.date).toDateString() 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200'
-            }`}
-            onClick={() => {
-              setSelectedDate(new Date(feedback.date));
-              setFeedbackName(feedback.name);
-              setSelectedFormId(feedback.feedbackForm?._id || "");
-              setSelectedQuestions(feedback.questions);
-            }}
-          >
-            <p className="font-medium">
-              {feedback.name}
-            </p>
-            <p className="text-sm text-gray-500">
-              Date: {new Date(feedback.date).toLocaleDateString()} | 
-              Questions: {feedback.questions.length} | 
-              Form: {feedback.feedbackForm?.name || 'Unknown'}
-            </p>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
+  const renderExistingFeedbacks = () => (
+    <div className="mt-8">
+      <h3 className="text-xl font-semibold mb-4">Existing Feedbacks</h3>
+      {existingFeedbacks.length === 0 ? (
+        <p className="text-gray-500">No existing feedbacks found</p>
+      ) : (
+        <div className="space-y-2">
+          {existingFeedbacks.map((feedback) => (
+            <div
+              key={feedback._id}
+              className={`p-3 border rounded cursor-pointer hover:bg-gray-50 ${
+                selectedDate.toDateString() ===
+                new Date(feedback.date).toDateString()
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200"
+              }`}
+              onClick={() => {
+                setSelectedDate(new Date(feedback.date));
+                setFeedbackName(feedback.name);
+                setSelectedFormId(feedback.feedbackForm?._id || "");
+                setSelectedQuestions(feedback.questions);
+              }}
+            >
+              <p className="font-medium">{feedback.name}</p>
+              <p className="text-sm text-gray-500">
+                Date: {new Date(feedback.date).toLocaleDateString()} |
+                Questions: {feedback.questions.length} | Form:{" "}
+                {feedback.feedbackForm?.name || "Unknown"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">Create Feedback</h2>
-        
+        <h2 className="text-2xl font-bold mb-6 text-gray-800">
+          Create Feedback
+        </h2>
+
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
@@ -220,7 +232,7 @@ const renderExistingFeedbacks = () => (
                 required
               >
                 <option value="">Select a form</option>
-                {feedbackForms.map(form => (
+                {feedbackForms.map((form) => (
                   <option key={form._id} value={form._id}>
                     {form.name} ({form.questions.length} questions)
                   </option>
@@ -275,7 +287,7 @@ const renderExistingFeedbacks = () => (
                   </label>
                 </div>
               </div>
-              
+
               {isLoading ? (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
@@ -283,14 +295,14 @@ const renderExistingFeedbacks = () => (
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto p-2 border rounded">
                   {feedbackForms
-                    .find(form => form._id === selectedFormId)
+                    .find((form) => form._id === selectedFormId)
                     ?.questions.map((question, index) => (
                       <div key={index} className="flex items-center">
                         <input
                           type="checkbox"
                           id={`question-${index}`}
                           checked={selectedQuestions.some(
-                            q => q.questionNumber === question.questionNumber
+                            (q) => q.questionNumber === question.questionNumber
                           )}
                           onChange={() => handleQuestionSelect(question)}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
@@ -299,11 +311,13 @@ const renderExistingFeedbacks = () => (
                           htmlFor={`question-${index}`}
                           className="ml-2 block text-gray-700"
                         >
-                          <span className="font-medium">{question.questionNumber}:</span> {question.questionStatement}
+                          <span className="font-medium">
+                            {question.questionNumber}:
+                          </span>{" "}
+                          {question.questionStatement}
                         </label>
                       </div>
-                    ))
-                  }
+                    ))}
                 </div>
               )}
             </div>
@@ -311,18 +325,21 @@ const renderExistingFeedbacks = () => (
 
           {selectedQuestions.length > 0 && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium mb-2">Selected Questions ({selectedQuestions.length}):</h3>
+              <h3 className="font-medium mb-2">
+                Selected Questions ({selectedQuestions.length}):
+              </h3>
               <ul className="list-disc pl-5">
                 {selectedQuestions
                   .sort((a, b) => {
-                    const numA = parseInt(a.questionNumber.replace('Q', ''));
-                    const numB = parseInt(b.questionNumber.replace('Q', ''));
+                    const numA = parseInt(a.questionNumber.replace("Q", ""));
+                    const numB = parseInt(b.questionNumber.replace("Q", ""));
                     return numA - numB;
                   })
                   .map((q, i) => (
-                    <li key={i}>{q.questionNumber}: {q.questionStatement}</li>
-                  ))
-                }
+                    <li key={i}>
+                      {q.questionNumber}: {q.questionStatement}
+                    </li>
+                  ))}
               </ul>
             </div>
           )}
@@ -330,7 +347,9 @@ const renderExistingFeedbacks = () => (
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={isLoading || !selectedFormId || selectedQuestions.length === 0}
+              disabled={
+                isLoading || !selectedFormId || selectedQuestions.length === 0
+              }
               className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400"
             >
               {isLoading ? "Creating..." : "Create Feedback"}

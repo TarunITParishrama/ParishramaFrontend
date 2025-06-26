@@ -12,7 +12,7 @@ const SolutionForm = ({ onSuccess }) => {
     testName: "",
     date: format(new Date(), "yyyy-MM-dd"),
     questionCount: 1,
-    solutions: []
+    solutions: [],
   });
 
   const [loading, setLoading] = useState(false);
@@ -20,32 +20,35 @@ const SolutionForm = ({ onSuccess }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleDateChange = (e) => {
-    setFormData(prev => ({ ...prev, date: e.target.value }));
+    setFormData((prev) => ({ ...prev, date: e.target.value }));
   };
 
   const handleQuestionCountChange = (e) => {
     const count = parseInt(e.target.value) || 1;
-    setFormData(prev => {
-      const solutions = Array(count).fill().map((_, i) => {
-        const questionNumber = i + 1;
-        return prev.solutions[i] ? 
-          { ...prev.solutions[i], questionNumber } : 
-          { 
-            questionNumber, 
-            correctOptions: [],
-            correctSolution: "" 
-          };
-      }).slice(0, count);
+    setFormData((prev) => {
+      const solutions = Array(count)
+        .fill()
+        .map((_, i) => {
+          const questionNumber = i + 1;
+          return prev.solutions[i]
+            ? { ...prev.solutions[i], questionNumber }
+            : {
+                questionNumber,
+                correctOptions: [],
+                correctSolution: "",
+              };
+        })
+        .slice(0, count);
       return { ...prev, questionCount: count, solutions };
     });
   };
 
   const handleSolutionChange = (index, field, value) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const updatedSolutions = [...prev.solutions];
       updatedSolutions[index] = { ...updatedSolutions[index], [field]: value };
       return { ...prev, solutions: updatedSolutions };
@@ -53,22 +56,22 @@ const SolutionForm = ({ onSuccess }) => {
   };
 
   const handleOptionToggle = (index, option) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const updatedSolutions = [...prev.solutions];
       const currentOptions = updatedSolutions[index]?.correctOptions || [];
-      
+
       if (currentOptions.includes(option)) {
         updatedSolutions[index] = {
           ...updatedSolutions[index],
-          correctOptions: currentOptions.filter(opt => opt !== option)
+          correctOptions: currentOptions.filter((opt) => opt !== option),
         };
       } else {
         updatedSolutions[index] = {
           ...updatedSolutions[index],
-          correctOptions: [...currentOptions, option]
+          correctOptions: [...currentOptions, option],
         };
       }
-      
+
       return { ...prev, solutions: updatedSolutions };
     });
   };
@@ -76,9 +79,9 @@ const SolutionForm = ({ onSuccess }) => {
   const handleImageUpload = (index, e) => {
     const file = e.target.files[0];
     if (file) {
-      setImageUploads(prev => ({
+      setImageUploads((prev) => ({
         ...prev,
-        [index]: file
+        [index]: file,
       }));
     }
   };
@@ -95,7 +98,7 @@ const SolutionForm = ({ onSuccess }) => {
       // First upload all images and get their references
       for (let index = 0; index < formData.questionCount; index++) {
         if (imageUploads[index]) {
-          formDataWithImages.append('images', imageUploads[index]);
+          formDataWithImages.append("images", imageUploads[index]);
         }
       }
 
@@ -106,23 +109,23 @@ const SolutionForm = ({ onSuccess }) => {
           formDataWithImages,
           {
             headers: {
-              'Content-Type': 'multipart/form-data'
-            }
+              "Content-Type": "multipart/form-data",
+            },
           }
         );
         imageReferences = uploadResponse.data.imageUrls;
       }
 
       // Sort solutions by questionNumber before sending to backend
-      const sortedSolutions = [...formData.solutions].sort((a, b) => 
-        a.questionNumber - b.questionNumber
+      const sortedSolutions = [...formData.solutions].sort(
+        (a, b) => a.questionNumber - b.questionNumber
       );
 
       // Prepare solutions with image references
       const validatedSolutions = sortedSolutions.map((sol, index) => {
         const solutionText = sol.correctSolution;
         let solutionWithImages = solutionText;
-        
+
         if (imageUploads[index]) {
           const imageUrl = imageReferences[index];
           solutionWithImages += `\n\n![image](${imageUrl})`;
@@ -130,8 +133,11 @@ const SolutionForm = ({ onSuccess }) => {
 
         return {
           questionNumber: sol.questionNumber || index + 1,
-          correctOptions: formData.questionType === "MCQ" ? (sol.correctOptions || []) : undefined,
-          correctSolution: solutionWithImages
+          correctOptions:
+            formData.questionType === "MCQ"
+              ? sol.correctOptions || []
+              : undefined,
+          correctSolution: solutionWithImages,
         };
       });
 
@@ -140,14 +146,14 @@ const SolutionForm = ({ onSuccess }) => {
         questionType: formData.questionType,
         testName: formData.testName,
         date: formData.date,
-        solutionBank: validatedSolutions
+        solutionBank: validatedSolutions,
       };
 
       const response = await axios.post(
         `${process.env.REACT_APP_URL}/api/createsolution`,
         payload
       );
-      
+
       onSuccess(response.data);
       setFormData({
         stream: "LongTerm",
@@ -155,7 +161,7 @@ const SolutionForm = ({ onSuccess }) => {
         testName: "",
         date: format(new Date(), "yyyy-MM-dd"),
         questionCount: 1,
-        solutions: []
+        solutions: [],
       });
       setImageUploads({});
       toast.success("Solution created successfully!");
@@ -176,7 +182,9 @@ const SolutionForm = ({ onSuccess }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Stream Selection */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Stream</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Stream
+            </label>
             <select
               name="stream"
               value={formData.stream}
@@ -191,7 +199,9 @@ const SolutionForm = ({ onSuccess }) => {
 
           {/* Question Type Dropdown */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Question Type</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Question Type
+            </label>
             <select
               name="questionType"
               value={formData.questionType}
@@ -206,7 +216,9 @@ const SolutionForm = ({ onSuccess }) => {
 
           {/* Test Name Input */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Test Name</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Test Name
+            </label>
             <input
               type="text"
               name="testName"
@@ -219,7 +231,9 @@ const SolutionForm = ({ onSuccess }) => {
 
           {/* Date Picker */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Date</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Date
+            </label>
             <div className="relative">
               <input
                 type="date"
@@ -248,27 +262,38 @@ const SolutionForm = ({ onSuccess }) => {
               className="mb-2 block w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Solutions: </h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Solutions:{" "}
+          </h3>
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {Array.from({ length: formData.questionCount }).map((_, index) => (
-              <div key={index} className="border-b border-gray-200 pb-4 last:border-b-0">
-                <h4 className="font-medium text-gray-800 mb-3">Question {index + 1}</h4>
+              <div
+                key={index}
+                className="border-b border-gray-200 pb-4 last:border-b-0"
+              >
+                <h4 className="font-medium text-gray-800 mb-3">
+                  Question {index + 1}
+                </h4>
                 {formData.questionType === "MCQ" && (
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Correct Option(s) - Select all that apply
                     </label>
                     <div className="flex space-x-4">
-                      {['A', 'B', 'C', 'D'].map(opt => (
+                      {["A", "B", "C", "D"].map((opt) => (
                         <div key={opt} className="flex items-center">
                           <input
                             type="checkbox"
                             id={`q${index}-opt${opt}`}
-                            checked={formData.solutions[index]?.correctOptions?.includes(opt) || false}
+                            checked={
+                              formData.solutions[
+                                index
+                              ]?.correctOptions?.includes(opt) || false
+                            }
                             onChange={() => handleOptionToggle(index, opt)}
                             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                           />
-                          <label 
+                          <label
                             htmlFor={`q${index}-opt${opt}`}
                             className="ml-2 block text-sm font-medium text-gray-700"
                           >
@@ -285,7 +310,13 @@ const SolutionForm = ({ onSuccess }) => {
                   </label>
                   <textarea
                     value={formData.solutions[index]?.correctSolution || ""}
-                    onChange={(e) => handleSolutionChange(index, 'correctSolution', e.target.value)}
+                    onChange={(e) =>
+                      handleSolutionChange(
+                        index,
+                        "correctSolution",
+                        e.target.value
+                      )
+                    }
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     rows={3}
                   />
@@ -321,7 +352,9 @@ const SolutionForm = ({ onSuccess }) => {
             type="submit"
             disabled={loading}
             className={`px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-              loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+              loading
+                ? "bg-gray-400"
+                : "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             }`}
           >
             {loading ? "Processing..." : "Submit Solutions"}

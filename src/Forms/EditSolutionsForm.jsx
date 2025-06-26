@@ -8,7 +8,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
     stream: "LongTerm",
     questionType: "",
     testName: "",
-    date: ""
+    date: "",
   });
   const [testNames, setTestNames] = useState([]);
   const [solutions, setSolutions] = useState([]);
@@ -20,7 +20,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
     testName: "",
     date: "",
     stream: "LongTerm",
-    questionType: ""
+    questionType: "",
   });
 
   // Fetch test names when stream changes
@@ -30,7 +30,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
         const response = await axios.get(
           `${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${filters.stream}`
         );
-        const uniqueTestNames = [...new Set(response.data.data.map(item => item.solutionRef.testName))];
+        const uniqueTestNames = [
+          ...new Set(
+            response.data.data.map((item) => item.solutionRef.testName)
+          ),
+        ];
         setTestNames(uniqueTestNames);
       } catch (err) {
         toast.error("Failed to load test names");
@@ -42,12 +46,12 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleTestMetadataChange = (e) => {
     const { name, value } = e.target;
-    setTestMetadata(prev => ({ ...prev, [name]: value }));
+    setTestMetadata((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSearch = async (e) => {
@@ -63,9 +67,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
         if (value) params.append(key, value);
       });
 
-      const response = await axios.get(`${process.env.REACT_APP_URL}/api/getsolutionbank?${params.toString()}`);
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getsolutionbank?${params.toString()}`
+      );
       const groupedSolutions = groupSolutionsByTest(response.data.data);
-      
+
       if (groupedSolutions.length === 0) {
         toast.info("No solutions found matching your criteria");
       } else {
@@ -73,15 +79,16 @@ const EditSolutionsForm = ({ onSuccess }) => {
         // Set test metadata when solutions are found
         setTestMetadata({
           testName: groupedSolutions[0].solutionRef.testName,
-          date: groupedSolutions[0].solutionRef.date.split('T')[0],
+          date: groupedSolutions[0].solutionRef.date.split("T")[0],
           stream: groupedSolutions[0].solutionRef.stream,
-          questionType: groupedSolutions[0].solutionRef.questionType
+          questionType: groupedSolutions[0].solutionRef.questionType,
         });
       }
-      
+
       setSolutions(groupedSolutions);
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Failed to fetch solutions";
+      const errorMsg =
+        err.response?.data?.message || "Failed to fetch solutions";
       toast.error(errorMsg);
       console.error("Solutions fetch error:", err);
     } finally {
@@ -91,106 +98,110 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
   const groupSolutionsByTest = (solutionBank) => {
     const groups = {};
-    solutionBank.forEach(item => {
+    solutionBank.forEach((item) => {
       const key = item.solutionRef._id;
       if (!groups[key]) {
         groups[key] = {
           solutionRef: item.solutionRef,
-          solutionBank: []
+          solutionBank: [],
         };
       }
-      
-      const correctOptions = Array.isArray(item.correctOptions) 
-        ? item.correctOptions 
-        : item.correctOption 
-          ? [item.correctOption] 
-          : [];
-      
+
+      const correctOptions = Array.isArray(item.correctOptions)
+        ? item.correctOptions
+        : item.correctOption
+        ? [item.correctOption]
+        : [];
+
       groups[key].solutionBank.push({
         ...item,
         correctOptions,
-        isGrace: item.isGrace || false
+        isGrace: item.isGrace || false,
       });
     });
-    
-    return Object.values(groups).map(group => ({
+
+    return Object.values(groups).map((group) => ({
       ...group,
-      solutionBank: group.solutionBank.sort((a, b) => a.questionNumber - b.questionNumber)
+      solutionBank: group.solutionBank.sort(
+        (a, b) => a.questionNumber - b.questionNumber
+      ),
     }));
   };
 
   const handleOptionToggle = (questionIndex, option) => {
-    setSolutions(prevSolutions => {
-      return prevSolutions.map(test => ({
+    setSolutions((prevSolutions) => {
+      return prevSolutions.map((test) => ({
         ...test,
         solutionBank: test.solutionBank.map((question, idx) => {
           if (idx !== questionIndex) return question;
-          
+
           const newOptions = question.correctOptions.includes(option)
-            ? question.correctOptions.filter(opt => opt !== option)
+            ? question.correctOptions.filter((opt) => opt !== option)
             : [...question.correctOptions, option];
-          
+
           return {
             ...question,
-            correctOptions: newOptions
+            correctOptions: newOptions,
           };
-        })
+        }),
       }));
     });
-    setModifiedQuestions(prev => new Set(prev).add(questionIndex));
+    setModifiedQuestions((prev) => new Set(prev).add(questionIndex));
   };
-  
+
   const handleSolutionChange = (questionIndex, value) => {
-    setSolutions(prevSolutions => {
-      return prevSolutions.map(test => ({
+    setSolutions((prevSolutions) => {
+      return prevSolutions.map((test) => ({
         ...test,
         solutionBank: test.solutionBank.map((question, idx) => {
           if (idx !== questionIndex) return question;
           return {
             ...question,
-            correctSolution: value
+            correctSolution: value,
           };
-        })
+        }),
       }));
     });
-    setModifiedQuestions(prev => new Set(prev).add(questionIndex));
+    setModifiedQuestions((prev) => new Set(prev).add(questionIndex));
   };
-  
+
   const handleGraceToggle = (questionIndex) => {
-    setSolutions(prevSolutions => {
-      return prevSolutions.map(test => ({
+    setSolutions((prevSolutions) => {
+      return prevSolutions.map((test) => ({
         ...test,
         solutionBank: test.solutionBank.map((question, idx) => {
           if (idx !== questionIndex) return question;
           return {
             ...question,
-            isGrace: !question.isGrace
+            isGrace: !question.isGrace,
           };
-        })
+        }),
       }));
     });
-    setModifiedQuestions(prev => new Set(prev).add(questionIndex));
+    setModifiedQuestions((prev) => new Set(prev).add(questionIndex));
   };
-  
+
   const handleImageUpload = (index, e) => {
     if (e.target.files && e.target.files[0]) {
-      setImageUploads(prev => ({
+      setImageUploads((prev) => ({
         ...prev,
-        [index]: e.target.files[0]
+        [index]: e.target.files[0],
       }));
-      setModifiedQuestions(prev => new Set(prev).add(index));
+      setModifiedQuestions((prev) => new Set(prev).add(index));
     }
   };
 
   const handleAddNewQuestion = () => {
     if (solutions.length === 0) return;
-    
-    const newQuestionNumber = solutions[0].solutionBank.length > 0 
-      ? Math.max(...solutions[0].solutionBank.map(q => q.questionNumber)) + 1
-      : 1;
 
-    setSolutions(prevSolutions => {
-      return prevSolutions.map(test => ({
+    const newQuestionNumber =
+      solutions[0].solutionBank.length > 0
+        ? Math.max(...solutions[0].solutionBank.map((q) => q.questionNumber)) +
+          1
+        : 1;
+
+    setSolutions((prevSolutions) => {
+      return prevSolutions.map((test) => ({
         ...test,
         solutionBank: [
           ...test.solutionBank,
@@ -200,20 +211,22 @@ const EditSolutionsForm = ({ onSuccess }) => {
             correctSolution: "",
             isGrace: false,
             solutionRef: test.solutionRef._id,
-            date: test.solutionRef.date
-          }
-        ]
+            date: test.solutionRef.date,
+          },
+        ],
       }));
     });
   };
 
   const handleRemoveQuestion = (questionNumber) => {
     if (solutions.length === 0) return;
-    
-    setSolutions(prevSolutions => {
-      return prevSolutions.map(test => ({
+
+    setSolutions((prevSolutions) => {
+      return prevSolutions.map((test) => ({
         ...test,
-        solutionBank: test.solutionBank.filter(q => q.questionNumber !== questionNumber)
+        solutionBank: test.solutionBank.filter(
+          (q) => q.questionNumber !== questionNumber
+        ),
       }));
     });
   };
@@ -230,36 +243,38 @@ const EditSolutionsForm = ({ onSuccess }) => {
           testName: testMetadata.testName,
           date: testMetadata.date,
           stream: testMetadata.stream,
-          questionType: testMetadata.questionType
+          questionType: testMetadata.questionType,
         }
       );
 
       // Update local state
-      setSolutions(prevSolutions => {
-        return prevSolutions.map(test => ({
+      setSolutions((prevSolutions) => {
+        return prevSolutions.map((test) => ({
           ...test,
           solutionRef: {
             ...test.solutionRef,
             testName: testMetadata.testName,
             date: testMetadata.date,
             stream: testMetadata.stream,
-            questionType: testMetadata.questionType
-          }
+            questionType: testMetadata.questionType,
+          },
         }));
       });
 
-      setFilters(prev => ({
+      setFilters((prev) => ({
         ...prev,
         testName: testMetadata.testName,
         date: testMetadata.date,
         stream: testMetadata.stream,
-        questionType: testMetadata.questionType
+        questionType: testMetadata.questionType,
       }));
 
       toast.success("Test information updated successfully!");
       setEditingTestInfo(false);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update test information");
+      toast.error(
+        err.response?.data?.message || "Failed to update test information"
+      );
       console.error("Update test metadata error:", err);
     } finally {
       setLoading(false);
@@ -272,23 +287,23 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
     try {
       console.log("Starting solution update...");
-      
+
       // Upload images first if any (only for modified questions)
       const formData = new FormData();
-      Array.from(modifiedQuestions).forEach(index => {
+      Array.from(modifiedQuestions).forEach((index) => {
         if (imageUploads[index]) {
-          formData.append('images', imageUploads[index]);
+          formData.append("images", imageUploads[index]);
         }
       });
 
       let imageUrls = {};
-      if (formData.has('images')) {
+      if (formData.has("images")) {
         console.log("Uploading images for modified questions...");
         try {
           const uploadResponse = await axios.post(
             `${process.env.REACT_APP_URL}/api/upload-images`,
             formData,
-            { headers: { 'Content-Type': 'multipart/form-data' } }
+            { headers: { "Content-Type": "multipart/form-data" } }
           );
           imageUrls = uploadResponse.data.imageUrls;
           console.log("Images uploaded successfully:", imageUrls);
@@ -300,14 +315,14 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
       // Prepare updates only for modified questions
       console.log("Preparing updates for modified questions...");
-      const solutionBankUpdates = Array.from(modifiedQuestions).map(index => {
+      const solutionBankUpdates = Array.from(modifiedQuestions).map((index) => {
         const sol = solutions[0].solutionBank[index];
         const update = {
           questionNumber: sol.questionNumber,
-          correctSolution: imageUrls[index] 
+          correctSolution: imageUrls[index]
             ? `${sol.correctSolution}\n\n![image](${imageUrls[index]})`
             : sol.correctSolution,
-          isGrace: sol.isGrace || false
+          isGrace: sol.isGrace || false,
         };
 
         if (solutions[0].solutionRef.questionType === "MCQ" && !sol.isGrace) {
@@ -326,43 +341,51 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
       console.log("Sending update request for modified questions:", {
         solutionId: solutions[0].solutionRef._id,
-        solutionBank: solutionBankUpdates
+        solutionBank: solutionBankUpdates,
       });
 
       const response = await axios.put(
         `${process.env.REACT_APP_URL}/api/updatesolutionsinbulk`,
         {
           solutionId: solutions[0].solutionRef._id,
-          solutionBank: solutionBankUpdates
+          solutionBank: solutionBankUpdates,
         },
         {
           headers: {
-            'Content-Type': 'application/json'
-          }
+            "Content-Type": "application/json",
+          },
         }
       );
-      
+
       console.log("Update successful, response:", response.data);
       onSuccess(response.data);
       setImageUploads({});
       setModifiedQuestions(new Set());
-      toast.success(`Successfully updated ${response.data.modifiedCount || solutionBankUpdates.length} solutions!`, {
-        position: "top-right",
-        autoClose: 3000,
-      });
+      toast.success(
+        `Successfully updated ${
+          response.data.modifiedCount || solutionBankUpdates.length
+        } solutions!`,
+        {
+          position: "top-right",
+          autoClose: 3000,
+        }
+      );
     } catch (err) {
       console.error("Update error details:", err);
       console.error("Error response:", err.response);
-      
+
       let errorMessage = "Failed to update solutions";
-      
+
       if (err.response) {
         if (err.response.data?.message?.includes("Cast to ObjectId failed")) {
           errorMessage = "Invalid test ID. Please search for the test again.";
         } else if (err.response.status === 400) {
-          errorMessage = err.response.data.message || "Invalid data format. Please check your inputs.";
+          errorMessage =
+            err.response.data.message ||
+            "Invalid data format. Please check your inputs.";
         } else if (err.response.status === 404) {
-          errorMessage = "Test not found. It may have been deleted. Please search again.";
+          errorMessage =
+            "Test not found. It may have been deleted. Please search again.";
         } else if (err.response.status === 500) {
           errorMessage = "Server error. Please try again later.";
         }
@@ -390,7 +413,9 @@ const EditSolutionsForm = ({ onSuccess }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Stream Dropdown */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Stream</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Stream
+              </label>
               <select
                 name="stream"
                 value={filters.stream}
@@ -404,7 +429,9 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
             {/* Question Type Dropdown */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Question Type</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Question Type
+              </label>
               <select
                 name="questionType"
                 value={filters.questionType}
@@ -419,7 +446,9 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
             {/* Test Name Dropdown */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Test Name</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Test Name
+              </label>
               <select
                 name="testName"
                 value={filters.testName}
@@ -428,14 +457,18 @@ const EditSolutionsForm = ({ onSuccess }) => {
               >
                 <option value="">All Tests</option>
                 {testNames.map((name, index) => (
-                  <option key={index} value={name}>{name}</option>
+                  <option key={index} value={name}>
+                    {name}
+                  </option>
                 ))}
               </select>
             </div>
 
             {/* Date Input */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">Date</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Date
+              </label>
               <input
                 type="date"
                 name="date"
@@ -450,7 +483,9 @@ const EditSolutionsForm = ({ onSuccess }) => {
             <button
               type="submit"
               disabled={loading}
-              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${loading ? 'opacity-50' : ''}`}
+              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                loading ? "opacity-50" : ""
+              }`}
             >
               {loading ? "Searching..." : "Search Solutions"}
             </button>
@@ -462,13 +497,16 @@ const EditSolutionsForm = ({ onSuccess }) => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h2 className="text-lg font-semibold">
-                  {solutions[0].solutionRef.testName} - {new Date(solutions[0].solutionRef.date).toLocaleDateString()}
+                  {solutions[0].solutionRef.testName} -{" "}
+                  {new Date(solutions[0].solutionRef.date).toLocaleDateString()}
                 </h2>
                 <div className="text-sm text-gray-500">
-                  {solutions[0].solutionBank.length} questions | {solutions[0].solutionRef.questionType} | {solutions[0].solutionRef.stream}
+                  {solutions[0].solutionBank.length} questions |{" "}
+                  {solutions[0].solutionRef.questionType} |{" "}
+                  {solutions[0].solutionRef.stream}
                 </div>
               </div>
-              
+
               <button
                 type="button"
                 onClick={() => setEditingTestInfo(!editingTestInfo)}
@@ -483,7 +521,9 @@ const EditSolutionsForm = ({ onSuccess }) => {
                 <h3 className="font-medium mb-3">Edit Test Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Test Name</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Test Name
+                    </label>
                     <input
                       type="text"
                       name="testName"
@@ -492,9 +532,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Date</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Date
+                    </label>
                     <input
                       type="date"
                       name="date"
@@ -503,9 +545,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Stream</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Stream
+                    </label>
                     <select
                       name="stream"
                       value={testMetadata.stream}
@@ -516,9 +560,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
                       <option value="PUC">PUC</option>
                     </select>
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Question Type</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Question Type
+                    </label>
                     <select
                       name="questionType"
                       value={testMetadata.questionType}
@@ -530,7 +576,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
                     </select>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-end mt-4 space-x-2">
                   <button
                     type="button"
@@ -566,20 +612,27 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
             <div className="space-y-4">
               {solutions[0].solutionBank.map((solution, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4 relative">
+                <div
+                  key={index}
+                  className="border border-gray-200 rounded-lg p-4 mb-4 relative"
+                >
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-medium">Question {solution.questionNumber}</h3>
-                    
+                    <h3 className="font-medium">
+                      Question {solution.questionNumber}
+                    </h3>
+
                     <div className="flex items-center space-x-2">
                       {/* Remove question button */}
                       <button
                         type="button"
-                        onClick={() => handleRemoveQuestion(solution.questionNumber)}
+                        onClick={() =>
+                          handleRemoveQuestion(solution.questionNumber)
+                        }
                         className="text-red-600 hover:text-red-800 text-sm"
                       >
                         Remove
                       </button>
-                      
+
                       {/* Grace (E) checkbox */}
                       <div className="flex items-center">
                         <input
@@ -589,7 +642,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
                           onChange={() => handleGraceToggle(index)}
                           className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                         />
-                        <label 
+                        <label
                           htmlFor={`grace-${index}`}
                           className="ml-2 text-sm font-medium text-gray-700"
                         >
@@ -601,13 +654,15 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
                   {solutions[0].solutionRef.questionType === "MCQ" && (
                     <div className="mb-3">
-                      <label className={`block text-sm font-medium ${
-                        solution.isGrace ? 'text-gray-400' : 'text-gray-700'
-                      } mb-2`}>
+                      <label
+                        className={`block text-sm font-medium ${
+                          solution.isGrace ? "text-gray-400" : "text-gray-700"
+                        } mb-2`}
+                      >
                         Correct Option(s)
                       </label>
                       <div className="flex space-x-4">
-                        {['A', 'B', 'C', 'D'].map(opt => (
+                        {["A", "B", "C", "D"].map((opt) => (
                           <div key={opt} className="flex items-center">
                             <input
                               type="checkbox"
@@ -616,13 +671,17 @@ const EditSolutionsForm = ({ onSuccess }) => {
                               onChange={() => handleOptionToggle(index, opt)}
                               disabled={solution.isGrace}
                               className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
-                                solution.isGrace ? 'opacity-50 cursor-not-allowed' : ''
+                                solution.isGrace
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
                               }`}
                             />
-                            <label 
+                            <label
                               htmlFor={`q${index}-opt${opt}`}
                               className={`ml-2 text-sm ${
-                                solution.isGrace ? 'text-gray-400' : 'text-gray-700'
+                                solution.isGrace
+                                  ? "text-gray-400"
+                                  : "text-gray-700"
                               }`}
                             >
                               {opt}
@@ -631,32 +690,41 @@ const EditSolutionsForm = ({ onSuccess }) => {
                         ))}
                       </div>
                       <div className="mt-1 text-xs text-gray-500">
-                        Current: {solution.correctOptions.join(", ") || "None selected"}
+                        Current:{" "}
+                        {solution.correctOptions.join(", ") || "None selected"}
                       </div>
                     </div>
                   )}
 
                   <div className="mb-3">
-                    <label className={`block text-sm font-medium ${
-                      solution.isGrace ? 'text-gray-400' : 'text-gray-700'
-                    } mb-1`}>
+                    <label
+                      className={`block text-sm font-medium ${
+                        solution.isGrace ? "text-gray-400" : "text-gray-700"
+                      } mb-1`}
+                    >
                       Correct Solution
                     </label>
                     <textarea
                       value={solution.correctSolution}
-                      onChange={(e) => handleSolutionChange(index, e.target.value)}
+                      onChange={(e) =>
+                        handleSolutionChange(index, e.target.value)
+                      }
                       disabled={solution.isGrace}
                       className={`block w-full px-3 py-2 border ${
-                        solution.isGrace ? 'bg-gray-100 border-gray-200' : 'border-gray-300'
+                        solution.isGrace
+                          ? "bg-gray-100 border-gray-200"
+                          : "border-gray-300"
                       } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                       rows={3}
                     />
                   </div>
 
                   <div>
-                    <label className={`block text-sm font-medium ${
-                      solution.isGrace ? 'text-gray-400' : 'text-gray-700'
-                    } mb-1`}>
+                    <label
+                      className={`block text-sm font-medium ${
+                        solution.isGrace ? "text-gray-400" : "text-gray-700"
+                      } mb-1`}
+                    >
                       Upload New Image (optional)
                     </label>
                     <input
@@ -665,9 +733,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
                       onChange={(e) => handleImageUpload(index, e)}
                       disabled={solution.isGrace}
                       className={`block w-full text-sm ${
-                        solution.isGrace ? 'text-gray-400' : 'text-gray-500'
+                        solution.isGrace ? "text-gray-400" : "text-gray-500"
                       } file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold ${
-                        solution.isGrace ? 'file:bg-gray-100 file:text-gray-400' : 'file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100'
+                        solution.isGrace
+                          ? "file:bg-gray-100 file:text-gray-400"
+                          : "file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                       }`}
                     />
                     {imageUploads[index] && (
@@ -697,7 +767,9 @@ const EditSolutionsForm = ({ onSuccess }) => {
                   type="button"
                   onClick={handleUpdateSolutions}
                   disabled={loading}
-                  className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${loading ? 'opacity-50' : ''}`}
+                  className={`px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    loading ? "opacity-50" : ""
+                  }`}
                 >
                   {loading ? "Updating..." : "Update Solutions"}
                 </button>

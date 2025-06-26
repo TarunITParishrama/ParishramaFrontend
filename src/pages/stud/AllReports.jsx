@@ -19,7 +19,9 @@ export default function AllReports() {
 
       {/* Coming Soon Placeholder */}
       <div className="bg-gray-100 p-8 rounded-lg text-center">
-        <p className="text-gray-500 text-lg">All Students Reports coming soon...</p>
+        <p className="text-gray-500 text-lg">
+          All Students Reports coming soon...
+        </p>
       </div>
 
       {/* Student Report Modal */}
@@ -28,7 +30,7 @@ export default function AllReports() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">Student Report Form</h3>
-              <button 
+              <button
                 onClick={() => setShowReportForm(false)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
                 aria-label="Close"
@@ -37,8 +39,8 @@ export default function AllReports() {
               </button>
             </div>
             <div className="p-6">
-              <StudentReport 
-                onClose={() => setShowReportForm(false)} 
+              <StudentReport
+                onClose={() => setShowReportForm(false)}
                 onSubmitSuccess={() => {
                   setShowReportForm(false);
                   // Optional: Add any success handling here

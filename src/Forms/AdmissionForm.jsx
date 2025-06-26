@@ -26,7 +26,7 @@ export default function AdmissionForm() {
     admissionType: "Residential",
     regNumber: "",
     studentName: "",
-    dateOfBirth:"",
+    dateOfBirth: "",
     studentImageURL: "",
     allotmentType: "11th PUC",
     section: "",
@@ -35,7 +35,7 @@ export default function AdmissionForm() {
     address: "",
     contact: "",
     medicalIssues: "No",
-    medicalDetails: ""
+    medicalDetails: "",
   });
 
   useEffect(() => {
@@ -43,9 +43,12 @@ export default function AdmissionForm() {
       try {
         toast.info("Loading campuses...");
         const token = localStorage.getItem("token");
-        const response = await axios.get(`${process.env.REACT_APP_URL}/api/getcampuses`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getcampuses`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         setCampuses(response.data.data);
         toast.dismiss();
       } catch (error) {
@@ -62,11 +65,13 @@ export default function AdmissionForm() {
         const token = localStorage.getItem("token");
         const response = await axios.get(
           `${process.env.REACT_APP_URL}/api/checkregnumber/${formData.regNumber}`,
-          { headers: { Authorization: `Bearer ${token}` }}
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        
+
         if (response.data.exists) {
-          toast.error(`Registration number ${formData.regNumber} already exists`);
+          toast.error(
+            `Registration number ${formData.regNumber} already exists`
+          );
           setRegNumberExists(true);
         } else {
           toast.success("Registration number is available");
@@ -81,29 +86,27 @@ export default function AdmissionForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
-     if (name === "dateOfBirth") {
-    const date = new Date(value);
-    const utcDate = new Date(Date.UTC(
-      date.getFullYear(), 
-      date.getMonth(), 
-      date.getDate()
-    ));
-    const formattedDate = utcDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: formattedDate,
-      dateOfBirthDisplay: value 
-    }));
-  } else {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  }
-  
+
+    if (name === "dateOfBirth") {
+      const date = new Date(value);
+      const utcDate = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      );
+      const formattedDate = utcDate.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formattedDate,
+        dateOfBirthDisplay: value,
+      }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+
     if (name === "regNumber") {
       setRegNumberExists(false);
     }
-  
+
     if (name === "medicalIssues") {
       setShowMedicalDetails(value === "Yes");
     }
@@ -136,16 +139,16 @@ export default function AdmissionForm() {
       setUploadProgress(0);
       toast.info("Uploading image...");
 
-      const fileExt = selectedFile.name.split('.').pop().toLowerCase();
+      const fileExt = selectedFile.name.split(".").pop().toLowerCase();
       const token = localStorage.getItem("token");
 
       const { data } = await axios.get(
         `${process.env.REACT_APP_URL}/api/generate-image-upload-url/${formData.regNumber}/.${fileExt}`,
-        { headers: { Authorization: `Bearer ${token}` }}
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', data.uploadURL);
+      xhr.open("PUT", data.uploadURL);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -156,20 +159,19 @@ export default function AdmissionForm() {
 
       xhr.onload = async () => {
         if (xhr.status === 200) {
-          await new Promise(resolve => setTimeout(resolve, 500)); // small delay
-          setFormData(prev => ({ ...prev, studentImageURL: data.viewURL }));
+          await new Promise((resolve) => setTimeout(resolve, 500)); // small delay
+          setFormData((prev) => ({ ...prev, studentImageURL: data.viewURL }));
           toast.success("Image uploaded successfully!");
         } else {
-          throw new Error('Upload failed');
+          throw new Error("Upload failed");
         }
       };
 
       xhr.onerror = () => {
-        throw new Error('Upload failed');
+        throw new Error("Upload failed");
       };
 
       xhr.send(selectedFile);
-
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Image upload failed");
@@ -180,27 +182,31 @@ export default function AdmissionForm() {
     setSelectedFile(null);
     setPreviewUrl("");
     setUploadProgress(0);
-    setFormData(prev => ({ ...prev, studentImageURL: "" }));
+    setFormData((prev) => ({ ...prev, studentImageURL: "" }));
   };
 
   // Bulk Upload Handlers
   const handleBulkFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const validTypes = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv"];
+
+    const validTypes = [
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/csv",
+    ];
     if (!validTypes.includes(file.type)) {
       toast.error("Please upload a valid Excel or CSV file");
       return;
     }
-    
+
     setBulkFile(file);
   };
 
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -212,11 +218,15 @@ export default function AdmissionForm() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      const validTypes = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "text/csv"];
-      
+      const validTypes = [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "text/csv",
+      ];
+
       if (validTypes.includes(file.type)) {
         setBulkFile(file);
       } else {
@@ -226,28 +236,28 @@ export default function AdmissionForm() {
   };
 
   const downloadTemplate = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const response = await axios.get(
-      `${process.env.REACT_APP_URL}/api/download-student-template`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
-      }
-    );
-    
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'student_template.xlsx');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  } catch (error) {
-    toast.error("Failed to download template");
-    console.error("Template download error:", error);
-  }
-};
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/download-student-template`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob",
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "student_template.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      toast.error("Failed to download template");
+      console.error("Template download error:", error);
+    }
+  };
 
   const processBulkUpload = async () => {
     if (!bulkFile) {
@@ -269,156 +279,248 @@ export default function AdmissionForm() {
       reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target.result);
-          const workbook = read(data, { type: 'array' });
+          const workbook = read(data, { type: "array" });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = utils.sheet_to_json(worksheet, { defval: "" });
 
           // Map column headers to our schema fields
-          const mappedData = jsonData.map(row => {
+          const mappedData = jsonData.map((row) => {
             // Handle potential different column names
             const studentData = {
-              admissionYear: parseInt(row.admissionYear || row.AdmissionYear || row.admission_year || new Date().getFullYear()),
+              admissionYear: parseInt(
+                row.admissionYear ||
+                  row.AdmissionYear ||
+                  row.admission_year ||
+                  new Date().getFullYear()
+              ),
               campus: row.campus || row.Campus || row.campus_id || "",
               gender: row.gender || row.Gender || "Boy",
-              admissionType: row.admissionType || row.AdmissionType || row.admission_type || "Residential",
-              regNumber: row.regNumber || row.RegNumber || row.reg_number || row.registration_number || "",
-              studentName: row.studentName || row.StudentName || row.student_name || row.name || "",
-              dateOfBirth: row.dateOfBirth || row.DateOfBirth || row.dob || row.DOB || "",
+              admissionType:
+                row.admissionType ||
+                row.AdmissionType ||
+                row.admission_type ||
+                "Residential",
+              regNumber:
+                row.regNumber ||
+                row.RegNumber ||
+                row.reg_number ||
+                row.registration_number ||
+                "",
+              studentName:
+                row.studentName ||
+                row.StudentName ||
+                row.student_name ||
+                row.name ||
+                "",
+              dateOfBirth:
+                row.dateOfBirth || row.DateOfBirth || row.dob || row.DOB || "",
               studentImageURL: null,
-              allotmentType: row.allotmentType || row.AllotmentType || row.allotment_type || "11th PUC",
+              allotmentType:
+                row.allotmentType ||
+                row.AllotmentType ||
+                row.allotment_type ||
+                "11th PUC",
               section: row.section || row.Section || "",
-              fatherName: row.parentName || row.FatherName || row.father_name || row.Parent || "",
-              fatherMobile: row.parentMobile || row.FatherMobile || row.father_mobile || row.father_contact || "",
-              emailId: row.emailId || row.EmailId || row.email || row.Email || '',
+              fatherName:
+                row.parentName ||
+                row.FatherName ||
+                row.father_name ||
+                row.Parent ||
+                "",
+              fatherMobile:
+                row.parentMobile ||
+                row.FatherMobile ||
+                row.father_mobile ||
+                row.father_contact ||
+                "",
+              emailId:
+                row.emailId || row.EmailId || row.email || row.Email || "",
               address: row.address || row.Address || "",
-              contact: row.contact || row.Contact || row.alternate_contact || "",
-              medicalIssues: row.medicalIssues || row.MedicalIssues || row.medical_issues || "No",
-              medicalDetails: row.medicalDetails || row.MedicalDetails || row.medical_details || ""
+              contact:
+                row.contact || row.Contact || row.alternate_contact || "",
+              medicalIssues:
+                row.medicalIssues ||
+                row.MedicalIssues ||
+                row.medical_issues ||
+                "No",
+              medicalDetails:
+                row.medicalDetails ||
+                row.MedicalDetails ||
+                row.medical_details ||
+                "",
             };
 
             // If campus is provided as a name instead of ID, try to find corresponding ID
-            if (studentData.campus && !studentData.campus.match(/^[0-9a-fA-F]{24}$/)) {
-              const foundCampus = campuses.find(c => 
-                c.name.toLowerCase() === studentData.campus.toString().toLowerCase()
+            if (
+              studentData.campus &&
+              !studentData.campus.match(/^[0-9a-fA-F]{24}$/)
+            ) {
+              const foundCampus = campuses.find(
+                (c) =>
+                  c.name.toLowerCase() ===
+                  studentData.campus.toString().toLowerCase()
               );
-              
+
               if (foundCampus) {
                 studentData.campus = foundCampus._id;
               } else {
                 // If we can't find the campus, we'll log this issue
-                console.warn(`Campus not found for: ${studentData.studentName} (${studentData.regNumber})`);
+                console.warn(
+                  `Campus not found for: ${studentData.studentName} (${studentData.regNumber})`
+                );
               }
             }
-if (studentData.dateOfBirth) {
-  try {
-    // Handle Excel numeric dates (number of days since 1900)
-    if (typeof studentData.dateOfBirth === 'number') {
-      // Excel date (number of days since 1900) to JS Date
-      const excelDate = studentData.dateOfBirth;
-      const jsDate = new Date(Math.round((excelDate - (25567 + 1)) * 86400 * 1000));
-      
-      // Adjust for timezone offset to get the correct date
-      const timezoneOffset = jsDate.getTimezoneOffset() * 60000;
-      const adjustedDate = new Date(jsDate.getTime() + timezoneOffset);
-      
-      studentData.dateOfBirth = adjustedDate.toISOString().split('T')[0];
-    } 
-    // Handle string dates
-    else if (typeof studentData.dateOfBirth === 'string') {
-      // Try different date formats
-      
-      // Handle DD-MM-YYYY format
-      if (studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
-        const [day, month, year] = studentData.dateOfBirth.split('-');
-        // Create date in local timezone (no UTC conversion)
-        const date = new Date(year, month - 1, day);
-        studentData.dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      }
-      // Handle YYYY-MM-DD format (keep as is)
-      else if (studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Already in correct format, no conversion needed
-      }
-      // Handle MM/DD/YYYY format
-      else if (studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-        const [month, day, year] = studentData.dateOfBirth.split('/');
-        const date = new Date(year, month - 1, day);
-        studentData.dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      }
-      else {
-        console.warn(`Unrecognized date format: ${studentData.dateOfBirth}`);
-        studentData.dateOfBirth = '';
-      }
-    }
-  } catch (e) {
-    console.error(`Error parsing date ${studentData.dateOfBirth}:`, e);
-    studentData.dateOfBirth = '';
-  }
-}
+            if (studentData.dateOfBirth) {
+              try {
+                // Handle Excel numeric dates (number of days since 1900)
+                if (typeof studentData.dateOfBirth === "number") {
+                  // Excel date (number of days since 1900) to JS Date
+                  const excelDate = studentData.dateOfBirth;
+                  const jsDate = new Date(
+                    Math.round((excelDate - (25567 + 1)) * 86400 * 1000)
+                  );
+
+                  // Adjust for timezone offset to get the correct date
+                  const timezoneOffset = jsDate.getTimezoneOffset() * 60000;
+                  const adjustedDate = new Date(
+                    jsDate.getTime() + timezoneOffset
+                  );
+
+                  studentData.dateOfBirth = adjustedDate
+                    .toISOString()
+                    .split("T")[0];
+                }
+                // Handle string dates
+                else if (typeof studentData.dateOfBirth === "string") {
+                  // Try different date formats
+
+                  // Handle DD-MM-YYYY format
+                  if (studentData.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    const [day, month, year] =
+                      studentData.dateOfBirth.split("-");
+                    // Create date in local timezone (no UTC conversion)
+                    const date = new Date(year, month - 1, day);
+                    studentData.dateOfBirth = `${year}-${month.padStart(
+                      2,
+                      "0"
+                    )}-${day.padStart(2, "0")}`;
+                  }
+                  // Handle YYYY-MM-DD format (keep as is)
+                  else if (
+                    studentData.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)
+                  ) {
+                    // Already in correct format, no conversion needed
+                  }
+                  // Handle MM/DD/YYYY format
+                  else if (
+                    studentData.dateOfBirth.match(/^\d{2}\/\d{2}\/\d{4}$/)
+                  ) {
+                    const [month, day, year] =
+                      studentData.dateOfBirth.split("/");
+                    const date = new Date(year, month - 1, day);
+                    studentData.dateOfBirth = `${year}-${month.padStart(
+                      2,
+                      "0"
+                    )}-${day.padStart(2, "0")}`;
+                  } else {
+                    console.warn(
+                      `Unrecognized date format: ${studentData.dateOfBirth}`
+                    );
+                    studentData.dateOfBirth = "";
+                  }
+                }
+              } catch (e) {
+                console.error(
+                  `Error parsing date ${studentData.dateOfBirth}:`,
+                  e
+                );
+                studentData.dateOfBirth = "";
+              }
+            }
             return studentData;
           });
 
           // Data validation
-          const validData = mappedData.filter(student => {
-            if (!student) return false; // Skip if null (from campus matching)
-            
-            const errors = [];
-            
-            // Required fields
-            if (!student.regNumber || !student.regNumber.toString().match(/^\d{6}$/)) {
-              errors.push("Invalid registration number (must be 6 digits)");
-            }
-            
-            if (!student.studentName || student.studentName.trim().length < 2) {
-              errors.push("Student name is required");
-            }
-            
-            if (!student.campus || !student.campus.match(/^[0-9a-fA-F]{24}$/)) {
-              errors.push("Invalid campus ID");
-            }
-            
-            // Make fatherMobile optional or less strict
-            if (student.fatherMobile && !student.fatherMobile.toString().match(/^\d{10}$/)) {
-              errors.push("Invalid parent mobile number");
-            }
-            
-            // Make date validation less strict
-            if (student.dateOfBirth) {
-      // Try to parse the date to ensure it's valid
-      try {
-        // Check if it's already in DD-MM-YYYY format
-        if (student.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
-          const [day, month, year] = student.dateOfBirth.split('-');
-          const date = new Date(`${year}-${month}-${day}`);
-          if (isNaN(date.getTime())) {
-            errors.push("Invalid date of birth");
-          }
-        }
-        // Check if it's in YYYY-MM-DD format
-        else if (student.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [year, month, day] = student.dateOfBirth.split('-');
-          const date = new Date(`${year}-${month}-${day}`);
-          if (isNaN(date.getTime())) {
-            errors.push("Invalid date of birth");
-          } else {
-            // Convert to DD-MM-YYYY format
-            student.dateOfBirth = `${day}-${month}-${year}`;
-          }
-        } else {
-          errors.push("Date must be in DD-MM-YYYY or YYYY-MM-DD format");
-        }
-      } catch (e) {
-        errors.push("Invalid date format");
-      }
-    }
-            
-            if (errors.length > 0) {
-              console.warn(`Invalid student data for ${student.regNumber || 'unknown'}:`, errors);
-              return false;
-            }
-            
-            return true;
-          }).filter(Boolean); // Remove any null entries
+          const validData = mappedData
+            .filter((student) => {
+              if (!student) return false; // Skip if null (from campus matching)
+
+              const errors = [];
+
+              // Required fields
+              if (
+                !student.regNumber ||
+                !student.regNumber.toString().match(/^\d{6}$/)
+              ) {
+                errors.push("Invalid registration number (must be 6 digits)");
+              }
+
+              if (
+                !student.studentName ||
+                student.studentName.trim().length < 2
+              ) {
+                errors.push("Student name is required");
+              }
+
+              if (
+                !student.campus ||
+                !student.campus.match(/^[0-9a-fA-F]{24}$/)
+              ) {
+                errors.push("Invalid campus ID");
+              }
+
+              // Make fatherMobile optional or less strict
+              if (
+                student.fatherMobile &&
+                !student.fatherMobile.toString().match(/^\d{10}$/)
+              ) {
+                errors.push("Invalid parent mobile number");
+              }
+
+              // Make date validation less strict
+              if (student.dateOfBirth) {
+                // Try to parse the date to ensure it's valid
+                try {
+                  // Check if it's already in DD-MM-YYYY format
+                  if (student.dateOfBirth.match(/^\d{2}-\d{2}-\d{4}$/)) {
+                    const [day, month, year] = student.dateOfBirth.split("-");
+                    const date = new Date(`${year}-${month}-${day}`);
+                    if (isNaN(date.getTime())) {
+                      errors.push("Invalid date of birth");
+                    }
+                  }
+                  // Check if it's in YYYY-MM-DD format
+                  else if (student.dateOfBirth.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const [year, month, day] = student.dateOfBirth.split("-");
+                    const date = new Date(`${year}-${month}-${day}`);
+                    if (isNaN(date.getTime())) {
+                      errors.push("Invalid date of birth");
+                    } else {
+                      // Convert to DD-MM-YYYY format
+                      student.dateOfBirth = `${day}-${month}-${year}`;
+                    }
+                  } else {
+                    errors.push(
+                      "Date must be in DD-MM-YYYY or YYYY-MM-DD format"
+                    );
+                  }
+                } catch (e) {
+                  errors.push("Invalid date format");
+                }
+              }
+
+              if (errors.length > 0) {
+                console.warn(
+                  `Invalid student data for ${student.regNumber || "unknown"}:`,
+                  errors
+                );
+                return false;
+              }
+
+              return true;
+            })
+            .filter(Boolean); // Remove any null entries
 
           if (validData.length === 0) {
             toast.error("No valid student records found in the file");
@@ -435,36 +537,40 @@ if (studentData.dateOfBirth) {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
-              }
+              },
             }
           );
 
-          toast.success(`Successfully processed ${response.data.successCount} students`);
-          
+          toast.success(
+            `Successfully processed ${response.data.successCount} students`
+          );
+
           if (response.data.failedCount > 0) {
-            toast.warning(`Failed to process ${response.data.failedCount} students.`);
+            toast.warning(
+              `Failed to process ${response.data.failedCount} students.`
+            );
             setFailedStudents(response.data.failedStudents);
           }
-          
+
           // Reset the bulk upload state
           setBulkFile(null);
           setShowBulkUpload(false);
-
         } catch (error) {
           console.error("Error processing file:", error);
-          toast.error("Failed to process file. Check if the format is correct.");
+          toast.error(
+            "Failed to process file. Check if the format is correct."
+          );
         } finally {
           setBulkLoading(false);
         }
       };
-      
+
       reader.onerror = () => {
         toast.error("Failed to read file");
         setBulkLoading(false);
       };
-      
+
       reader.readAsArrayBuffer(bulkFile);
-      
     } catch (error) {
       console.error("Bulk upload error:", error);
       toast.error(error.response?.data?.message || "Bulk upload failed");
@@ -516,13 +622,13 @@ if (studentData.dateOfBirth) {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
-          }
+          },
         }
       );
 
       toast.success("Student registered successfully!");
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         admissionYear: prev.admissionYear,
         campus: prev.campus,
         gender: "Boy",
@@ -537,17 +643,18 @@ if (studentData.dateOfBirth) {
         address: "",
         contact: "",
         medicalIssues: "No",
-        medicalDetails: ""
+        medicalDetails: "",
       }));
-      
+
       setSelectedFile(null);
       setPreviewUrl("");
       setUploadProgress(0);
       setRegNumberExists(false);
       setShowMedicalDetails(false);
-
     } catch (error) {
-      const errorMsg = error.response?.data?.message || "Registration failed. Please check all fields.";
+      const errorMsg =
+        error.response?.data?.message ||
+        "Registration failed. Please check all fields.";
       toast.error(errorMsg);
       console.error("Registration error:", error);
     } finally {
@@ -558,7 +665,9 @@ if (studentData.dateOfBirth) {
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">New Student Admission</h2>
+        <h2 className="text-2xl font-bold text-gray-800">
+          New Student Admission
+        </h2>
         <button
           type="button"
           onClick={() => setShowBulkUpload(!showBulkUpload)}
@@ -571,21 +680,35 @@ if (studentData.dateOfBirth) {
 
       {showBulkUpload && (
         <div className="mb-8 p-4 border border-blue-200 bg-blue-50 rounded-lg">
-          <h3 className="text-lg font-semibold mb-3 text-blue-800">Bulk Student Upload</h3>
+          <h3 className="text-lg font-semibold mb-3 text-blue-800">
+            Bulk Student Upload
+          </h3>
           <p className="text-sm text-gray-600 mb-4">
-            Upload a CSV or Excel file with student data. The file should contain columns matching the form fields.
+            Upload a CSV or Excel file with student data. The file should
+            contain columns matching the form fields.
           </p>
           <button
             type="button"
             onClick={downloadTemplate}
             className="px-4 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center gap-2"
           >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Download Template
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Download Template
           </button>
-          
+
           <div
             className={`border-2 border-dashed rounded-lg p-6 text-center mb-4 ${
               dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
@@ -606,17 +729,17 @@ if (studentData.dateOfBirth) {
                   accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                   onChange={handleBulkFileChange}
                   className="hidden"
-                  key={bulkFile ? 'file-selected' : 'no-file'}
+                  key={bulkFile ? "file-selected" : "no-file"}
                 />
               </label>
             </div>
           </div>
-          
+
           {bulkFile && (
             <div className="flex items-center justify-between bg-white p-3 rounded-md border border-gray-200 mb-4">
               <span className="text-sm truncate">{bulkFile.name}</span>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="text-red-500 hover:text-red-700"
                 onClick={() => setBulkFile(null)}
               >
@@ -624,7 +747,7 @@ if (studentData.dateOfBirth) {
               </button>
             </div>
           )}
-          
+
           <div className="flex justify-end gap-3">
             <button
               type="button"
@@ -644,9 +767,25 @@ if (studentData.dateOfBirth) {
             >
               {bulkLoading ? (
                 <>
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Processing...
                 </>
@@ -655,46 +794,50 @@ if (studentData.dateOfBirth) {
               )}
             </button>
             {failedStudents.length > 0 && (
-  <div className="mt-4 max-h-60 overflow-y-auto border border-red-200 rounded-lg">
-    <div className="bg-red-50 p-3 sticky top-0 border-b border-red-200 flex justify-between items-center">
-      <h4 className="text-red-600 font-semibold">
-        Failed to upload {failedStudents.length} students
-      </h4>
-      <button 
-        onClick={() => setFailedStudents([])} 
-        className="text-red-500 hover:text-red-700 text-sm"
-      >
-        Clear
-      </button>
-    </div>
-    <div className="divide-y divide-red-100">
-      {failedStudents.map((student, idx) => (
-        <div key={idx} className="p-3 hover:bg-red-50">
-          <div className="font-medium text-red-700">
-            {student.regNumber || 'No Reg Number'} - {student.reason}
-          </div>
-          {student.details && student.details.length > 0 && (
-            <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
-              {student.details.map((detail, i) => (
-                <li key={i}>{detail}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
+              <div className="mt-4 max-h-60 overflow-y-auto border border-red-200 rounded-lg">
+                <div className="bg-red-50 p-3 sticky top-0 border-b border-red-200 flex justify-between items-center">
+                  <h4 className="text-red-600 font-semibold">
+                    Failed to upload {failedStudents.length} students
+                  </h4>
+                  <button
+                    onClick={() => setFailedStudents([])}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="divide-y divide-red-100">
+                  {failedStudents.map((student, idx) => (
+                    <div key={idx} className="p-3 hover:bg-red-50">
+                      <div className="font-medium text-red-700">
+                        {student.regNumber || "No Reg Number"} -{" "}
+                        {student.reason}
+                      </div>
+                      {student.details && student.details.length > 0 && (
+                        <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
+                          {student.details.map((detail, i) => (
+                            <li key={i}>{detail}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+      >
         {/* Campus Selection */}
         <div className="md:col-span-2">
-          <label className="block text-gray-700 mb-1 font-medium">Campus *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Campus *
+          </label>
           <select
             name="campus"
             value={formData.campus}
@@ -703,7 +846,7 @@ if (studentData.dateOfBirth) {
             required
           >
             <option value="">Select Campus</option>
-            {campuses.map(campus => (
+            {campuses.map((campus) => (
               <option key={campus._id} value={campus._id}>
                 {campus.name} ({campus.type})
               </option>
@@ -713,7 +856,9 @@ if (studentData.dateOfBirth) {
 
         {/* Admission Year */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Admission Year *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Admission Year *
+          </label>
           <select
             name="admissionYear"
             value={formData.admissionYear}
@@ -721,35 +866,45 @@ if (studentData.dateOfBirth) {
             className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
             required
           >
-            {[2022,2023,2024, 2025, 2026, 2027, 2028].map(year => (
-              <option key={year} value={year}>{year}</option>
+            {[2022, 2023, 2024, 2025, 2026, 2027, 2028].map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
             ))}
           </select>
         </div>
 
         {/* Registration Number */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Registration Number *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Registration Number *
+          </label>
           <input
             type="text"
             name="regNumber"
             value={formData.regNumber}
             onChange={handleChange}
             onBlur={checkRegNumber}
-            className={`w-full border ${regNumberExists ? "border-red-500" : "border-gray-300"} p-2 rounded-md focus:ring-2 focus:ring-orange-500`}
+            className={`w-full border ${
+              regNumberExists ? "border-red-500" : "border-gray-300"
+            } p-2 rounded-md focus:ring-2 focus:ring-orange-500`}
             pattern="\d{6}"
             maxLength={6}
             placeholder="6-digit number"
             required
           />
           {regNumberExists && (
-            <p className="text-red-500 text-sm mt-1">This registration number already exists</p>
+            <p className="text-red-500 text-sm mt-1">
+              This registration number already exists
+            </p>
           )}
         </div>
 
         {/* Student Name */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Student Name *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Student Name *
+          </label>
           <input
             type="text"
             name="studentName"
@@ -760,21 +915,29 @@ if (studentData.dateOfBirth) {
             required
           />
         </div>
-<div>
-  <label className="block text-gray-700 mb-1 font-medium">Date of Birth *</label>
-  <input
-    type="date"
-    name="dateOfBirth"
-    value={formData.dateOfBirthDisplay || formData.dateOfBirth?.split('-').reverse().join('-') || ''}
-    onChange={handleChange}
-    className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
-    required
-  />
-</div>
+        <div>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Date of Birth *
+          </label>
+          <input
+            type="date"
+            name="dateOfBirth"
+            value={
+              formData.dateOfBirthDisplay ||
+              formData.dateOfBirth?.split("-").reverse().join("-") ||
+              ""
+            }
+            onChange={handleChange}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+            required
+          />
+        </div>
 
         {/* Student Image Upload */}
         <div className="md:col-span-2">
-          <label className="block text-gray-700 mb-1 font-medium">Student Photo</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Student Photo
+          </label>
           <div className="flex items-center gap-4">
             <div className="relative">
               <input
@@ -843,7 +1006,9 @@ if (studentData.dateOfBirth) {
 
         {/* Gender */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Gender *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Gender *
+          </label>
           <select
             name="gender"
             value={formData.gender}
@@ -858,7 +1023,9 @@ if (studentData.dateOfBirth) {
 
         {/* Admission Type */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Admission Type *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Admission Type *
+          </label>
           <select
             name="admissionType"
             value={formData.admissionType}
@@ -874,7 +1041,9 @@ if (studentData.dateOfBirth) {
 
         {/* Allotment Type */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Allotment Type *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Allotment Type *
+          </label>
           <select
             name="allotmentType"
             value={formData.allotmentType}
@@ -890,7 +1059,9 @@ if (studentData.dateOfBirth) {
 
         {/* Section */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Section *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Section *
+          </label>
           <input
             type="text"
             name="section"
@@ -904,7 +1075,9 @@ if (studentData.dateOfBirth) {
 
         {/* Father's Name */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Parent's Name *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Parent's Name *
+          </label>
           <input
             type="text"
             name="fatherName"
@@ -917,7 +1090,9 @@ if (studentData.dateOfBirth) {
 
         {/* Father's Mobile */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Parent's Mobile *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Parent's Mobile *
+          </label>
           <input
             type="tel"
             name="fatherMobile"
@@ -933,20 +1108,24 @@ if (studentData.dateOfBirth) {
 
         {/*Email Id */}
         <div>
-        <label className="block text-gray-700 mb-1 font-medium">Parent's Email</label>
-        <input
-          type="email"
-          name="emailId"
-          value={formData.emailId || ''}
-          onChange={handleChange}
-          className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
-          placeholder="parent@example.com"
-        />
-        </div>  
+          <label className="block text-gray-700 mb-1 font-medium">
+            Parent's Email
+          </label>
+          <input
+            type="email"
+            name="emailId"
+            value={formData.emailId || ""}
+            onChange={handleChange}
+            className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-orange-500"
+            placeholder="parent@example.com"
+          />
+        </div>
 
         {/* Address */}
         <div className="md:col-span-2">
-          <label className="block text-gray-700 mb-1 font-medium">Address *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Address *
+          </label>
           <textarea
             name="address"
             value={formData.address}
@@ -959,7 +1138,9 @@ if (studentData.dateOfBirth) {
 
         {/* Alternate Contact */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Alternate Contact *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Alternate Contact *
+          </label>
           <input
             type="tel"
             name="contact"
@@ -975,7 +1156,9 @@ if (studentData.dateOfBirth) {
 
         {/* Medical Issues */}
         <div>
-          <label className="block text-gray-700 mb-1 font-medium">Medical Issues *</label>
+          <label className="block text-gray-700 mb-1 font-medium">
+            Medical Issues *
+          </label>
           <select
             name="medicalIssues"
             value={formData.medicalIssues}
@@ -1013,9 +1196,25 @@ if (studentData.dateOfBirth) {
           >
             {loading ? (
               <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Processing...
               </span>
