@@ -341,56 +341,97 @@ const DownloadReports = () => {
 
   //Bulk PDF
   const generateBulkPDF = async () => {
-    if (!detailedReports.length)
-      return toast.warn("No reports to generate PDF");
+  if (!detailedReports.length)
+    return toast.warn("No reports to generate PDF");
 
-    const doc = new jsPDF();
-    const margin = 15;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = margin;
+  const doc = new jsPDF();
+  const margin = 15;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let y = margin;
 
-    const headerLogo = await loadImageAsBase64("/assets/mainlogo.png");
+  const headerLogo = await loadImageAsBase64("/assets/mainlogo.png");
 
-    // 🔁 Group reports by regNumber
-    const groupedByStudent = {};
-    detailedReports.forEach((report) => {
-      if (!groupedByStudent[report.regNumber])
-        groupedByStudent[report.regNumber] = [];
-      groupedByStudent[report.regNumber].push(report);
+  // 🔁 Group reports by student regNumber
+  const groupedByStudent = {};
+  detailedReports.forEach((report) => {
+    if (!groupedByStudent[report.regNumber])
+      groupedByStudent[report.regNumber] = [];
+    groupedByStudent[report.regNumber].push(report);
+  });
+
+  for (const [reg, reports] of Object.entries(groupedByStudent)) {
+    const student = reports[0];
+
+    // 👤 Load avatar
+    const avatarURL =
+      student.studentImageURL ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        student.studentName
+      )}&background=random&color=fff&size=128`;
+    const avatar = await fetchImageAsBase64(avatarURL);
+
+    // 🏫 Header
+    if (headerLogo) {
+      doc.addImage(headerLogo, "PNG", margin, y, 16, 16);
+    }
+    doc.setFontSize(15);
+    doc.setTextColor(30, 30, 30);
+    doc.text("Parishrama Institutions", margin + 20, y + 12);
+    doc.setDrawColor(200);
+    doc.line(margin, y + 20, pageWidth - margin, y + 20);
+    y += 28;
+
+    // 🧍 Student Info
+    doc.setFontSize(14);
+    doc.setTextColor(40, 40, 40);
+    doc.text(`Name: ${student.studentName || "N/A"}`, margin, y);
+    y += 6;
+    doc.text(`Reg No: ${reg}`, margin, y);
+    y += 6;
+    doc.text(`Campus: ${student.campus || "N/A"}`, margin, y);
+    y += 6;
+    doc.text(`Section: ${student.section || "N/A"}`, margin, y);
+    y += 6;
+    doc.text(`Stream: ${student.stream || "N/A"}`, margin, y);
+    y += 10;
+
+    // 🖼️ Avatar
+    if (avatar) {
+      doc.addImage(
+        avatar,
+        "JPEG",
+        doc.internal.pageSize.width - 45,
+        y - 40,
+        25,
+        25
+      );
+    }
+
+    // 📂 Group Tests
+    const grouped = {
+      "Daily Tests": [],
+      "Weekly Tests": [],
+      Others: [],
+    };
+
+    reports.forEach((test) => {
+      if (/DT/i.test(test.testName)) grouped["Daily Tests"].push(test);
+      else if (/WT/i.test(test.testName)) grouped["Weekly Tests"].push(test);
+      else grouped["Others"].push(test);
     });
 
-    for (const [reg, reports] of Object.entries(groupedByStudent)) {
-      const student = reports[0];
+    // 📊 Render tests
+    for (const category of Object.keys(grouped)) {
+      const tests = grouped[category].sort((a, b) =>
+        a.testName.localeCompare(b.testName)
+      );
 
-      // 🏫 Header
-      if (headerLogo) {
-        doc.addImage(headerLogo, "PNG", margin, y, 16, 16);
-      }
-      doc.setFontSize(15);
-      doc.setTextColor(30, 30, 30);
-      doc.text("Parishrama Institutions", margin + 20, y + 12);
-
-      // 🔻 Line separator
-      doc.setDrawColor(200);
-      doc.line(margin, y + 20, pageWidth - margin, y + 20);
-      y += 28;
-
-      // 👤 Student Info
       doc.setFontSize(13);
-      doc.setTextColor(40, 40, 40);
-      doc.text(`Name: ${student.studentName || "N/A"}`, margin, y);
-      y += 6;
-      doc.text(`Reg No: ${reg}`, margin, y);
-      y += 6;
-      doc.text(`Campus: ${student.campus || "N/A"}`, margin, y);
-      y += 6;
-      doc.text(`Section: ${student.section || "N/A"}`, margin, y);
-      y += 6;
-      doc.text(`Stream: ${student.stream || "N/A"}`, margin, y);
-      y += 10;
+      doc.setTextColor(20, 20, 100);
+      doc.text(category, margin, y);
+      y += 8;
 
-      // 📚 Tests for each student
-      reports.forEach((test) => {
+      for (const test of tests) {
         doc.setFontSize(11);
         doc.setTextColor(50, 50, 50);
         doc.text(
@@ -405,8 +446,8 @@ const DownloadReports = () => {
         if (test.subjects?.length) {
           const subjectRows = test.subjects.map((s) => [
             s.name || s.subjectName || "Subject",
-            String(s.scored ?? s.marks ?? s.obtainedMarks ?? "0"),
             String(s.max ?? s.totalMarks ?? s.fullMarks ?? "0"),
+            String(s.scored ?? s.marks ?? s.obtainedMarks ?? "0"),
             "",
           ]);
 
@@ -427,7 +468,7 @@ const DownloadReports = () => {
           subjectRows.push(rankRow);
 
           autoTable(doc, {
-            head: [["Subject", "Obtained", "Max", ""]],
+            head: [["Subject", "Max Marks", "Obtained", ""]],
             body: subjectRows,
             theme: "grid",
             startY: y,
@@ -468,14 +509,21 @@ const DownloadReports = () => {
           doc.addPage();
           y = margin;
         }
-      });
+      }
 
-      doc.addPage();
-      y = margin;
+      y += 10;
+      if (y > 270) {
+        doc.addPage();
+        y = margin;
+      }
     }
 
-    doc.save(`${selectedCampus.replace(/\s/g, "_")}_Detailed_Report.pdf`);
-  };
+    doc.addPage();
+    y = margin;
+  }
+
+  doc.save(`${selectedCampus.replace(/\s/g, "_")}_Detailed_Report.pdf`);
+};
 
   //Helper functions to display Image in PDF
   const fetchImageAsBase64 = async (url) => {
