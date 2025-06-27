@@ -40,11 +40,14 @@ export default function NewReport({ onClose }) {
   const [isTheoryTest, setIsTheoryTest] = useState(false);
   const [subjects, setSubjects] = useState([]);
   const [subjectDetails, setSubjectDetails] = useState([]);
+  const [nonExistentRegNumbers, setNonExistentRegNumbers] = useState({});
+  const [showAllNonExistent, setShowAllNonExistent] = useState(false);
+  const [validatingRegNumbers, setValidatingRegNumbers] = useState(false);
 
   // Marks type options
   const marksTypeOptions = [
-    "+1 CorrectAnswer, 0 WrongAnswer, 0 Unmarked",
-    "+4 CorrectAnswer, -1 WrongAnswer, 0 Unmarked",
+    "+1 CorrectAnswer, 0 WrongAction, 0 Unmarked",
+    "+4 CorrectAnswer, -1 WrongAction, 0 Unmarked",
   ];
 
   // Fetch test names when stream changes (only for MCQ)
@@ -165,7 +168,7 @@ export default function NewReport({ onClose }) {
     reader.readAsBinaryString(file);
   };
 
-  const parseExcel = (data) => {
+  const parseExcel = async (data) => {
     try {
       const workbook = XLSX.read(data, { type: "binary" });
       const firstSheetName = workbook.SheetNames[0];
@@ -173,9 +176,9 @@ export default function NewReport({ onClose }) {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
       if (isTheoryTest) {
-        processTheoryData(jsonData);
+        await processTheoryData(jsonData);
       } else {
-        processMCQData(jsonData);
+        await processMCQData(jsonData);
       }
     } catch (err) {
       setError("Invalid Excel file format");
@@ -186,16 +189,16 @@ export default function NewReport({ onClose }) {
   const parseCSV = (data) => {
     Papa.parse(data, {
       header: true,
-      complete: (results) => {
+      complete: async (results) => {
         if (results.errors.length > 0) {
           setError("CSV parsing errors detected");
           console.error("CSV errors:", results.errors);
         }
 
         if (isTheoryTest) {
-          processTheoryData(results.data);
+          await processTheoryData(results.data);
         } else {
-          processMCQData(results.data);
+          await processMCQData(results.data);
         }
       },
       error: (err) => {
@@ -205,7 +208,44 @@ export default function NewReport({ onClose }) {
     });
   };
 
-  const processMCQData = (data) => {
+  const validateRegNumbers = async (data) => {
+    const invalid = {};
+    const token = localStorage.getItem("token");
+    setValidatingRegNumbers(true);
+
+    try {
+      // Process one by one using the existing endpoint
+      for (let i = 0; i < data.length; i++) {
+        const regNumber = String(data[i].regNumber).trim();
+        
+        try {
+          const response = await axios.get(
+            `${process.env.REACT_APP_URL}/api/checkregnumber/${regNumber}`,
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          
+          if (!response.data.exists) {
+            invalid[i] = regNumber;
+          }
+        } catch (err) {
+          console.error(`Error validating RegNo ${regNumber}:`, err);
+        }
+        
+        // Small delay to avoid overwhelming the server
+        if (i % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+    } finally {
+      setValidatingRegNumbers(false);
+    }
+    
+    return invalid;
+  };
+
+  const processMCQData = async (data) => {
     if (!data || data.length === 0) {
       setError("No valid data found in the file");
       setParsedData([]);
@@ -285,6 +325,11 @@ export default function NewReport({ onClose }) {
       });
       setEditableRegNumbers(invalidRegNumbers);
       setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
+      
+      // Validate against database
+      const nonExistent = await validateRegNumbers(processed);
+      setNonExistentRegNumbers(nonExistent);
+      
       setError("");
     } catch (err) {
       setError("Error processing file data");
@@ -293,7 +338,7 @@ export default function NewReport({ onClose }) {
     }
   };
 
-  const processTheoryData = (data) => {
+  const processTheoryData = async (data) => {
     if (!data || data.length === 0) {
       setError("No valid data found in the file");
       setParsedData([]);
@@ -373,6 +418,10 @@ export default function NewReport({ onClose }) {
       });
       setEditableRegNumbers(invalidRegNumbers);
       setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
+      
+      // Validate against database
+      const nonExistent = await validateRegNumbers(processed);
+      setNonExistentRegNumbers(nonExistent);
 
       setError("");
     } catch (err) {
@@ -430,8 +479,8 @@ export default function NewReport({ onClose }) {
     setParsedData(updatedData);
     setEditableRegNumbers({});
     setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+    setNonExistentRegNumbers(await validateRegNumbers(updatedData));
   };
-
   const downloadErrorFile = () => {
     const rows = [];
 
@@ -465,6 +514,17 @@ export default function NewReport({ onClose }) {
           RegNumber: reg,
           File: filePath,
         });
+      });
+    });
+    
+    // Non-existent RegNumbers
+    Object.entries(nonExistentRegNumbers).forEach(([index, reg]) => {
+      const filePath = parsedData[index]?.filePath || "";
+      rows.push({
+        Row: parseInt(index) + 1,
+        Issue: "Not Found in Database",
+        RegNumber: reg,
+        File: filePath,
       });
     });
 
@@ -523,7 +583,6 @@ export default function NewReport({ onClose }) {
                   validChanges.push({ index, newReg });
                 }
               } catch (err) {
-                //toast.error(`Validation error for RegNo ${newReg}`);
                 console.error(err);
               }
             }
@@ -537,11 +596,9 @@ export default function NewReport({ onClose }) {
           setParsedData(updatedData);
           setEditableRegNumbers({});
           setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
-
-          //toast.success("Reuploaded corrections applied successfully!");
+          setNonExistentRegNumbers(await validateRegNumbers(updatedData));
         },
         error: (err) => {
-          //toast.error("Failed to parse error file");
           console.error("CSV Parse Error:", err);
         },
       });
@@ -575,8 +632,26 @@ export default function NewReport({ onClose }) {
         );
       }
 
+      // Check non-existent reg numbers
+      if (Object.keys(nonExistentRegNumbers).length > 0) {
+        throw new Error(
+          `There are ${
+            Object.keys(nonExistentRegNumbers).length
+          } registration numbers not found in the database`
+        );
+      }
+
+      // Check duplicate reg numbers
+      if (Object.keys(duplicateRegNumbers).length > 0) {
+        throw new Error(
+          `There are ${
+            Object.keys(duplicateRegNumbers).length
+          } duplicate registration numbers`
+        );
+      }
+
       if (isTheoryTest) {
-        const hasEmptySubject = subjectDetails.some(sub => !sub.name);
+        const hasEmptySubject = subjectDetails.some((sub) => !sub.name);
         if (hasEmptySubject) {
           throw new Error("Please select all subject names");
         }
@@ -703,6 +778,12 @@ export default function NewReport({ onClose }) {
               }`}
             >
               {error}
+            </div>
+          )}
+
+          {validatingRegNumbers && (
+            <div className="mb-4 p-3 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
+              Validating registration numbers against database...
             </div>
           )}
 
@@ -967,6 +1048,67 @@ export default function NewReport({ onClose }) {
                 </div>
               </div>
             )}
+            {Object.keys(nonExistentRegNumbers).length > 0 && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Non-existent Registration Numbers (
+                    {Object.keys(nonExistentRegNumbers).length} found)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllNonExistent(!showAllNonExistent)}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {showAllNonExistent ? "Show Less" : "Show All"}
+                  </button>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-md border border-purple-200">
+                  <p className="text-sm text-purple-700 mb-3">
+                    These registration numbers were not found in the database:
+                  </p>
+                  <div className="space-y-2">
+                    {(showAllNonExistent
+                      ? Object.entries(nonExistentRegNumbers)
+                      : Object.entries(nonExistentRegNumbers).slice(0, 6)
+                    ).map(([index, reg]) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <span className="text-sm font-medium w-24">
+                          Row {parseInt(index) + 1}:
+                        </span>
+                        <input
+                          type="text"
+                          value={
+                            editableRegNumbers[index] !== undefined
+                              ? editableRegNumbers[index]
+                              : reg
+                          }
+                          onChange={(e) =>
+                            handleRegNumberChange(index, e.target.value)
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                        />
+                        <span className="text-sm text-gray-500">
+                          Original: {reg}
+                        </span>
+                        {parsedData[index]?.filePath && (
+                          <span className="text-sm text-gray-500 break-all max-w-[200px]">
+                            File: {parsedData[index].filePath}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={updateParsedDataWithEdits}
+                    className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Apply Changes
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Duplicate Registration Numbers Section */}
             {Object.keys(duplicateRegNumbers).length > 0 && (
@@ -1180,15 +1322,20 @@ export default function NewReport({ onClose }) {
                 disabled={
                   loading ||
                   isUploading ||
+                  validatingRegNumbers ||
                   (!isTheoryTest && testNames.length === 0) ||
                   invalidRegNumbers.length > 0 ||
-                  Object.keys(duplicateRegNumbers).length > 0
+                  Object.keys(duplicateRegNumbers).length > 0 ||
+                  Object.keys(nonExistentRegNumbers).length > 0
                 }
                 className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                   loading ||
                   isUploading ||
+                  validatingRegNumbers ||
                   (!isTheoryTest && testNames.length === 0) ||
-                  invalidRegNumbers.length > 0
+                  invalidRegNumbers.length > 0 ||
+                  Object.keys(duplicateRegNumbers).length > 0 ||
+                  Object.keys(nonExistentRegNumbers).length > 0
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                 }`}
