@@ -23,7 +23,7 @@ const DownloadReports = () => {
   const [selectedCampus, setSelectedCampus] = useState("");
   const [detailedReports, setDetailedReports] = useState([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
-
+  const [isDownloading, setIsDownloading] = useState(false);
   // Tab state
   const [activeTab, setActiveTab] = useState("individual");
 
@@ -175,306 +175,535 @@ const DownloadReports = () => {
 
     const headerLogo = await loadImageAsBase64("/assets/mainlogo.png");
 
-    const avatarURL =
-      selectedStudent.studentImageURL ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        selectedStudent.studentName
-      )}&background=random&color=fff&size=128`;
-    const avatar = await fetchImageAsBase64(avatarURL);
-
     if (headerLogo) {
-      doc.addImage(headerLogo, "PNG", margin, y, 16, 16);
+      doc.addImage(headerLogo, "PNG", margin, y, 18, 18);
     }
     doc.setFontSize(15);
     doc.setTextColor(30, 30, 30);
-    doc.text("Parishrama Institutions", margin + 20, y + 12);
+    doc.text("Parishrama Institutions", margin + 22, y + 12);
 
-    // 🔻 Line separator
     doc.setDrawColor(200);
     doc.line(margin, y + 20, doc.internal.pageSize.width - margin, y + 20);
     y += 28;
 
-    // 🧍 Student Info
+    // 🧾 Progress Report Title
     doc.setFontSize(16);
     doc.setTextColor(40, 40, 40);
-    doc.text("Student Report", margin, y);
+    doc.text("Progress Report", doc.internal.pageSize.width / 2, y, {
+      align: "center",
+    });
     y += 10;
 
-    if (avatar) {
-      doc.addImage(
-        avatar,
-        "JPEG",
-        doc.internal.pageSize.width - 45,
-        y - 10,
-        25,
-        25
-      );
-    }
-
+    // 📋 Side-by-side Personal & Academic Details
     doc.setFontSize(12);
+    doc.setTextColor(40, 40, 40);
+    doc.text("Personal Details", margin, y);
+    doc.text("Academic Details", margin + 100, y);
+    y += 6;
+
     doc.setTextColor(60, 60, 60);
     doc.text(`Name: ${selectedStudent.studentName}`, margin, y);
+    doc.text(`Reg No: ${selectedStudent.regNumber}`, margin + 100, y);
     y += 6;
-    doc.text(`Reg No: ${selectedStudent.regNumber}`, margin, y);
-    y += 6;
-    doc.text(`Campus: ${selectedStudent.campus?.name || "N/A"}`, margin, y);
-    y += 6;
-    doc.text(`Section: ${selectedStudent.section || "N/A"}`, margin, y);
+    doc.text(`DOB: ${selectedStudent.dateOfBirth || "N/A"}`, margin, y);
+    doc.text(
+      `Campus: ${selectedStudent.campus?.name || "N/A"}`,
+      margin + 100,
+      y
+    );
     y += 6;
     doc.text(`Parent: ${selectedStudent.fatherName || "N/A"}`, margin, y);
+    doc.text(`Section: ${selectedStudent.section || "N/A"}`, margin + 100, y);
     y += 6;
     doc.text(`Mobile: ${selectedStudent.fatherMobile || "N/A"}`, margin, y);
     y += 10;
 
-    // 📂 Group Tests
     const grouped = {
       "Daily Tests": [],
       "Weekly Tests": [],
+      "Theory Tests": [],
       Others: [],
     };
 
     allReports.forEach((test) => {
-      if (/DT/i.test(test.testName)) grouped["Daily Tests"].push(test);
-      else if (/WT/i.test(test.testName)) grouped["Weekly Tests"].push(test);
-      else grouped["Others"].push(test);
+      const name = test.testName.toUpperCase();
+
+      if (name.includes("BPCT") || name.includes("BPWT")) {
+        // Exclude these
+        return;
+      }
+
+      if (name.includes("PDT") || name.includes("IPDT")) {
+        grouped["Daily Tests"].push(test);
+      } else if (
+        name.includes("PCT") ||
+        name.includes("PWT") ||
+        name.includes("IPCT") ||
+        name.includes("IPWT")
+      ) {
+        grouped["Weekly Tests"].push(test);
+      } else if (name.includes("PTT")) {
+        grouped["Theory Tests"].push(test);
+      } else {
+        grouped["Others"].push(test);
+      }
     });
 
+    const extractNumber = (str) => {
+      const match = str.replace(/\s+/g, "").match(/(\d+)/);
+      return match ? parseInt(match[0]) : 0;
+    };
+
+    const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
+
     Object.keys(grouped).forEach((category) => {
-      const tests = grouped[category].sort((a, b) =>
-        a.testName.localeCompare(b.testName)
+      const tests = grouped[category].sort(
+        (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
       );
 
       doc.setFontSize(13);
       doc.setTextColor(20, 20, 100);
       doc.text(category, margin, y);
-      y += 8;
+      y += 6;
+
+      const headers = [
+        "Test Name",
+        "Date",
+        ...allSubjects,
+        "Total Marks",
+        "Max Marks",
+        "Percentile",
+        "Rank",
+      ];
+
+      const rows = [];
+      let allTotals = [];
+      let bestTest = null;
+      let lowestTest = null;
 
       tests.forEach((test) => {
-        doc.setFontSize(11);
-        doc.setTextColor(50, 50, 50);
-        doc.text(
-          `Test: ${test.testName} (${new Date(test.date).toLocaleDateString(
-            "en-IN"
-          )}) - ${test.type || ""}`,
-          margin,
-          y
-        );
-        y += 6;
+        const row = [
+          test.testName,
+          new Date(test.date).toLocaleDateString("en-IN"),
+        ];
+        let total = 0;
+        let full = 0;
 
-        if (test.subjects?.length) {
-          const subjectRows = test.subjects.map((s) => [
-            s.name || s.subjectName || "Subject",
-            String(s.max ?? s.totalMarks ?? s.fullMarks ?? "0"),
-            String(s.scored ?? s.marks ?? s.obtainedMarks ?? "0"),
-            "",
-          ]);
-
-          const calculatedFullMarks =
-            test.subjects.reduce(
-              (sum, s) => sum + (s.max ?? s.totalMarks ?? s.fullMarks ?? 0),
-              0
-            ) || "-";
-
-          const rankRow = [
-            "",
-            "",
-            "",
-            `Rank: ${test.rank ?? "-"}, Total: ${
-              test.totalMarks || 0
-            }/${calculatedFullMarks}`,
-          ];
-          subjectRows.push(rankRow);
-
-          autoTable(doc, {
-            head: [["Subject", "Max Marks", "Obtained", ""]],
-            body: subjectRows,
-            theme: "grid",
-            startY: y,
-            styles: {
-              fontSize: 9,
-              halign: "center",
-              cellPadding: 3,
-            },
-            headStyles: {
-              fillColor: [41, 128, 185],
-              textColor: 255,
-              fontStyle: "bold",
-            },
-            columnStyles: {
-              1: { halign: "right" },
-              2: { halign: "right" },
-              3: { halign: "left" },
-            },
-            margin: { left: margin + 2, right: margin },
-            didDrawPage: (data) => {
-              y = data.cursor.y + 10;
-            },
-          });
-        } else {
-          doc.text(
-            `Score: ${test.totalMarks || 0} / ${test.fullMarks || "-"}`,
-            margin + 10,
-            y
+        allSubjects.forEach((subj) => {
+          const found = test.subjects?.find(
+            (s) => s.name === subj || s.subjectName === subj
           );
-          y += 6;
-          if (test.percentage)
-            doc.text(`Percentage: ${test.percentage}%`, margin + 10, y);
-          if (test.rank) doc.text(`Rank: ${test.rank}`, margin + 80, y);
-          y += 10;
+          const marks =
+            found?.scored ?? found?.marks ?? found?.obtainedMarks ?? 0;
+          const max = found?.max ?? found?.totalMarks ?? found?.fullMarks ?? 0;
+          row.push(String(marks || 0));
+          total += Number(marks);
+          full += Number(max);
+        });
+
+        if (total === 0 && full === 0) {
+          for (let i = 2; i < 6; i++) row[i] = "Absent";
+          row.push("0", "0", "-", test.rank ?? "-");
+        } else {
+          row.push(
+            total.toString(),
+            full.toString(),
+            test.percentile?.toString() ?? "-",
+            test.rank?.toString() ?? "-"
+          );
         }
 
-        if (y > 270) {
-          doc.addPage();
-          y = margin;
-        }
+        if (!bestTest || total > bestTest.total)
+          bestTest = { name: test.testName, total, full };
+        if (!lowestTest || total < lowestTest.total)
+          lowestTest = { name: test.testName, total, full };
+
+        allTotals.push(total);
+        rows.push(row);
       });
 
-      y += 10;
+      if (allTotals.length) {
+        const avg = (
+          allTotals.reduce((a, b) => a + b, 0) / allTotals.length
+        ).toFixed(2);
+        rows.push(["Average", "", "", "", "", "", avg, "", "", ""]);
+        rows.push([
+          `Best: ${bestTest.name}`,
+          "",
+          "",
+          "",
+          "",
+          "",
+          `${bestTest.total}/${bestTest.full}`,
+          "",
+          "",
+          "",
+        ]);
+        rows.push([
+          `Lowest: ${lowestTest.name}`,
+          "",
+          "",
+          "",
+          "",
+          "",
+          `${lowestTest.total}/${lowestTest.full}`,
+          "",
+          "",
+          "",
+        ]);
+      }
+
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: y,
+        styles: { fontSize: 9, halign: "center", cellPadding: 2 },
+        headStyles: {
+          fillColor: [26, 188, 156],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        margin: { left: margin, right: margin },
+        didDrawPage: (data) => {
+          y = data.cursor.y + 10;
+        },
+      });
+
       if (y > 270) {
         doc.addPage();
         y = margin;
       }
     });
+    doc.addPage();
+    appendCounsellingForms(doc, margin);
 
     doc.save(`${selectedStudent.regNumber}_Detailed_Report.pdf`);
   };
 
+  const appendCounsellingForms = (doc, margin) => {
+    const departments = [
+      "Physics",
+      "Chemistry",
+      "Biology",
+      "Mathematics",
+      "______________", // for 'Others'
+    ];
+
+    const questions = [
+      "Alertness in Classroom",
+      "Understanding Levels",
+      "Effectiveness in Reading",
+      "Memory Skills",
+      "MCQ Solving Ability",
+      "Time Management in Tests",
+      "Class Notes Verification & Handwriting",
+      "Ability to solve Questions in Theory Tests",
+      "Study Planning & Strategy",
+    ];
+
+    const fullWidth = doc.internal.pageSize.width - margin * 2;
+    let yStart = 20;
+
+    departments.forEach((dept, index) => {
+      // Add new page for every 2 forms (0 & 1 on page 1, 2 & 3 on page 2, etc.)
+      if (index % 2 === 0 && index !== 0) {
+        doc.addPage();
+        yStart = 20;
+      }
+
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text(`Department of ${dept}`, margin, yStart);
+
+      const tableData = questions.map((q) => [q, "", "", "", ""]);
+      tableData.push([
+        "Lecturer Name & Signature with Date",
+        "",
+        "",
+        "",
+        "Student Signature",
+      ]);
+
+      autoTable(doc, {
+        startY: yStart + 5,
+        head: [["Questions", "Good", "Average", "Poor", "Suggestions"]],
+        body: tableData,
+        styles: { fontSize: 8, cellPadding: 1.8 },
+        headStyles: {
+          fillColor: [26, 188, 156],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        margin: { left: margin, right: margin },
+        tableWidth: fullWidth,
+        didDrawPage: (data) => {
+          yStart = data.cursor.y + 12;
+        },
+      });
+    });
+  };
+
   //Bulk PDF
-  const generateBulkPDF = async () => {
-    if (!detailedReports.length)
-      return toast.warn("No reports to generate PDF");
+  const generateBulkPDF = async (
+    studentsList,
+    reportsData,
+    theoryReportsData
+  ) => {
+    if (!Array.isArray(studentsList) || !studentsList.length) {
+      toast.error("No student data to generate bulk PDF");
+      return;
+    }
 
     const doc = new jsPDF();
     const margin = 15;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = margin;
-
+    const token = localStorage.getItem("token");
     const headerLogo = await loadImageAsBase64("/assets/mainlogo.png");
 
-    // 🔁 Group reports by regNumber
-    const groupedByStudent = {};
-    detailedReports.forEach((report) => {
-      if (!groupedByStudent[report.regNumber])
-        groupedByStudent[report.regNumber] = [];
-      groupedByStudent[report.regNumber].push(report);
-    });
-
-    for (const [reg, reports] of Object.entries(groupedByStudent)) {
-      const student = reports[0];
-
-      // 🏫 Header
-      if (headerLogo) {
-        doc.addImage(headerLogo, "PNG", margin, y, 16, 16);
-      }
-      doc.setFontSize(15);
-      doc.setTextColor(30, 30, 30);
-      doc.text("Parishrama Institutions", margin + 20, y + 12);
-
-      // 🔻 Line separator
-      doc.setDrawColor(200);
-      doc.line(margin, y + 20, pageWidth - margin, y + 20);
-      y += 28;
-
-      // 👤 Student Info
-      doc.setFontSize(13);
-      doc.setTextColor(40, 40, 40);
-      doc.text(`Name: ${student.studentName || "N/A"}`, margin, y);
-      y += 6;
-      doc.text(`Reg No: ${reg}`, margin, y);
-      y += 6;
-      doc.text(`Campus: ${student.campus || "N/A"}`, margin, y);
-      y += 6;
-      doc.text(`Section: ${student.section || "N/A"}`, margin, y);
-      y += 6;
-      doc.text(`Stream: ${student.stream || "N/A"}`, margin, y);
-      y += 10;
-
-      // 📚 Tests for each student
-      reports.forEach((test) => {
-        doc.setFontSize(11);
-        doc.setTextColor(50, 50, 50);
-        doc.text(
-          `Test: ${test.testName} (${new Date(test.date).toLocaleDateString(
-            "en-IN"
-          )}) - ${test.type || ""}`,
-          margin,
-          y
+    for (const student of studentsList) {
+      // Fetch full student data from backend
+      let selectedStudent = { regNumber: student.regNumber };
+      try {
+        const res = await axios.get(
+          `${BASE_URL}/api/getstudentbyreg/${student.regNumber}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        y += 6;
+        selectedStudent = res.data.data;
+      } catch (err) {
+        console.warn(
+          `Warning: Couldn't fetch data for ${student.regNumber}`,
+          err
+        );
+        continue; // Skip this student if fetch fails
+      }
 
-        if (test.subjects?.length) {
-          const subjectRows = test.subjects.map((s) => [
-            s.name || s.subjectName || "Subject",
-            String(s.scored ?? s.marks ?? s.obtainedMarks ?? "0"),
-            String(s.max ?? s.totalMarks ?? s.fullMarks ?? "0"),
-            "",
-          ]);
+      const studentReports = reportsData.filter(
+        (r) => r.regNumber === student.regNumber
+      );
+      const theory = theoryReportsData.filter(
+        (r) => r.regNumber === student.regNumber
+      );
 
-          const calculatedFullMarks =
-            test.subjects.reduce(
-              (sum, s) => sum + (s.max ?? s.totalMarks ?? s.fullMarks ?? 0),
-              0
-            ) || "-";
+      const allReports = [...studentReports, ...theory];
+      if (!allReports.length) continue;
 
-          const rankRow = [
-            "",
-            "",
-            "",
-            `Rank: ${test.rank ?? "-"}, Total: ${
-              test.totalMarks || 0
-            }/${calculatedFullMarks}`,
-          ];
-          subjectRows.push(rankRow);
+      const grouped = {
+        "Daily Tests": [],
+        "Weekly Tests": [],
+        "Theory Tests": [],
+        Others: [],
+      };
 
-          autoTable(doc, {
-            head: [["Subject", "Obtained", "Max", ""]],
-            body: subjectRows,
-            theme: "grid",
-            startY: y,
-            styles: {
-              fontSize: 9,
-              halign: "center",
-              cellPadding: 3,
-            },
-            headStyles: {
-              fillColor: [41, 128, 185],
-              textColor: 255,
-              fontStyle: "bold",
-            },
-            columnStyles: {
-              1: { halign: "right" },
-              2: { halign: "right" },
-              3: { halign: "left" },
-            },
-            margin: { left: margin + 2, right: margin },
-            didDrawPage: (data) => {
-              y = data.cursor.y + 10;
-            },
-          });
+      allReports.forEach((test) => {
+        const name = test.testName?.toUpperCase?.() || "";
+        if (name.includes("BPCT") || name.includes("BPWT")) return;
+
+        if (name.includes("PDT") || name.includes("IPDT")) {
+          grouped["Daily Tests"].push(test);
+        } else if (
+          name.includes("PCT") ||
+          name.includes("PWT") ||
+          name.includes("IPCT") ||
+          name.includes("IPWT")
+        ) {
+          grouped["Weekly Tests"].push(test);
+        } else if (name.includes("PTT")) {
+          grouped["Theory Tests"].push(test);
         } else {
-          doc.text(
-            `Score: ${test.totalMarks || 0} / ${test.fullMarks || "-"}`,
-            margin + 10,
-            y
-          );
-          y += 6;
-          if (test.percentage)
-            doc.text(`Percentage: ${test.percentage}%`, margin + 10, y);
-          if (test.rank) doc.text(`Rank: ${test.rank}`, margin + 80, y);
-          y += 10;
-        }
-
-        if (y > 270) {
-          doc.addPage();
-          y = margin;
+          grouped["Others"].push(test);
         }
       });
 
+      let y = margin;
+
+      if (headerLogo) {
+        doc.addImage(headerLogo, "PNG", margin, y, 18, 18);
+      }
+
+      doc.setFontSize(15);
+      doc.setTextColor(30, 30, 30);
+      doc.text("Parishrama Institutions", margin + 22, y + 12);
+      doc.setDrawColor(200);
+      doc.line(margin, y + 20, doc.internal.pageSize.width - margin, y + 20);
+      y += 28;
+
+      doc.setFontSize(16);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Progress Report", doc.internal.pageSize.width / 2, y, {
+        align: "center",
+      });
+      y += 10;
+
+      doc.setFontSize(12);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Personal Details", margin, y);
+      doc.text("Academic Details", margin + 100, y);
+      y += 6;
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Name: ${selectedStudent.studentName || "-"}`, margin, y);
+      doc.text(`Reg No: ${selectedStudent.regNumber}`, margin + 100, y);
+      y += 6;
+      const formatDate = (isoDate) => {
+        if (!isoDate) return "-";
+        const d = new Date(isoDate);
+        return `${String(d.getDate()).padStart(2, "0")}-${String(
+          d.getMonth() + 1
+        ).padStart(2, "0")}-${d.getFullYear()}`;
+      };
+
+      doc.text(`DOB: ${formatDate(selectedStudent.dateOfBirth)}`, margin, y);
+      doc.text(
+        `Campus: ${selectedStudent?.campus?.name || "-"}`,
+        margin + 100,
+        y
+      );
+      y += 6;
+      doc.text(`Parent: ${selectedStudent.fatherName || "-"}`, margin, y);
+      doc.text(`Section: ${selectedStudent.section || "-"}`, margin + 100, y);
+      y += 6;
+      doc.text(`Mobile: ${selectedStudent.fatherMobile || "-"}`, margin, y);
+      y += 10;
+
+      const extractNumber = (str) => {
+        const match = str.replace(/\s+/g, "").match(/(\d+)/);
+        return match ? parseInt(match[0]) : 0;
+      };
+
+      const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
+
+      let pagesUsed = 0;
+
+      for (const [category, tests] of Object.entries(grouped)) {
+        if (!tests.length) continue;
+
+        tests.sort(
+          (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
+        );
+
+        doc.setFontSize(13);
+        doc.setTextColor(20, 20, 100);
+        doc.text(category, margin, y);
+        y += 6;
+
+        const headers = [
+          "Test Name",
+          "Date",
+          ...allSubjects,
+          "Total Marks",
+          "Max Marks",
+          "Percentile",
+          "Rank",
+        ];
+
+        const rows = [];
+        let allTotals = [];
+        let bestTest = null;
+        let lowestTest = null;
+
+        tests.forEach((test) => {
+          const row = [
+            test.testName,
+            new Date(test.date).toLocaleDateString("en-IN"),
+          ];
+          let total = 0;
+          let full = 0;
+
+          allSubjects.forEach((subj) => {
+            const found = test.subjects?.find(
+              (s) => s.name === subj || s.subjectName === subj
+            );
+            const marks =
+              found?.scored ?? found?.marks ?? found?.obtainedMarks ?? 0;
+            const max =
+              found?.max ?? found?.totalMarks ?? found?.fullMarks ?? 0;
+            row.push(String(marks || 0));
+            total += Number(marks);
+            full += Number(max);
+          });
+
+          if (total === 0 && full === 0) {
+            for (let i = 2; i < 6; i++) row[i] = "Absent";
+            row.push("0", "0", "-", test.rank ?? "-");
+          } else {
+            row.push(
+              total.toString(),
+              full.toString(),
+              test.percentile?.toString() ?? "-",
+              test.rank?.toString() ?? "-"
+            );
+          }
+
+          if (!bestTest || total > bestTest.total)
+            bestTest = { name: test.testName, total, full };
+          if (!lowestTest || total < lowestTest.total)
+            lowestTest = { name: test.testName, total, full };
+
+          allTotals.push(total);
+          rows.push(row);
+        });
+
+        if (allTotals.length) {
+          const avg = (
+            allTotals.reduce((a, b) => a + b, 0) / allTotals.length
+          ).toFixed(2);
+          rows.push(["Average", "", "", "", "", "", avg, "", "", ""]);
+          rows.push([
+            `Best: ${bestTest.name}`,
+            "",
+            "",
+            "",
+            "",
+            "",
+            `${bestTest.total}/${bestTest.full}`,
+            "",
+            "",
+            "",
+          ]);
+          rows.push([
+            `Lowest: ${lowestTest.name}`,
+            "",
+            "",
+            "",
+            "",
+            "",
+            `${lowestTest.total}/${lowestTest.full}`,
+            "",
+            "",
+            "",
+          ]);
+        }
+
+        autoTable(doc, {
+          head: [headers],
+          body: rows,
+          startY: y,
+          styles: { fontSize: 9, halign: "center", cellPadding: 2 },
+          headStyles: {
+            fillColor: [26, 188, 156],
+            textColor: 255,
+            fontStyle: "bold",
+          },
+          margin: { left: margin, right: margin },
+          didDrawPage: (data) => {
+            y = data.cursor.y + 10;
+          },
+        });
+
+        if (++pagesUsed < 2) {
+          doc.addPage();
+          y = margin;
+        }
+      }
+
+      // From page 3 onward, append counselling forms
       doc.addPage();
-      y = margin;
+      appendCounsellingForms(doc, margin);
     }
 
-    doc.save(`${selectedCampus.replace(/\s/g, "_")}_Detailed_Report.pdf`);
+    doc.save("Bulk_Student_Reports.pdf");
   };
 
   //Helper functions to display Image in PDF
@@ -510,11 +739,9 @@ const DownloadReports = () => {
         resolve(null);
       }
     });
-
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">Download Student Reports</h2>
-
       <div className="flex border-b mb-4">
         <button
           className={`px-4 py-2 font-medium ${
@@ -537,7 +764,6 @@ const DownloadReports = () => {
           Bulk Download
         </button>
       </div>
-
       {activeTab === "individual" && (
         <div className="border p-4 rounded shadow-md">
           <form onSubmit={handleSearch} className="relative mb-4">
@@ -645,7 +871,6 @@ const DownloadReports = () => {
           )}
         </div>
       )}
-
       {activeTab === "bulk" && (
         <div className="border p-4 rounded shadow-md">
           <div className="flex gap-4 mb-4">
@@ -668,11 +893,50 @@ const DownloadReports = () => {
               Load Reports
             </button>
             <button
-              onClick={generateBulkPDF}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-              disabled={!detailedReports.length}
+              onClick={async () => {
+                try {
+                  setIsDownloading(true); // loading starts
+
+                  const finalData = [...detailedReports]; // Assuming detailedReports is the complete source
+
+                  const reportsData = finalData.filter(
+                    (r) =>
+                      r.testName.includes("PDT") ||
+                      r.testName.includes("PCT") ||
+                      r.testName.includes("IP")
+                  );
+
+                  const theoryReports = finalData.filter((r) =>
+                    r.testName.includes("PTT")
+                  );
+
+                  const students = [
+                    ...new Set(finalData.map((r) => r.regNumber)),
+                  ].map((reg) => ({ regNumber: reg }));
+
+                  if (!Array.isArray(finalData) || !finalData.length) {
+                    toast.error("No data to generate reports");
+                    return;
+                  }
+
+                  await generateBulkPDF(students, reportsData, theoryReports);
+                } catch (err) {
+                  toast.error("Error generating PDF");
+                } finally {
+                  setIsDownloading(false); // loading ends
+                }
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+              disabled={!detailedReports.length || isDownloading}
             >
-              Download PDF
+              {isDownloading ? (
+                <>
+                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                  Generating Reports (60-90 sec)...
+                </>
+              ) : (
+                "Download PDF"
+              )}
             </button>
           </div>
 

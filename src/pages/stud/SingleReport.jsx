@@ -644,7 +644,7 @@ const SingleReport = () => {
                                           <div className="flex items-center">
                                             <MdScore className="text-yellow-500 mr-1" />
                                             <span className="font-medium">
-                                              {report.overallTotalMarks} /{" "}
+                                              {report.totalMarks} /{" "}
                                               {report.fullMarks}
                                             </span>
                                           </div>

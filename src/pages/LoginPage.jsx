@@ -175,7 +175,7 @@ function Login() {
               className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter the username/regnumber"
               required
             />
           </div>
@@ -189,7 +189,7 @@ function Login() {
                 className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 pr-10"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter the Password"
+                placeholder="Enter the Password(DD-MM-YYYY)"
                 required
               />
               <button
