@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, momentLocalizer } from "react-big-calendar";
+import { Calendar, momentLocalizer} from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import axios from "axios";
@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
 const localizer = momentLocalizer(moment);
+const CustomEvent = () => <></>;
 
 export default function AttendanceReport() {
   const [attendanceData, setAttendanceData] = useState([]);
@@ -134,7 +135,6 @@ export default function AttendanceReport() {
     } else if (isPast) {
       backgroundColor = "#f3f4f6"; // gray-100
     }
-
     return (
       <div
         style={{
@@ -181,6 +181,7 @@ export default function AttendanceReport() {
           selected={selectedDate}
           date={selectedDate}
           components={{
+            event: CustomEvent,
             dateCellWrapper: dateCellWrapper,
           }}
           dayPropGetter={(date) => {

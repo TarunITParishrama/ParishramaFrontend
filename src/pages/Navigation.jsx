@@ -163,8 +163,9 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
 
   return (
     <div className="w-full h-screen bg-white text-gray-700 p-3 font-bold flex flex-col">
-      <img src={logo} alt="" className="mx-auto mb-4" />
-
+      <NavLink to="/home">
+        <img src={logo} alt="" className="mx-auto mb-4" />
+      </NavLink>
       {/* Search Bar */}
       {userRole !== "parent" && (
         <div className="relative mb-4">

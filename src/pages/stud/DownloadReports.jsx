@@ -180,7 +180,7 @@ const DownloadReports = () => {
     }
     doc.setFontSize(15);
     doc.setTextColor(30, 30, 30);
-    doc.text("Parishrama Institutions", margin + 22, y + 12);
+    doc.text("Parishrama Group of Institutions", margin + 22, y + 12);
 
     doc.setDrawColor(200);
     doc.line(margin, y + 20, doc.internal.pageSize.width - margin, y + 20);
@@ -205,7 +205,14 @@ const DownloadReports = () => {
     doc.text(`Name: ${selectedStudent.studentName}`, margin, y);
     doc.text(`Reg No: ${selectedStudent.regNumber}`, margin + 100, y);
     y += 6;
-    doc.text(`DOB: ${selectedStudent.dateOfBirth || "N/A"}`, margin, y);
+    const formatDate = (isoDate) => {
+        if (!isoDate) return "-";
+        const d = new Date(isoDate);
+        return `${String(d.getDate()).padStart(2, "0")}-${String(
+          d.getMonth() + 1
+        ).padStart(2, "0")}-${d.getFullYear()}`;
+      };
+    doc.text(`DOB: ${formatDate(selectedStudent.dateOfBirth) || "N/A"}`, margin, y);
     doc.text(
       `Campus: ${selectedStudent.campus?.name || "N/A"}`,
       margin + 100,
@@ -525,7 +532,7 @@ const DownloadReports = () => {
 
       doc.setFontSize(15);
       doc.setTextColor(30, 30, 30);
-      doc.text("Parishrama Institutions", margin + 22, y + 12);
+      doc.text("Parishrama Group of Institutions", margin + 22, y + 12);
       doc.setDrawColor(200);
       doc.line(margin, y + 20, doc.internal.pageSize.width - margin, y + 20);
       y += 28;

@@ -254,7 +254,6 @@ export default function ReportsByMonth() {
       let totalMarks = 0;
       let unattemptedCount = 0;
 
-      // Subject-wise tracking
       const subjectStats = {
         Biology: { correct: 0, wrong: 0, marks: 0 },
         Botany: { correct: 0, wrong: 0, marks: 0 },
@@ -268,50 +267,53 @@ export default function ReportsByMonth() {
           ? Object.fromEntries(report.questionAnswers)
           : report.questionAnswers || {};
 
-      // Process each question in order
       allQuestionNumbers.forEach((qNum) => {
         const markedOption = questionAnswers[qNum]?.trim();
         const solution = solutionMap[qNum];
 
-        if (!markedOption || markedOption === "") {
-          unattemptedCount++;
-          return;
-        }
-
         if (solution) {
-          const isCorrect =
-            solution.isGrace || solution.correctOptions.includes(markedOption);
           const subject = solution.subject;
+          const isGrace = solution.isGrace;
+          const correctOptions = solution.correctOptions;
 
-          if (isCorrect) {
-            corrAns++;
-            totalMarks += correctMark;
-            if (subject && subjectStats[subject]) {
-              subjectStats[subject].correct++;
-              subjectStats[subject].marks += correctMark;
+          if (!markedOption || markedOption === "") {
+            unattemptedCount++;
+            if (isGrace) {
+              corrAns++;
+              totalMarks += correctMark;
+              if (subject && subjectStats[subject]) {
+                subjectStats[subject].correct++;
+                subjectStats[subject].marks += correctMark;
+              }
             }
-            console.log(`[DEBUG] ❌ Incorrectly marked:`);
-            console.log(`  Q${qNum}`);
-            console.log(`  Marked Option: "${markedOption}"`);
-            console.log(
-              `  Correct Options: ${JSON.stringify(solution.correctOptions)}`
-            );
-            console.log(`  Is Grace: ${solution.isGrace}`);
-            console.log(`  Full Report Reg#: ${report.regNumber}`);
           } else {
-            wroAns++;
-            totalMarks += wrongMark;
-            if (subject && subjectStats[subject]) {
-              subjectStats[subject].wrong++;
-              subjectStats[subject].marks += wrongMark;
+            if (correctOptions.includes(markedOption)) {
+              corrAns++;
+              totalMarks += correctMark;
+              if (subject && subjectStats[subject]) {
+                subjectStats[subject].correct++;
+                subjectStats[subject].marks += correctMark;
+              }
+            } else if (isGrace) {
+              corrAns++;
+              totalMarks +=
+                correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0); 
+              if (subject && subjectStats[subject]) {
+                subjectStats[subject].correct++;
+                subjectStats[subject].marks +=
+                  correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0);
+              }
+            } else {
+              wroAns++;
+              totalMarks += wrongMark;
+              if (subject && subjectStats[subject]) {
+                subjectStats[subject].wrong++;
+                subjectStats[subject].marks += wrongMark;
+              }
             }
-            console.log(
-              `[DEBUG] ✅ Correctly marked Q${qNum} as "${markedOption}"`
-            );
           }
         } else {
           unattemptedCount++;
-          console.log(`[DEBUG] ⚠️ No solution found for Q${qNum}`);
         }
       });
 

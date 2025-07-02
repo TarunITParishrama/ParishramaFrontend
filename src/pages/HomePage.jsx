@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import { useNavigate, Outlet, useLocation, NavLink } from "react-router-dom";
 import Navigation from "./Navigation";
 import Dashboard from "./Dashboard";
 import logo from "../assets/logo_kannada.png";
@@ -14,6 +14,7 @@ function ParishramaHomePage() {
   const location = useLocation();
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [userRole, setUserRole] = useState("");
+  const [greeting, setGreeting] = useState("");
   // const [showSlideshow, setShowSlideshow] = useState(true);
   // const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -23,7 +24,36 @@ function ParishramaHomePage() {
   //   { image: slide3, alt: "Slide 3" },
   //   { image: slide4, alt: "Slide 4" }
   // ];
+  useEffect(() => {
+    const now = new Date();
+    const hours = now.getHours();
 
+    let message = "";
+    if (hours >= 9 && hours < 12) {
+      message = "Good morning!";
+    } else if (hours >= 12 && hours < 16) {
+      message = "Good afternoon!";
+    } else if (hours >= 16 && hours < 20) {
+      message = "Good evening!";
+    }
+
+    if (message) {
+      setGreeting(message);
+
+      const timer1 = setTimeout(() => {
+        setGreeting("All good?");
+      }, 3000); // after 3 seconds
+
+      const timer2 = setTimeout(() => {
+        setGreeting("");
+      }, 6000); // hide after another 3 seconds
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, []);
   useEffect(() => {
     const role = localStorage.getItem("userRole");
     const regNumber = localStorage.getItem("studentRegNumber");
@@ -144,7 +174,13 @@ function ParishramaHomePage() {
             {/* Center Logo + Bubbles */}
             <div className="flex flex-col items-center">
               <div className="h-20 w-auto">
-                <img src={logo} alt="LOGO" className="h-full object-contain" />
+                <NavLink to="/home">
+                  <img
+                    src={logo}
+                    alt="LOGO"
+                    className="h-full object-contain"
+                  />
+                </NavLink>
               </div>
               {/* <div className="flex space-x-2 -mt-3">
                 <div className="flex flex-col items-end ml-8">
@@ -163,23 +199,33 @@ function ParishramaHomePage() {
             </div>
 
             {/* MD Info + MD Image + Logout (right) */}
-            <div className="flex items-center">
+            <div className="flex items-center justify-end w-full px-4 relative">
               {isParent ? (
-                <div className="absolute right-4 top-8">
+                <div className="relative flex flex-col items-center">
                   <img
                     src={mdlogo}
                     alt="MDPic"
-                    className="w-20 h-18 object-cover rounded-full  shadow-md"
+                    className="w-20 h-20 object-cover rounded-full shadow-md"
                   />
+                  {greeting && (
+                    <div className="absolute top-full mt-2 bg-white text-gray-800 px-3 py-1 rounded shadow text-sm whitespace-nowrap z-50">
+                      {greeting}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col items-center">
+                  <div className="relative flex flex-col items-center">
                     <img
                       src={mdlogo}
                       alt="MDPic"
-                      className="w-32 h-34 object-cover"
+                      className="w-32 h-32 object-cover rounded-full shadow-lg"
                     />
+                    {greeting && (
+                      <div className="absolute top-full mt-2 bg-white text-gray-800 px-3 py-1 rounded shadow text-sm whitespace-nowrap z-50">
+                        {greeting}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => {
@@ -189,7 +235,7 @@ function ParishramaHomePage() {
                       localStorage.removeItem("rememberRegNumber");
                       navigate("/");
                     }}
-                    className="text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"
+                    className="ml-4 text-white hover:text-red-600 hover:bg-white px-3 py-1 rounded transition"
                   >
                     Logout
                   </button>
