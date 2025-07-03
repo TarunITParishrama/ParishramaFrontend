@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import Login from "./pages/LoginPage";
 import ParishramaHomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";

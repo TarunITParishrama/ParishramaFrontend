@@ -7,6 +7,7 @@
     "@heroicons/react": "^2.2.0",
     "@mui/material": "^7.1.0",
     "@types/date-fns": "^2.5.3",
+    "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.10.0",
     "chart": "^0.1.2",
     "cra-template-tailwindcss": "4.0.1",

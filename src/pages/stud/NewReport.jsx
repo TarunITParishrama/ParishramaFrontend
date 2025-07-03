@@ -66,12 +66,23 @@ export default function NewReport({ onClose }) {
           );
           if (response.data?.data) {
             setSubjects(response.data.data);
-            const initialSubjects = response.data.data
-              .slice(0, 4)
-              .map((subject) => ({
-                name: subject.subjectName,
-                maxMarks: 25,
-              }));
+            const preferredOrder = [
+              "Physics",
+              "Chemistry",
+              "Biology",
+              "Mathematics",
+            ];
+            const sortedSubjects = preferredOrder
+              .map((subjectName) =>
+                response.data.data.find((s) => s.subjectName === subjectName)
+              )
+              .filter(Boolean);
+
+            const initialSubjects = sortedSubjects.map((subject) => ({
+              name: subject.subjectName,
+              maxMarks: 25,
+            }));
+
             setSubjectDetails(initialSubjects);
           }
         } catch (err) {
@@ -209,41 +220,34 @@ export default function NewReport({ onClose }) {
   };
 
   const validateRegNumbers = async (data) => {
-    const invalid = {};
-    const token = localStorage.getItem("token");
-    setValidatingRegNumbers(true);
+  const token = localStorage.getItem("token");
+  setValidatingRegNumbers(true);
 
-    try {
-      // Process one by one using the existing endpoint
-      for (let i = 0; i < data.length; i++) {
-        const regNumber = String(data[i].regNumber).trim();
-        
-        try {
-          const response = await axios.get(
-            `${process.env.REACT_APP_URL}/api/checkregnumber/${regNumber}`,
-            {
-              headers: { Authorization: `Bearer ${token}` }
-            }
-          );
-          
-          if (!response.data.exists) {
-            invalid[i] = regNumber;
-          }
-        } catch (err) {
-          console.error(`Error validating RegNo ${regNumber}:`, err);
-        }
-        
-        // Small delay to avoid overwhelming the server
-        if (i % 5 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+  const regNumbers = data.map((row) => String(row.regNumber).trim());
+  
+  try {
+    const response = await axios.post(
+      `${process.env.REACT_APP_URL}/api/check-missing-regnumbers`,
+      { regNumbers },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // response.data.missing = [reg1, reg2, ...]
+    const invalid = {};
+    data.forEach((row, index) => {
+      if (response.data.missing.includes(row.regNumber)) {
+        invalid[index] = row.regNumber;
       }
-    } finally {
-      setValidatingRegNumbers(false);
-    }
-    
+    });
+
     return invalid;
-  };
+  } catch (err) {
+    console.error("Error during batch regNumber check:", err);
+    return {};
+  } finally {
+    setValidatingRegNumbers(false);
+  }
+};
 
   const processMCQData = async (data) => {
     if (!data || data.length === 0) {
@@ -325,11 +329,11 @@ export default function NewReport({ onClose }) {
       });
       setEditableRegNumbers(invalidRegNumbers);
       setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
-      
+
       // Validate against database
       const nonExistent = await validateRegNumbers(processed);
       setNonExistentRegNumbers(nonExistent);
-      
+
       setError("");
     } catch (err) {
       setError("Error processing file data");
@@ -418,7 +422,7 @@ export default function NewReport({ onClose }) {
       });
       setEditableRegNumbers(invalidRegNumbers);
       setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
-      
+
       // Validate against database
       const nonExistent = await validateRegNumbers(processed);
       setNonExistentRegNumbers(nonExistent);
@@ -516,7 +520,7 @@ export default function NewReport({ onClose }) {
         });
       });
     });
-    
+
     // Non-existent RegNumbers
     Object.entries(nonExistentRegNumbers).forEach(([index, reg]) => {
       const filePath = parsedData[index]?.filePath || "";
