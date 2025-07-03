@@ -6,6 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react"
+import { Analytics } from "@vercel/analytics"
 import Login from "./pages/LoginPage";
 import ParishramaHomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";
@@ -95,6 +96,8 @@ function App() {
         <GoToTop />
         <ScrollDown />
       </Router>
+      <SpeedInsights />
+      <Analytics />
     </div>
   );
   function PrivateRoute({ children }) {
