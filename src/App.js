@@ -6,7 +6,6 @@ import {
   Navigate,
 } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react"
-import { Analytics } from "@vercel/analytics"
 import Login from "./pages/LoginPage";
 import ParishramaHomePage from "./pages/HomePage";
 import Dashboard from "./pages/Dashboard";
@@ -36,6 +35,8 @@ import { ToastContainer } from "react-toastify";
 import GoToTop from "./utils/GoToTop.jsx";
 import ScrollDown from "./utils/ScrollDown.jsx";
 import DownloadReports from "./pages/stud/DownloadReports.jsx";
+import CreateProfile from "./pages/admin/CreateProfile.jsx";
+import ViewProfile from "./pages/tab_pages/ViewProfile.jsx";
 
 function App() {
   return (
@@ -69,6 +70,8 @@ function App() {
               path="studentprofile/:regNumber"
               element={<StudentProfile />}
             />
+            <Route path="viewprofile" element={<ViewProfile />} />
+            <Route path="createprofile" element={<CreateProfile />} />
             <Route path="singlereport" element={<SingleReport />} />
             <Route path="singlereport/:regNumber" element={<SingleReport />} />
             <Route path="downloadreports" element={<DownloadReports />} />
@@ -97,7 +100,6 @@ function App() {
         <ScrollDown />
       </Router>
       <SpeedInsights />
-      <Analytics />
     </div>
   );
   function PrivateRoute({ children }) {

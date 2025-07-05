@@ -3,6 +3,7 @@ import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import Select from "react-select";
 
 export default function NewReport({ onClose }) {
   const fetchStudentByRegNumber = async (regNumber) => {
@@ -220,34 +221,34 @@ export default function NewReport({ onClose }) {
   };
 
   const validateRegNumbers = async (data) => {
-  const token = localStorage.getItem("token");
-  setValidatingRegNumbers(true);
+    const token = localStorage.getItem("token");
+    setValidatingRegNumbers(true);
 
-  const regNumbers = data.map((row) => String(row.regNumber).trim());
-  
-  try {
-    const response = await axios.post(
-      `${process.env.REACT_APP_URL}/api/check-missing-regnumbers`,
-      { regNumbers },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    const regNumbers = data.map((row) => String(row.regNumber).trim());
 
-    // response.data.missing = [reg1, reg2, ...]
-    const invalid = {};
-    data.forEach((row, index) => {
-      if (response.data.missing.includes(row.regNumber)) {
-        invalid[index] = row.regNumber;
-      }
-    });
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_URL}/api/check-missing-regnumbers`,
+        { regNumbers },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-    return invalid;
-  } catch (err) {
-    console.error("Error during batch regNumber check:", err);
-    return {};
-  } finally {
-    setValidatingRegNumbers(false);
-  }
-};
+      // response.data.missing = [reg1, reg2, ...]
+      const invalid = {};
+      data.forEach((row, index) => {
+        if (response.data.missing.includes(row.regNumber)) {
+          invalid[index] = row.regNumber;
+        }
+      });
+
+      return invalid;
+    } catch (err) {
+      console.error("Error during batch regNumber check:", err);
+      return {};
+    } finally {
+      setValidatingRegNumbers(false);
+    }
+  };
 
   const processMCQData = async (data) => {
     if (!data || data.length === 0) {
@@ -759,6 +760,23 @@ export default function NewReport({ onClose }) {
     return duplicates; // key: index, value: duplicate regNumber
   };
 
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      top: "4px",
+      minHeight: "45px",
+      borderColor: state.isFocused ? "#3B82F6" : "#d1d5db", // Tailwind blue-500 or gray-300
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : null,
+      "&:hover": {
+        borderColor: "#3B82F6",
+      },
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 0.75rem",
+    }),
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -844,21 +862,27 @@ export default function NewReport({ onClose }) {
                     placeholder="Enter test name"
                   />
                 ) : (
-                  <select
-                    name="testName"
-                    value={formData.testName}
-                    onChange={handleChange}
-                    required
-                    disabled={testNames.length === 0}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
-                  >
-                    <option value="">Select Test</option>
-                    {testNames.map((name, index) => (
-                      <option key={index} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    styles={customSelectStyles}
+                    isClearable
+                    isSearchable
+                    options={testNames.map((name) => ({
+                      value: name,
+                      label: name,
+                    }))}
+                    onChange={(selectedOption) => {
+                      const value = selectedOption ? selectedOption.value : "";
+                      setFormData((prev) => ({ ...prev, testName: value }));
+                    }}
+                    placeholder="Search or select test..."
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    value={
+                      formData.testName
+                        ? { value: formData.testName, label: formData.testName }
+                        : null
+                    }
+                  />
                 )}
               </div>
 

@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useMemo } from "react";
 import crown from "../../assets/crown.png";
+import Select from "react-select";
 
-const subjectStyles = {
-  Physics: { background: "rgba(100, 149, 237, 0.1)", watermark: "⚛️" },
-  Chemistry: { background: "rgba(144, 238, 144, 0.1)", watermark: "🧪" },
-  Mathematics: { background: "rgba(255, 165, 0, 0.1)", watermark: "🧮" },
-  Biology: { background: "rgba(60, 179, 113, 0.1)", watermark: "🧬" },
-  default: { background: "rgba(211, 211, 211, 0.1)", watermark: "📚" },
-};
+// const subjectStyles = {
+//   Physics: { background: "rgba(100, 149, 237, 0.1)", watermark: "⚛️" },
+//   Chemistry: { background: "rgba(144, 238, 144, 0.1)", watermark: "🧪" },
+//   Mathematics: { background: "rgba(255, 165, 0, 0.1)", watermark: "🧮" },
+//   Biology: { background: "rgba(60, 179, 113, 0.1)", watermark: "🧬" },
+//   default: { background: "rgba(211, 211, 211, 0.1)", watermark: "📚" },
+// };
 
 export default function MCQTests({
   streamFilter,
@@ -90,19 +91,18 @@ export default function MCQTests({
     setFiltersApplied(true);
   };
 
-  // Get all students matching current filters (regardless of test attendance)
-  const filteredStudents = useMemo(() => {
-    return Object.values(students).filter((student) => {
-      const matchesCampus =
-        selectedCampus === "All" || student.campus === selectedCampus;
-      const matchesSection =
-        selectedSection === "All" || student.section === selectedSection;
-      const matchesAdmissionYear =
-        selectedAdmissionYear === "All" ||
-        student.admissionYear?.toString() === selectedAdmissionYear;
-      return matchesCampus && matchesSection && matchesAdmissionYear;
-    });
-  }, [students, selectedCampus, selectedSection, selectedAdmissionYear]);
+  // const filteredStudents = useMemo(() => {
+  //   return Object.values(students).filter((student) => {
+  //     const matchesCampus =
+  //       selectedCampus === "All" || student.campus === selectedCampus;
+  //     const matchesSection =
+  //       selectedSection === "All" || student.section === selectedSection;
+  //     const matchesAdmissionYear =
+  //       selectedAdmissionYear === "All" ||
+  //       student.admissionYear?.toString() === selectedAdmissionYear;
+  //     return matchesCampus && matchesSection && matchesAdmissionYear;
+  //   });
+  // }, [students, selectedCampus, selectedSection, selectedAdmissionYear]);
 
   // Combine test results with student data and apply filters
   const combinedData = useMemo(() => {
@@ -435,6 +435,22 @@ export default function MCQTests({
   // Count present and absent students
   const presentCount = sortedData.filter((s) => s.isPresent).length;
   const absentCount = sortedData.filter((s) => !s.isPresent).length;
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      top: "4px",
+      minHeight: "45px",
+      borderColor: state.isFocused ? "#3B82F6" : "#d1d5db", // Tailwind blue-500 or gray-300
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : null,
+      "&:hover": {
+        borderColor: "#3B82F6",
+      },
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 0.75rem",
+    }),
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -445,19 +461,28 @@ export default function MCQTests({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Test
             </label>
-            <select
-              value={selectedTestName}
-              onChange={(e) => loadTestResults(e.target.value)}
-              className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading || availableTests.length === 0}
-            >
-              <option value="">-- Select a test --</option>
-              {availableTests.map((test, index) => (
-                <option key={index} value={test}>
-                  {test}
-                </option>
-              ))}
-            </select>
+            <Select
+              isClearable
+              isSearchable
+              options={availableTests.map((test) => ({
+                value: test,
+                label: test,
+              }))}
+              onChange={(selectedOption) => {
+                const value = selectedOption ? selectedOption.value : "";
+                loadTestResults(value);
+              }}
+              value={
+                selectedTestName
+                  ? { value: selectedTestName, label: selectedTestName }
+                  : null
+              }
+              placeholder="Search or select a test..."
+              className="react-select-container"
+              classNamePrefix="react-select"
+              styles={customSelectStyles}
+              isDisabled={loading || availableTests.length === 0}
+            />
           </div>
           <button
             onClick={applyFilters}

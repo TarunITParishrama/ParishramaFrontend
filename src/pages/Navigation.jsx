@@ -100,6 +100,11 @@ const getNavigationItems = (role) => {
       path: "staffs",
       show: ["super_admin", "admin"].includes(role),
     },
+    {
+      name: "My Profile",
+      path: "viewprofile",
+      show: ["super_admin", "admin", "staff"].includes(role),
+    },
   ];
 
   return [...commonItems, ...adminItems]

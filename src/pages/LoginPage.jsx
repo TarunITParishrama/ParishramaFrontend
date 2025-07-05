@@ -123,6 +123,7 @@ function Login() {
 
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("userRole", response.data.data.user.role);
+      localStorage.setItem("username", username);
       localStorage.setItem("loginType", "staff");
 
       setMessage({ text: "Login Successful!", type: "success" });

@@ -47,6 +47,12 @@ const getDashboardItems = (role) => {
       show: ["parent"].includes(role),
     },
     {
+      name: "Create Profile",
+      icon: "😊",
+      path: "createprofile",
+      show: ["admin"].includes(role),
+    },
+    {
       name: "Students",
       icon: <img src={studentIcon} alt="" className="w-10 h-12 inline" />,
       path: "students",

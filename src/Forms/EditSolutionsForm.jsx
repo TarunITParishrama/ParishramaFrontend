@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Select from "react-select";
 
 const EditSolutionsForm = ({ onSuccess }) => {
   const [filters, setFilters] = useState({
@@ -402,6 +403,23 @@ const EditSolutionsForm = ({ onSuccess }) => {
     }
   };
 
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      top: "4px",
+      minHeight: "45px",
+      borderColor: state.isFocused ? "#3B82F6" : "#d1d5db", // Tailwind blue-500 or gray-300
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : null,
+      "&:hover": {
+        borderColor: "#3B82F6",
+      },
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 0.75rem",
+    }),
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white py-6 px-8 flex flex-col">
@@ -449,19 +467,27 @@ const EditSolutionsForm = ({ onSuccess }) => {
               <label className="block text-sm font-medium text-gray-700">
                 Test Name
               </label>
-              <select
-                name="testName"
-                value={filters.testName}
-                onChange={handleFilterChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Tests</option>
-                {testNames.map((name, index) => (
-                  <option key={index} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+              <Select
+                styles={customSelectStyles}
+                isClearable
+                isSearchable
+                options={testNames.map((name) => ({
+                  value: name,
+                  label: name,
+                }))}
+                onChange={(selectedOption) => {
+                  const value = selectedOption ? selectedOption.value : "";
+                  setFilters((prev) => ({ ...prev, testName: value }));
+                }}
+                placeholder="Search or select test..."
+                className="react-select-container"
+                classNamePrefix="react-select"
+                value={
+                  filters.testName
+                    ? { value: filters.testName, label: filters.testName }
+                    : null
+                }
+              />
             </div>
 
             {/* Date Input */}

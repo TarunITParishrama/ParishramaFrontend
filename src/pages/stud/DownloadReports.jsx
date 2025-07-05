@@ -178,15 +178,19 @@ const DownloadReports = () => {
     if (headerLogo) {
       doc.addImage(headerLogo, "PNG", margin, y, 18, 18);
     }
+
     doc.setFontSize(15);
     doc.setTextColor(30, 30, 30);
     doc.text("Parishrama Group of Institutions", margin + 22, y + 12);
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("PU College | NEET Academy", margin + 22, y + 18);
 
     doc.setDrawColor(200);
-    doc.line(margin, y + 20, doc.internal.pageSize.width - margin, y + 20);
-    y += 28;
+    doc.line(margin, y + 25, doc.internal.pageSize.width - margin, y + 25);
+    y += 33;
 
-    // 🧾 Progress Report Title
+    // 🧾 Title
     doc.setFontSize(16);
     doc.setTextColor(40, 40, 40);
     doc.text("Progress Report", doc.internal.pageSize.width / 2, y, {
@@ -194,66 +198,99 @@ const DownloadReports = () => {
     });
     y += 10;
 
-    // 📋 Side-by-side Personal & Academic Details
+    // 📋 Personal and Academic Info
+    const formatDate = (isoDate) => {
+      if (!isoDate) return "-";
+      const d = new Date(isoDate);
+      return `${String(d.getDate()).padStart(2, "0")}-${String(
+        d.getMonth() + 1
+      ).padStart(2, "0")}-${d.getFullYear()}`;
+    };
+    // Alignment Config
+    const leftLabelX = margin;
+    const leftValueX = margin + 32;
+
+    const rightLabelX = margin + 100;
+    const rightValueX = rightLabelX + 22;
+
     doc.setFontSize(12);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Personal Details", margin, y);
-    doc.text("Academic Details", margin + 100, y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(60, 60, 60);
+    doc.text("Personal Details", leftLabelX, y);
+    doc.text("Academic Details", rightLabelX, y);
     y += 6;
 
-    doc.setTextColor(60, 60, 60);
-    doc.text(`Name: ${selectedStudent.studentName}`, margin, y);
-    doc.text(`Reg No: ${selectedStudent.regNumber}`, margin + 100, y);
+    doc.setFontSize(11);
+
+    // 🔹 Name & Reg No
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text("• Name:", leftLabelX, y);
+    doc.text("• Reg No:", rightLabelX, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text(selectedStudent.studentName || "-", leftValueX, y);
+    doc.text(selectedStudent.regNumber || "-", rightValueX, y);
     y += 6;
-    const formatDate = (isoDate) => {
-        if (!isoDate) return "-";
-        const d = new Date(isoDate);
-        return `${String(d.getDate()).padStart(2, "0")}-${String(
-          d.getMonth() + 1
-        ).padStart(2, "0")}-${d.getFullYear()}`;
-      };
-    doc.text(`DOB: ${formatDate(selectedStudent.dateOfBirth) || "N/A"}`, margin, y);
-    doc.text(
-      `Campus: ${selectedStudent.campus?.name || "N/A"}`,
-      margin + 100,
-      y
-    );
+
+    // 🔹 DOB & Campus
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text("• DOB:", leftLabelX, y);
+    doc.text("• Campus:", rightLabelX, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text(formatDate(selectedStudent.dateOfBirth), leftValueX, y);
+    doc.text(selectedStudent.campus?.name || "-", rightValueX, y);
     y += 6;
-    doc.text(`Parent: ${selectedStudent.fatherName || "N/A"}`, margin, y);
-    doc.text(`Section: ${selectedStudent.section || "N/A"}`, margin + 100, y);
+
+    // 🔹 Parent & Section
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text("• Parent:", leftLabelX, y);
+    doc.text("• Section:", rightLabelX, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text(selectedStudent.fatherName || "-", leftValueX, y);
+    doc.text(selectedStudent.section || "-", rightValueX, y);
     y += 6;
-    doc.text(`Mobile: ${selectedStudent.fatherMobile || "N/A"}`, margin, y);
+
+    // 🔹 Mobile
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text("• Mobile:", leftLabelX, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text(selectedStudent.fatherMobile || "-", leftValueX, y);
     y += 10;
 
+    // Group and organize tests
     const grouped = {
-      "Daily Tests": [],
-      "Weekly Tests": [],
-      "Theory Tests": [],
-      Others: [],
+      "Daily Tests Performance": [],
+      "Weekly Tests Performance": [],
+      "Theory Tests Performance": [],
+      "Others Tests Performance": [],
     };
 
     allReports.forEach((test) => {
       const name = test.testName.toUpperCase();
-
-      if (name.includes("BPCT") || name.includes("BPWT")) {
-        // Exclude these
-        return;
-      }
-
-      if (name.includes("PDT") || name.includes("IPDT")) {
-        grouped["Daily Tests"].push(test);
-      } else if (
+      if (name.includes("BPCT") || name.includes("BPWT")) return;
+      if (name.includes("PDT") || name.includes("IPDT"))
+        grouped["Daily Tests Performance"].push(test);
+      else if (
         name.includes("PCT") ||
         name.includes("PWT") ||
         name.includes("IPCT") ||
         name.includes("IPWT")
-      ) {
-        grouped["Weekly Tests"].push(test);
-      } else if (name.includes("PTT")) {
-        grouped["Theory Tests"].push(test);
-      } else {
-        grouped["Others"].push(test);
-      }
+      )
+        grouped["Weekly Tests Performance"].push(test);
+      else if (name.includes("PTT"))
+        grouped["Theory Tests Performance"].push(test);
+      else grouped["Others Tests Performance"].push(test);
     });
 
     const extractNumber = (str) => {
@@ -263,8 +300,10 @@ const DownloadReports = () => {
 
     const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
 
-    Object.keys(grouped).forEach((category) => {
-      const tests = grouped[category].sort(
+    Object.entries(grouped).forEach(([category, tests]) => {
+      if (!tests.length) return;
+
+      tests.sort(
         (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
       );
 
@@ -273,12 +312,29 @@ const DownloadReports = () => {
       doc.text(category, margin, y);
       y += 6;
 
+      // Dynamic Max Marks in headers
+      const subjectMaxMap = {};
+      for (const subj of allSubjects) subjectMaxMap[subj] = "-";
+      let totalMax = 0;
+      if (tests.length) {
+        tests[0].subjects?.forEach((s) => {
+          const sub = s.name || s.subjectName;
+          if (allSubjects.includes(sub)) {
+            subjectMaxMap[sub] =
+              s.max ?? s.totalMarks ?? s.fullMarks ?? s.full ?? "-";
+          }
+        });
+        totalMax = Object.values(subjectMaxMap).reduce((a, b) => {
+          const v = parseInt(b);
+          return isNaN(v) ? a : a + v;
+        }, 0);
+      }
+
       const headers = [
         "Test Name",
         "Date",
-        ...allSubjects,
-        "Total Marks",
-        "Max Marks",
+        ...allSubjects.map((s) => `${s} (${subjectMaxMap[s]})`),
+        `Total (${totalMax})`,
         "Percentile",
         "Rank",
       ];
@@ -294,7 +350,6 @@ const DownloadReports = () => {
           new Date(test.date).toLocaleDateString("en-IN"),
         ];
         let total = 0;
-        let full = 0;
 
         allSubjects.forEach((subj) => {
           const found = test.subjects?.find(
@@ -302,28 +357,25 @@ const DownloadReports = () => {
           );
           const marks =
             found?.scored ?? found?.marks ?? found?.obtainedMarks ?? 0;
-          const max = found?.max ?? found?.totalMarks ?? found?.fullMarks ?? 0;
           row.push(String(marks || 0));
           total += Number(marks);
-          full += Number(max);
         });
 
-        if (total === 0 && full === 0) {
+        if (total === 0) {
           for (let i = 2; i < 6; i++) row[i] = "Absent";
-          row.push("0", "0", "-", test.rank ?? "-");
+          row.push("0", "0", "-");
         } else {
           row.push(
             total.toString(),
-            full.toString(),
             test.percentile?.toString() ?? "-",
             test.rank?.toString() ?? "-"
           );
         }
 
         if (!bestTest || total > bestTest.total)
-          bestTest = { name: test.testName, total, full };
+          bestTest = { name: test.testName, total };
         if (!lowestTest || total < lowestTest.total)
-          lowestTest = { name: test.testName, total, full };
+          lowestTest = { name: test.testName, total };
 
         allTotals.push(total);
         rows.push(row);
@@ -333,28 +385,24 @@ const DownloadReports = () => {
         const avg = (
           allTotals.reduce((a, b) => a + b, 0) / allTotals.length
         ).toFixed(2);
-        rows.push(["Average", "", "", "", "", "", avg, "", "", ""]);
+        rows.push(["Average", "", "", "", "", avg, "", ""]);
         rows.push([
-          `Best: ${bestTest.name}`,
+          `Best: `,
           "",
           "",
+          `${bestTest.name}`,
           "",
-          "",
-          "",
-          `${bestTest.total}/${bestTest.full}`,
-          "",
+          `${bestTest.total}`,
           "",
           "",
         ]);
         rows.push([
-          `Lowest: ${lowestTest.name}`,
+          `Lowest: `,
           "",
           "",
+          `${lowestTest.name}`,
           "",
-          "",
-          "",
-          `${lowestTest.total}/${lowestTest.full}`,
-          "",
+          `${lowestTest.total}`,
           "",
           "",
         ]);
@@ -364,7 +412,13 @@ const DownloadReports = () => {
         head: [headers],
         body: rows,
         startY: y,
-        styles: { fontSize: 9, halign: "center", cellPadding: 2 },
+        styles: {
+          fontSize: 9,
+          halign: "center",
+          cellPadding: 2,
+          lineWidth: 0.1,
+          lineColor: [0, 0, 0],
+        },
         headStyles: {
           fillColor: [26, 188, 156],
           textColor: 255,
@@ -381,6 +435,7 @@ const DownloadReports = () => {
         y = margin;
       }
     });
+
     doc.addPage();
     appendCounsellingForms(doc, margin);
 
@@ -388,67 +443,96 @@ const DownloadReports = () => {
   };
 
   const appendCounsellingForms = (doc, margin) => {
-    const departments = [
-      "Physics",
-      "Chemistry",
-      "Biology",
-      "Mathematics",
-      "______________", // for 'Others'
-    ];
+  const departments = [
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Mathematics",
+    "______________", // for 'Others'
+  ];
 
-    const questions = [
-      "Alertness in Classroom",
-      "Understanding Levels",
-      "Effectiveness in Reading",
-      "Memory Skills",
-      "MCQ Solving Ability",
-      "Time Management in Tests",
-      "Class Notes Verification & Handwriting",
-      "Ability to solve Questions in Theory Tests",
-      "Study Planning & Strategy",
-    ];
+  const questions = [
+    "Alertness in Classroom",
+    "Understanding Levels",
+    "Effectiveness in Reading",
+    "Memory Skills",
+    "MCQ Solving Ability",
+    "Time Management in Tests",
+    "Class Notes Verification & Handwriting",
+    "Ability to solve Questions in Theory Tests",
+    "Study Planning & Strategy",
+  ];
 
-    const fullWidth = doc.internal.pageSize.width - margin * 2;
-    let yStart = 20;
+  const pageWidth = doc.internal.pageSize.width;
+  const fullWidth = pageWidth - 2 * margin;
+  const suggestionsHeight = 30;
+  const formHeight = 130;
+  let yStart = 20;
 
-    departments.forEach((dept, index) => {
-      // Add new page for every 2 forms (0 & 1 on page 1, 2 & 3 on page 2, etc.)
-      if (index % 2 === 0 && index !== 0) {
-        doc.addPage();
-        yStart = 20;
-      }
+  departments.forEach((dept, index) => {
+    // Every 2 forms, start new page
+    if (index % 2 === 0 && index !== 0) {
+      doc.addPage();
+      yStart = 20;
+    }
 
-      doc.setFontSize(10);
-      doc.setTextColor(0);
-      doc.text(`Department of ${dept}`, margin, yStart);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(20, 20, 100);
+    doc.text(`Department of ${dept}`, margin, yStart);
 
-      const tableData = questions.map((q) => [q, "", "", "", ""]);
-      tableData.push([
-        "Lecturer Name & Signature with Date",
-        "",
-        "",
-        "",
-        "Student Signature",
-      ]);
+    const tableData = questions.map((q) => [q, "", "", ""]);
+    autoTable(doc, {
+      startY: yStart + 5,
+      head: [["Questions", "Good", "Average", "Poor"]],
+      body: tableData,
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 1.6,
+        lineWidth: 0.2,
+        lineColor: [0, 0, 0],
+      },
+      headStyles: {
+        fillColor: [26, 188, 156],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      columnStyles: {
+        0: { halign: "left", cellWidth: fullWidth * 0.55 },
+        1: { halign: "center", cellWidth: fullWidth * 0.12 },
+        2: { halign: "center", cellWidth: fullWidth * 0.12 },
+        3: { halign: "center", cellWidth: fullWidth * 0.12 },
+      },
+      margin: { left: margin, right: margin },
+      tableWidth: fullWidth * 0.95,
+      didDrawPage: (data) => {
+        const tableBottom = data.cursor.y;
 
-      autoTable(doc, {
-        startY: yStart + 5,
-        head: [["Questions", "Good", "Average", "Poor", "Suggestions"]],
-        body: tableData,
-        styles: { fontSize: 8, cellPadding: 1.8 },
-        headStyles: {
-          fillColor: [26, 188, 156],
-          textColor: 255,
-          fontStyle: "bold",
-        },
-        margin: { left: margin, right: margin },
-        tableWidth: fullWidth,
-        didDrawPage: (data) => {
-          yStart = data.cursor.y + 12;
-        },
-      });
+        // 📦 Suggestion Box (full-width)
+        const boxY = tableBottom + 10;
+        const boxHeight = 30;
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.3);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text("Suggestions", margin + 2, boxY + 5);
+        doc.rect(margin, boxY, fullWidth, suggestionsHeight);
+
+        // 🖋 Signature lines
+        const sigY = boxY + suggestionsHeight + 12;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(20, 20, 100);
+        doc.text("Lecturer Name & Signature with Date", margin, sigY);
+        doc.text("Student Signature", pageWidth - margin - 50, sigY);
+
+        // Update yStart for next form in the same page
+        yStart = sigY + 20;
+      },
     });
-  };
+  });
+};
+
 
   //Bulk PDF
   const generateBulkPDF = async (
