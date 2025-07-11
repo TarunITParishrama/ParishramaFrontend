@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
@@ -26,9 +26,31 @@ const FeedbackData = () => {
   const [filteredFeedbackNames, setFilteredFeedbackNames] = useState([]);
   const [aggregatedData, setAggregatedData] = useState([]);
   const [availableFeedbacks, setAvailableFeedbacks] = useState([]);
-  const [availableFeedbackNames, setAvailableFeedbackNames] = useState([]);
+  const [setAvailableFeedbackNames] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  const fetchAvailableFeedbacks = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const response = await axios.get(
+        `${process.env.REACT_APP_URL}/api/getfeedbackdata`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = response.data.data;
+
+      setAvailableFeedbacks(data);
+
+      const names = [...new Set(data.map((f) => f.name))];
+      setAvailableFeedbackNames(names);
+    } catch (error) {
+      toast.error("Failed to fetch available feedbacks from FeedbackData");
+    }
+  }, [setAvailableFeedbackNames]);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -40,7 +62,7 @@ const FeedbackData = () => {
     } else {
       fetchAdminFeedbacks();
     }
-  }, []);
+  }, [fetchAvailableFeedbacks]);
 
   const fetchAdminFeedbacks = async () => {
     const token = localStorage.getItem("token");
@@ -85,33 +107,36 @@ const FeedbackData = () => {
     }
   };
 
-  const fetchAvailableFeedbacks = async () => {
-    try {
-      const token = localStorage.getItem("token");
+  const updateFilteredFeedbackNames = useCallback(() => {
+    const selectedDateString = new Date(formData.date)
+      .toISOString()
+      .split("T")[0];
 
-      const response = await axios.get(
-        `${process.env.REACT_APP_URL}/api/getfeedbackdata`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+    const matching = availableFeedbacks.filter((fb) => {
+      const fbDate = new Date(fb.date).toISOString().split("T")[0];
+      return (
+        fb.streamType === formData.streamType && fbDate === selectedDateString
       );
+    });
 
-      const data = response.data.data;
-
-      setAvailableFeedbacks(data);
-
-      const names = [...new Set(data.map((f) => f.name))];
-      setAvailableFeedbackNames(names);
-    } catch (error) {
-      toast.error("Failed to fetch available feedbacks from FeedbackData");
-    }
-  };
+    const names = [...new Set(matching.map((fb) => fb.name))];
+    setFilteredFeedbackNames(names);
+    console.log("Filtered feedbacks:", matching);
+    console.log("All available feedbacks:", availableFeedbacks);
+    console.log("Form data:", formData);
+  }, [availableFeedbacks, formData]);
 
   useEffect(() => {
     if (availableFeedbacks.length > 0 && formData.streamType && formData.date) {
       updateFilteredFeedbackNames();
     }
-  }, [formData.date, showUploadForm, formData.streamType, availableFeedbacks]);
+  }, [
+    formData.date,
+    showUploadForm,
+    formData.streamType,
+    availableFeedbacks,
+    updateFilteredFeedbackNames,
+  ]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -233,6 +258,8 @@ const FeedbackData = () => {
                   break;
                 case "D":
                   questionData.countD++;
+                  break;
+                default:
                   break;
               }
               studentResponseCount++;
@@ -475,25 +502,6 @@ const FeedbackData = () => {
     }
   };
 
-  const updateFilteredFeedbackNames = () => {
-    const selectedDateString = new Date(formData.date)
-      .toISOString()
-      .split("T")[0];
-
-    const matching = availableFeedbacks.filter((fb) => {
-      const fbDate = new Date(fb.date).toISOString().split("T")[0];
-      return (
-        fb.streamType === formData.streamType && fbDate === selectedDateString
-      );
-    });
-
-    const names = [...new Set(matching.map((fb) => fb.name))];
-    setFilteredFeedbackNames(names);
-    console.log("Filtered feedbacks:", matching);
-    console.log("All available feedbacks:", availableFeedbacks);
-    console.log("Form data:", formData);
-  };
-
   const calculatePercentages = (question) => {
     const totalResponses =
       question.countA +
@@ -519,7 +527,7 @@ const FeedbackData = () => {
         autoClose: false,
       });
 
-      const input = document.getElementById("superadmin-view");
+      //const input = document.getElementById("superadmin-view");
       const pdf = new jsPDF("p", "pt", "a4");
       const pageHeight = pdf.internal.pageSize.getHeight();
       const pageWidth = pdf.internal.pageSize.getWidth();
@@ -538,14 +546,14 @@ const FeedbackData = () => {
       pdf.text(`Generated on: ${new Date().toLocaleString()}`, 40, 140);
 
       let yPosition = 180;
-      let pageNumber = 1;
+      //let pageNumber = 1;
 
       // Process each question for the PDF
-      for (const [qIndex, question] of aggregatedData.entries()) {
-        // Check if we need a new page before adding the question
+      for (const [question] of aggregatedData.entries()) {
+        // Check if we eed a new page before adding the question
         if (yPosition > pageHeight - 200) {
           pdf.addPage();
-          pageNumber++;
+          //pageNumber++;
           yPosition = 40;
         }
 
@@ -580,11 +588,11 @@ const FeedbackData = () => {
 
         // Add responses
         pdf.setFontSize(9);
-        for (const [rIndex, response] of question.responses.entries()) {
+        for (const [response] of question.responses.entries()) {
           // Check if we need a new page before adding a row
           if (yPosition > pageHeight - 50) {
             pdf.addPage();
-            pageNumber++;
+            //pageNumber++;
             yPosition = 40;
             // Redraw headers if we're on a new page
             pdf.setFontSize(10);

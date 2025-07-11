@@ -13,9 +13,9 @@ export default function ViewSolutions() {
   });
   const [testNames, setTestNames] = useState([]);
   const [solutions, setSolutions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef();
@@ -78,7 +78,7 @@ export default function ViewSolutions() {
       setIsLoading(false);
     }
   };
-  const loadMore = async () => {
+  const loadMore = useCallback(async () => {
     if (!hasMore || isLoading) return;
 
     const nextPage = page + 1;
@@ -114,7 +114,8 @@ export default function ViewSolutions() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [filters, hasMore, isLoading, page]);
+
   const lastSolutionElementRef = useCallback(
     (node) => {
       if (isLoading) return;
@@ -128,7 +129,7 @@ export default function ViewSolutions() {
 
       if (node) observer.current.observe(node);
     },
-    [isLoading, hasMore]
+    [isLoading, hasMore, loadMore]
   );
   const customSelectStyles = {
     control: (base, state) => ({

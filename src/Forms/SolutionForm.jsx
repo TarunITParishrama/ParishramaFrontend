@@ -93,7 +93,7 @@ const SolutionForm = ({ onSuccess }) => {
     try {
       // Prepare form data for image uploads
       const formDataWithImages = new FormData();
-      const solutionsWithImageRefs = [];
+      //const solutionsWithImageRefs = [];
 
       // First upload all images and get their references
       for (let index = 0; index < formData.questionCount; index++) {

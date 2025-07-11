@@ -44,7 +44,7 @@ export default function Settings() {
   const handleApprovalToggle = async (userId, currentApproval) => {
     try {
       setActionLoading(true);
-      const response = await axios.patch(
+      await axios.patch(
         `${process.env.REACT_APP_URL}/api/users/${userId}/approval`,
         { approval: !currentApproval },
         {
@@ -71,7 +71,7 @@ export default function Settings() {
   const handleRoleChange = async (userId, newRole) => {
     try {
       setActionLoading(true);
-      const response = await axios.patch(
+      await axios.patch(
         `${process.env.REACT_APP_URL}/api/users/${userId}/role`,
         { role: newRole },
         {

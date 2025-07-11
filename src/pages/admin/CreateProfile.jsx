@@ -25,7 +25,7 @@ export default function CreateProfile() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post(`${process.env.REACT_APP_URL}/api/createprofile`, formData, {
+      await axios.post(`${process.env.REACT_APP_URL}/api/createprofile`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

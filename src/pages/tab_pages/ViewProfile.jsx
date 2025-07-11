@@ -41,7 +41,7 @@ function ViewProfile() {
         console.error(err);
         toast.error("Failed to load profile.");
       });
-  }, [username]);
+  }, [token, username]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

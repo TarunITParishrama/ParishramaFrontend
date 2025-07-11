@@ -139,7 +139,7 @@ const FeedbackAdmin = () => {
         createdBy: userRole,
       };
 
-      const response = await axios.post(
+      await axios.post(
         `${process.env.REACT_APP_URL}/api/createfeedback`,
         payload,
         {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "react-tabs/style/react-tabs.css";
 import { Bar, Pie } from "react-chartjs-2";
@@ -43,15 +43,16 @@ const SingleReport = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState(null);
-  const [detailedReports, setDetailedReports] = useState([]);
+  const [ setDetailedReports] = useState([]);
   const [groupedCompetitiveTests, setGroupedCompetitiveTests] = useState({});
   const [theoryTests, setTheoryTests] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
-  const [patterns, setPatterns] = useState([]);
+  const [ setPatterns] = useState([]);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [showTheoryTab, setShowTheoryTab] = useState(false);
-  const [expandedFolders, setExpandedFolders] = useState({});
+  //const [expandedFolders, setExpandedFolders] = useState({});
+  const [selectedFolderTab, setSelectedFolderTab] = useState("Daily Tests");
   const [folderDates, setFolderDates] = useState({});
 
   // Helper function to extract base test name (e.g., "PDT" from "PDT-25")
@@ -61,10 +62,10 @@ const SingleReport = () => {
   };
 
   // Function to get full test name based on abbreviation and stream
-  const getFullTestName = (abbreviation, stream) => {
+  const getFullTestName = useCallback((abbreviation, stream) => {
     const baseName = getBaseTestName(abbreviation);
     const isPUC = stream?.includes("PUC");
-    const isLongTerm = stream === "LongTerm";
+    //const isLongTerm = stream === "LongTerm";
     const isDayScholar =
       abbreviation.includes("DS") || abbreviation.includes("SD");
 
@@ -91,10 +92,10 @@ const SingleReport = () => {
     }
 
     return fullName;
-  };
+  },[]);
 
   // Group tests by their base pattern name
-  const groupTestsByFolder = (tests, patterns, stream) => {
+  const groupTestsByFolder = useCallback((tests, patterns, stream) => {
     const folders = {
       "Daily Tests": {},
       "Weekly Tests": {},
@@ -111,7 +112,7 @@ const SingleReport = () => {
       let folderKey;
       if (/PDT|IPDT/.test(baseName)) {
         folderKey = "Daily Tests";
-      } else if (/PCT|IPCT/.test(baseName)) {
+      } else if ((/PCT|IPCT/.test(baseName)||(/PWT|IPWT/.test(baseName)))) {
         folderKey = "Weekly Tests";
       } else {
         folderKey = "Other Tests";
@@ -136,7 +137,7 @@ const SingleReport = () => {
     );
 
     return folders;
-  };
+  },[getFullTestName]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -260,11 +261,11 @@ const SingleReport = () => {
     };
 
     fetchStudentData();
-  }, [navigate]);
+  }, [groupTestsByFolder, navigate, setDetailedReports, setPatterns]);
 
-  const toggleFolder = (folderKey) => {
-    setExpandedFolders((prev) => ({ ...prev, [folderKey]: !prev[folderKey] }));
-  };
+  // const toggleFolder = (folderKey) => {
+  //   setExpandedFolders((prev) => ({ ...prev, [folderKey]: !prev[folderKey] }));
+  // };
 
   const setDateFilter = (folderKey, startDate, endDate) => {
     setFolderDates((prev) => ({
@@ -511,172 +512,188 @@ const SingleReport = () => {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {Object.entries(groupedCompetitiveTests).map(
-                    ([folderName, testsByPattern]) => (
-                      <div key={folderName} className="mb-6">
+                  {/* Horizontal Folder Tabs */}
+                  <div className="flex gap-4 mb-6">
+                    {["Daily Tests", "Weekly Tests", "Other Tests"].map(
+                      (folder) => (
                         <div
-                          className="cursor-pointer text-lg font-semibold text-gray-800 mb-2 flex items-center"
-                          onClick={() => toggleFolder(folderName)}
+                          key={folder}
+                          onClick={() => setSelectedFolderTab(folder)}
+                          className={`px-6 py-2 rounded-full font-semibold cursor-pointer flex items-center shadow-sm transition-all
+        ${
+          selectedFolderTab === folder
+            ? folder === "Daily Tests"
+              ? "bg-red-600 text-white"
+              : folder === "Weekly Tests"
+              ? "bg-orange-500 text-white"
+              : "bg-yellow-400 text-white"
+            : "bg-gray-200 text-gray-700"
+        }`}
                         >
-                          <FaFolderOpen className="mr-2" /> {folderName}
+                          <FaFolderOpen className="mr-2" />
+                          {folder}
                         </div>
+                      )
+                    )}
+                  </div>
 
-                        {expandedFolders[folderName] && (
-                          <div className="mb-4 ml-4">
-                            {/* Folder-specific date filter */}
-                            <div className="flex flex-wrap gap-4 mb-4 items-center">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600">
-                                  From:
-                                </span>
-                                <DatePicker
-                                  selected={
-                                    folderDates[folderName]?.startDate || null
-                                  }
-                                  onChange={(date) =>
-                                    setDateFilter(
-                                      folderName,
-                                      date,
-                                      folderDates[folderName]?.endDate
-                                    )
-                                  }
-                                  selectsStart
-                                  startDate={
-                                    folderDates[folderName]?.startDate || null
-                                  }
-                                  endDate={
-                                    folderDates[folderName]?.endDate || null
-                                  }
-                                  className="border px-2 py-1 rounded"
-                                  placeholderText="Start"
-                                />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600">
-                                  To:
-                                </span>
-                                <DatePicker
-                                  selected={
-                                    folderDates[folderName]?.endDate || null
-                                  }
-                                  onChange={(date) =>
-                                    setDateFilter(
-                                      folderName,
-                                      folderDates[folderName]?.startDate,
-                                      date
-                                    )
-                                  }
-                                  selectsEnd
-                                  startDate={
-                                    folderDates[folderName]?.startDate || null
-                                  }
-                                  endDate={
-                                    folderDates[folderName]?.endDate || null
-                                  }
-                                  minDate={
-                                    folderDates[folderName]?.startDate || null
-                                  }
-                                  className="border px-2 py-1 rounded"
-                                  placeholderText="End"
-                                />
-                              </div>
-                              {(folderDates[folderName]?.startDate ||
-                                folderDates[folderName]?.endDate) && (
-                                <button
-                                  className="text-sm text-blue-600"
-                                  onClick={() => clearDateFilters(folderName)}
-                                >
-                                  Clear Filters
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Render test groups within this folder */}
-                            {Object.entries(testsByPattern)
-                              .sort(([a], [b]) => a.localeCompare(b))
-                              .map(([baseName, group]) => (
-                                <div key={baseName} className="mb-8">
-                                  <h3 className="text-md font-semibold mb-2 text-gray-700 border-b pb-1">
-                                    {group.fullName} ({baseName}){" "}
-                                    {group.pattern && (
-                                      <span className="ml-2 text-sm text-gray-500">
-                                        (Total Marks: {group.pattern.totalMarks}
-                                        )
-                                      </span>
-                                    )}
-                                  </h3>
-
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {filterAndSortTests(
-                                      group.tests,
-                                      folderName
-                                    ).map((report, idx) => (
-                                      <div
-                                        key={idx}
-                                        onClick={() =>
-                                          handleReportClick(report)
-                                        }
-                                        className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br ${
-                                          report.isPresent === false
-                                            ? "from-gray-50 to-gray-100"
-                                            : "from-blue-50 to-white"
-                                        }`}
-                                      >
-                                        <div className="flex justify-between items-start mb-2">
-                                          <span className="text-sm text-gray-500">
-                                            {formatDate(report.date)}
-                                          </span>
-                                          <div className="flex items-center">
-                                            {report.isPresent === false && (
-                                              <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium mr-2">
-                                                Absent
-                                              </span>
-                                            )}
-                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                              Competitive
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <h4 className="font-medium text-gray-800 mb-2">
-                                          {report.testName}
-                                        </h4>
-                                        <div className="flex justify-between items-center">
-                                          <div className="flex items-center">
-                                            <MdScore className="text-yellow-500 mr-1" />
-                                            <span className="font-medium">
-                                              {report.totalMarks} /{" "}
-                                              {report.fullMarks}
-                                            </span>
-                                          </div>
-                                          <div className="text-sm text-gray-600">
-                                            {report.percentage}%
-                                          </div>
-                                        </div>
-                                        {report.percentile && (
-                                          <div className="mt-2 flex items-center">
-                                            <MdEmojiEvents
-                                              className={`text-${getPerformanceColor(
-                                                report.percentile
-                                              )}-500 mr-1`}
-                                            />
-                                            <span
-                                              className={`text-sm text-${getPerformanceColor(
-                                                report.percentile
-                                              )}-600`}
-                                            >
-                                              {report.percentile}% Percentile
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
+                  {/* Selected Folder Content */}
+                  {groupedCompetitiveTests[selectedFolderTab] && (
+                    <div
+                      className={`mt-0 pt-6 pb-8 px-6 rounded-2xl shadow-lg text-white
+      ${
+        selectedFolderTab === "Daily Tests"
+          ? "bg-red-400"
+          : selectedFolderTab === "Weekly Tests"
+          ? "bg-orange-400"
+          : "bg-yellow-400"
+      }`}
+                    >
+                      {/* Folder-specific date filter */}
+                      <div className="flex flex-wrap gap-4 mb-4 items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">From:</span>
+                          <DatePicker
+                            selected={
+                              folderDates[selectedFolderTab]?.startDate || null
+                            }
+                            onChange={(date) =>
+                              setDateFilter(
+                                selectedFolderTab,
+                                date,
+                                folderDates[selectedFolderTab]?.endDate
+                              )
+                            }
+                            selectsStart
+                            startDate={
+                              folderDates[selectedFolderTab]?.startDate || null
+                            }
+                            endDate={
+                              folderDates[selectedFolderTab]?.endDate || null
+                            }
+                            className="border px-2 py-1 rounded"
+                            placeholderText="Start"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">To:</span>
+                          <DatePicker
+                            selected={
+                              folderDates[selectedFolderTab]?.endDate || null
+                            }
+                            onChange={(date) =>
+                              setDateFilter(
+                                selectedFolderTab,
+                                folderDates[selectedFolderTab]?.startDate,
+                                date
+                              )
+                            }
+                            selectsEnd
+                            startDate={
+                              folderDates[selectedFolderTab]?.startDate || null
+                            }
+                            endDate={
+                              folderDates[selectedFolderTab]?.endDate || null
+                            }
+                            minDate={
+                              folderDates[selectedFolderTab]?.startDate || null
+                            }
+                            className="border px-2 py-1 rounded"
+                            placeholderText="End"
+                          />
+                        </div>
+                        {(folderDates[selectedFolderTab]?.startDate ||
+                          folderDates[selectedFolderTab]?.endDate) && (
+                          <button
+                            className="text-sm text-blue-600"
+                            onClick={() => clearDateFilters(selectedFolderTab)}
+                          >
+                            Clear Filters
+                          </button>
                         )}
                       </div>
-                    )
+
+                      {/* Render grouped test cards */}
+                      {Object.entries(
+                        groupedCompetitiveTests[selectedFolderTab]
+                      )
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([baseName, group]) => (
+                          <div key={baseName} className="mb-8">
+                            <h3 className="text-md font-semibold mb-2 text-white border-b border-white pb-1">
+                              {group.fullName} ({baseName}){" "}
+                              {group.pattern && (
+                                <span className="ml-2 text-sm text-white/80">
+                                  (Total Marks: {group.pattern.totalMarks})
+                                </span>
+                              )}
+                            </h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {filterAndSortTests(
+                                group.tests,
+                                selectedFolderTab
+                              ).map((report, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => handleReportClick(report)}
+                                  className={`border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-gradient-to-br ${
+                                    report.isPresent === false
+                                      ? "from-gray-50 to-gray-100"
+                                      : "from-blue-50 to-white"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-start mb-2">
+                                    <span className="text-sm text-gray-500">
+                                      {formatDate(report.date)}
+                                    </span>
+                                    <div className="flex items-center">
+                                      {report.isPresent === false && (
+                                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium mr-2">
+                                          Absent
+                                        </span>
+                                      )}
+                                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                        Competitive
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <h4 className="font-medium text-gray-800 mb-2">
+                                    {report.testName}
+                                  </h4>
+                                  <div className="flex justify-between items-center">
+                                    <div className="flex items-center">
+                                      <MdScore className="text-yellow-500 mr-1" />
+                                      <span className="font-medium">
+                                        {report.totalMarks} / {report.fullMarks}
+                                      </span>
+                                    </div>
+                                    <div className="text-sm text-gray-600">
+                                      {report.percentage}%
+                                    </div>
+                                  </div>
+                                  {report.percentile && (
+                                    <div className="mt-2 flex items-center">
+                                      <MdEmojiEvents
+                                        className={`text-${getPerformanceColor(
+                                          report.percentile
+                                        )}-500 mr-1`}
+                                      />
+                                      <span
+                                        className={`text-sm text-${getPerformanceColor(
+                                          report.percentile
+                                        )}-600`}
+                                      >
+                                        {report.percentile}% Percentile
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
                   )}
                 </div>
               )}

@@ -20,16 +20,11 @@ export default function ReportsByMonth() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const observer = useRef();
 
-  // const styles = {
-  //   dangerZone: {
-  //     backgroundColor: '#fff5f5',
-  //     borderLeft: '4px solid #f56565'
-  //   },
-  //   dangerText: {
-  //     color: '#e53e3e',
-  //     fontWeight: '600'
-  //   }
-  // };
+  const getMarkingScheme = (marksType) => {
+    if (marksType.includes("+16")) return { correct: 16, wrong: -4 };
+    if (marksType.includes("+4")) return { correct: 4, wrong: -1 };
+    return { correct: 1, wrong: 0 };
+  };
 
   useEffect(() => {
     if (!testName || !dateFrom || !dateTo || !stream) {
@@ -42,23 +37,10 @@ export default function ReportsByMonth() {
         setLoading(true);
         setError("");
 
-        // Get date range for the month
-        // const dateObj = new Date(date);
-        // const monthStart = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
-        // const monthEnd = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0);
-
-        // Fetch reports
         const reportsResponse = await axios.get(
           `${process.env.REACT_APP_URL}/api/getreportbank`,
           {
-            params: {
-              testName,
-              stream,
-              dateFrom,
-              dateTo,
-              page: 1,
-              limit: 100,
-            },
+            params: { testName, stream, dateFrom, dateTo, page: 1, limit: 100 },
           }
         );
 
@@ -66,10 +48,7 @@ export default function ReportsByMonth() {
         setPage(1);
         setTotalPages(tp);
 
-        if (
-          !reportsResponse.data?.data ||
-          reportsResponse.data.data.length === 0
-        ) {
+        if (!data || data.length === 0) {
           throw new Error(`No reports found for ${testName}, ${stream}`);
         }
 
@@ -99,7 +78,6 @@ export default function ReportsByMonth() {
 
         setGroupedReports(groupedByDate);
 
-        // Fetch solutions
         const solutionsResponse = await axios.get(
           `${process.env.REACT_APP_URL}/api/getsolutionbank`,
           { params: { testName, stream } }
@@ -112,7 +90,6 @@ export default function ReportsByMonth() {
           throw new Error("No solutions found for this test");
         }
 
-        // Sort solutions numerically by question number
         const sortedSolutions = solutionsResponse.data.data.sort(
           (a, b) => parseInt(a.questionNumber) - parseInt(b.questionNumber)
         );
@@ -130,7 +107,7 @@ export default function ReportsByMonth() {
     fetchData();
   }, [testName, dateFrom, dateTo, stream, navigate]);
 
-  const loadMoreReports = async () => {
+  const loadMoreReports = useCallback(async () => {
     if (page >= totalPages || isFetchingMore) return;
 
     try {
@@ -178,7 +155,7 @@ export default function ReportsByMonth() {
     } finally {
       setIsFetchingMore(false);
     }
-  };
+  },[dateFrom, dateTo, groupedReports, isFetchingMore, page, stream, testName, totalPages]);
 
   const lastItemRef = useCallback(
     (node) => {
@@ -197,7 +174,7 @@ export default function ReportsByMonth() {
 
       if (node) observer.current.observe(node);
     },
-    [isFetchingMore, page, totalPages]
+    [isFetchingMore, loadMoreReports, page, totalPages]
   );
 
   const renderRankBadge = (rank) => {
@@ -228,21 +205,18 @@ export default function ReportsByMonth() {
 
   const calculateResults = (reports, solutions, marksType) => {
     const results = [];
-    const isCompetitive = marksType.includes("+4");
-    const correctMark = isCompetitive ? 4 : 1;
-    const wrongMark = isCompetitive ? -1 : 0;
+    const { correct: correctMark, wrong: wrongMark } =
+      getMarkingScheme(marksType);
 
-    // Create solution map with all question numbers
     const solutionMap = {};
     solutions.forEach((solution) => {
       solutionMap[solution.questionNumber] = {
         correctOptions: solution.correctOptions || [],
         isGrace: solution.isGrace || false,
-        subject: solution.subject, // Assuming solutions have subject information
+        subject: solution.subject,
       };
     });
 
-    // Get all unique question numbers from solutions
     const allQuestionNumbers = [
       ...new Set(solutions.map((s) => s.questionNumber)),
     ].sort((a, b) => a - b);
@@ -297,7 +271,7 @@ export default function ReportsByMonth() {
             } else if (isGrace) {
               corrAns++;
               totalMarks +=
-                correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0); 
+                correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0);
               if (subject && subjectStats[subject]) {
                 subjectStats[subject].correct++;
                 subjectStats[subject].marks +=
@@ -317,7 +291,6 @@ export default function ReportsByMonth() {
         }
       });
 
-      // Calculate Biology marks (Botany + Zoology or direct Biology)
       const biologyMarks =
         subjectStats.Biology.marks > 0
           ? subjectStats.Biology.marks
@@ -325,19 +298,16 @@ export default function ReportsByMonth() {
 
       const chemistryMarks = subjectStats.Chemistry.marks;
 
-      // Total wrong answers across all subjects
       const totalWrongAnswers = Object.values(subjectStats).reduce(
         (sum, sub) => sum + sub.wrong,
         0
       );
 
-      // Biology wrong answers
       const biologyWrong =
         subjectStats.Biology.wrong > 0
           ? subjectStats.Biology.wrong
           : subjectStats.Botany.wrong + subjectStats.Zoology.wrong;
 
-      // Chemistry wrong answers
       const chemistryWrong = subjectStats.Chemistry.wrong;
 
       const accuracy =
@@ -358,63 +328,43 @@ export default function ReportsByMonth() {
                 ((totalMarks / (totalQuestions * correctMark)) * 100).toFixed(2)
               )
             : 0,
-        percentile: 0, // Will be calculated later
-        rank: 0, // Will be calculated later
+        percentile: 0,
+        rank: 0,
         date: report.date,
-        // Additional fields for tie-breaking
         biologyMarks,
         chemistryMarks,
         totalWrongAnswers,
         biologyWrong,
         chemistryWrong,
-        // Assuming regNumber can be used as application number for tie-breaker
         applicationNumber: parseInt(report.regNumber) || 0,
       });
     });
 
-    // Calculate ranks with tie-breaking
     if (results.length > 0) {
-      // Sort by all tie-breaking criteria
       const sortedByMarks = [...results].sort((a, b) => {
-        // Primary sort by total marks (descending)
         if (b.totalMarks !== a.totalMarks) return b.totalMarks - a.totalMarks;
-
-        // 1. Higher marks in Biology
         if (b.biologyMarks !== a.biologyMarks)
           return b.biologyMarks - a.biologyMarks;
-
-        // 2. Higher marks in Chemistry
         if (b.chemistryMarks !== a.chemistryMarks)
           return b.chemistryMarks - a.chemistryMarks;
-
-        // 3. Fewer total wrong answers
         if (a.totalWrongAnswers !== b.totalWrongAnswers)
           return a.totalWrongAnswers - b.totalWrongAnswers;
-
-        // 4. Fewer wrong answers in Biology
         if (a.biologyWrong !== b.biologyWrong)
           return a.biologyWrong - b.biologyWrong;
-
-        // 5. Fewer wrong answers in Chemistry
         if (a.chemistryWrong !== b.chemistryWrong)
           return a.chemistryWrong - b.chemistryWrong;
-
-        // 6. Earlier application (lower application number)
         return a.applicationNumber - b.applicationNumber;
       });
 
-      // Assign ranks - always increment by 1 for each student
       for (let i = 0; i < sortedByMarks.length; i++) {
         sortedByMarks[i].rank = i + 1;
       }
 
-      // Update ranks in original results
       const rankMap = {};
       sortedByMarks.forEach((res) => {
         rankMap[res.regNumber] = res.rank;
       });
 
-      // Calculate percentiles based on the new formula
       const totalStudents = results.length;
       results.forEach((res) => {
         res.rank = rankMap[res.regNumber] || 0;
@@ -423,6 +373,7 @@ export default function ReportsByMonth() {
         ).toFixed(2);
       });
     }
+
     return results;
   };
 
@@ -437,7 +388,6 @@ export default function ReportsByMonth() {
         throw new Error(`No reports found for ${date}`);
       }
 
-      // 1. Get the pattern and subject details
       const token = localStorage.getItem("token");
       const patternResponse = await axios.get(
         `${process.env.REACT_APP_URL}/api/getpatterns`,
@@ -460,7 +410,6 @@ export default function ReportsByMonth() {
         throw new Error(`No pattern found for test ${testName}`);
       }
 
-      // 2. Get subject details and define question distribution
       const subjectIds = pattern.subjects.map((sub) =>
         typeof sub.subject === "string" ? sub.subject : sub.subject._id
       );
@@ -473,13 +422,11 @@ export default function ReportsByMonth() {
         }
       );
 
-      // Create subject map with ID as key and name as value
       const subjectMap = {};
       subjectsResponse.data.data.forEach((subject) => {
         subjectMap[subject._id] = subject.subjectName;
       });
 
-      // Create subject-wise question ranges
       const subjectQuestionMap = {};
       let currentQuestion = 1;
 
@@ -500,10 +447,10 @@ export default function ReportsByMonth() {
         currentQuestion += questionCount;
       });
 
-      // 3. Calculate overall results
+      const { correct: correctMark, wrong: wrongMark } =
+        getMarkingScheme(marksType);
       const dateResults = calculateResults(dateReports, solutions, marksType);
 
-      // 4. Calculate subject-wise results for each student
       const resultsWithSubjects = dateReports.map((report, index) => {
         const studentResult = dateResults[index];
         const questionAnswers =
@@ -512,15 +459,13 @@ export default function ReportsByMonth() {
             : report.questionAnswers || {};
 
         const subjectResults = {};
-        let totalScored = 0;
-        let totalPossible = 0;
+        // let totalScored = 0;
+        // let totalPossible = 0;
 
-        // Process each subject from the pattern
         Object.entries(subjectQuestionMap).forEach(
           ([subjectName, subjectData]) => {
             let subjectScored = 0;
 
-            // Process each question in this subject's range
             for (
               let qNum = subjectData.startQ;
               qNum <= subjectData.endQ;
@@ -538,11 +483,11 @@ export default function ReportsByMonth() {
                 solution.isGrace ||
                 solution.correctOptions.includes(markedOption);
 
-              if (marksType.includes("+4")) {
-                subjectScored += isCorrect ? 4 : markedOption ? -1 : 0;
-              } else {
-                subjectScored += isCorrect ? 1 : 0;
-              }
+              subjectScored += isCorrect
+                ? correctMark
+                : markedOption
+                ? wrongMark
+                : 0;
             }
 
             subjectResults[subjectName] = {
@@ -558,8 +503,8 @@ export default function ReportsByMonth() {
                   : 0,
             };
 
-            totalScored += subjectScored;
-            totalPossible += subjectData.totalMarks;
+            // totalScored += subjectScored;
+            // totalPossible += subjectData.totalMarks;
           }
         );
 
@@ -575,6 +520,8 @@ export default function ReportsByMonth() {
           percentage: studentResult.percentage,
           rank: studentResult.rank,
           marksType: report.marksType || marksType,
+          // totalScored,
+          // totalPossible
         };
       });
 
@@ -747,7 +694,7 @@ export default function ReportsByMonth() {
                     const attempted =
                       result.correctAnswers + result.wrongAnswers;
                     const totalQuestions = solutions.length;
-                    const isDangerZone = result.percentile < 50;
+                    //const isDangerZone = result.percentile < 50;
 
                     return (
                       <tr key={index}>

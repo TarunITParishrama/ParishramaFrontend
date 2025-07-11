@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -177,7 +177,7 @@ export default function Navigation({ userRole, activeTab, setActiveTab }) {
           <form onSubmit={handleSearch} className="relative">
             <input
               type="text"
-              placeholder="Search"
+              placeholder="        Search Student "
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

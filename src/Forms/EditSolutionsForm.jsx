@@ -238,7 +238,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
     try {
       const solutionId = solutions[0].solutionRef._id;
-      const response = await axios.put(
+      await axios.put(
         `${process.env.REACT_APP_URL}/api/updatesolution/${solutionId}`,
         {
           testName: testMetadata.testName,

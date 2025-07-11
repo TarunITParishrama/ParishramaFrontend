@@ -42,7 +42,7 @@ const DownloadReports = () => {
     };
 
     fetchCampuses();
-  }, []);
+  }, [BASE_URL, token]);
 
   // Individual mode functions
   const handleSearch = async (e) => {
@@ -466,7 +466,7 @@ const DownloadReports = () => {
   const pageWidth = doc.internal.pageSize.width;
   const fullWidth = pageWidth - 2 * margin;
   const suggestionsHeight = 30;
-  const formHeight = 130;
+  //const formHeight = 130;
   let yStart = 20;
 
   departments.forEach((dept, index) => {
@@ -510,7 +510,7 @@ const DownloadReports = () => {
 
         // 📦 Suggestion Box (full-width)
         const boxY = tableBottom + 10;
-        const boxHeight = 30;
+        //const boxHeight = 30;
         doc.setDrawColor(0);
         doc.setLineWidth(0.3);
         doc.setFont("helvetica", "normal");
@@ -693,7 +693,7 @@ const DownloadReports = () => {
         let allTotals = [];
         let bestTest = null;
         let lowestTest = null;
-
+        
         tests.forEach((test) => {
           const row = [
             test.testName,
@@ -701,7 +701,7 @@ const DownloadReports = () => {
           ];
           let total = 0;
           let full = 0;
-
+          
           allSubjects.forEach((subj) => {
             const found = test.subjects?.find(
               (s) => s.name === subj || s.subjectName === subj
@@ -766,7 +766,7 @@ const DownloadReports = () => {
             "",
           ]);
         }
-
+        
         autoTable(doc, {
           head: [headers],
           body: rows,
@@ -778,9 +778,9 @@ const DownloadReports = () => {
             fontStyle: "bold",
           },
           margin: { left: margin, right: margin },
-          didDrawPage: (data) => {
-            y = data.cursor.y + 10;
-          },
+          // didDrawPage: (data) => {
+          //   y = data.cursor.y + 10;
+          // },
         });
 
         if (++pagesUsed < 2) {
@@ -796,21 +796,7 @@ const DownloadReports = () => {
 
     doc.save("Bulk_Student_Reports.pdf");
   };
-
-  //Helper functions to display Image in PDF
-  const fetchImageAsBase64 = async (url) => {
-    try {
-      const res = await fetch(url, { mode: "cors" });
-      const blob = await res.blob();
-      return await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      });
-    } catch (err) {
-      return null;
-    }
-  };
+  
   const loadImageAsBase64 = (url) =>
     new Promise((resolve) => {
       try {
