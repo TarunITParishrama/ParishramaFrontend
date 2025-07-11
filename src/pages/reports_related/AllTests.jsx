@@ -14,8 +14,27 @@ export default function AllTests() {
   const [selectedStream, setSelectedStream] = useState("LongTerm");
   const observer = useRef();
 
+  // Infinite scroll logic
+  const lastElementRef = useCallback(
+    (node) => {
+      if (loading) return;
+      if (observer.current) observer.current.disconnect();
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && page < totalPages) {
+          fetchReports(page + 1);
+        } else if (entries[0].isIntersecting && page >= totalPages) {
+          console.log("No more pages to load.");
+        }
+      });
+
+      if (node) observer.current.observe(node);
+    },
+    [loading, page, totalPages, selectedStream]
+  );
+
   // Process and group reports into tests by testName
-  const processTestData = useCallback((allReports) => {
+  const processTestData = (allReports) => {
     console.log("All reports before processing:", allReports);
     const testMap = {};
     const longTermReports = allReports.filter((r) => r.stream === "LongTerm");
@@ -70,9 +89,9 @@ export default function AllTests() {
         ),
       }))
       .sort((a, b) => a.testName.localeCompare(b.testName));
-  },[selectedStream]);
+  };
 
-  const fetchReports = useCallback(async (pageNum) => {
+  const fetchReports = async (pageNum) => {
     try {
       setLoading(true);
       const response = await axios.get(
@@ -96,29 +115,7 @@ export default function AllTests() {
     } finally {
       setLoading(false);
     }
-  },[processTestData, reports]);
-  // Infinite scroll logic
-  const lastElementRef = useCallback(
-    (node) => {
-      if (loading) return;
-      if (observer.current) observer.current.disconnect();
-
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && page < totalPages) {
-          fetchReports(page + 1);
-        } else if (entries[0].isIntersecting && page >= totalPages) {
-          console.log("No more pages to load.");
-        }
-      });
-
-      if (node) observer.current.observe(node);
-    },
-    [loading, page, totalPages, fetchReports]
-  );
-
-  
-
-  
+  };
 
   // Fetch first page or reset when stream changes
   useEffect(() => {
@@ -127,7 +124,7 @@ export default function AllTests() {
     setPage(1);
     setTotalPages(1);
     fetchReports(1);
-  }, [fetchReports, selectedStream]);
+  }, [selectedStream]);
 
   const handleViewData = (testName, date) => {
     const { dateFrom, dateTo } = getMonthDateRange(date);

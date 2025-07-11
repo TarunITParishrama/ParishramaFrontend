@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -19,26 +19,26 @@ export default function Noticeboard() {
   });
 
   // Fetch notices based on user role
-  const fetchNotices = useCallback(async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token');
-    const endpoint = userRole === 'parent' ? '/api/notices/active' : '/api/notices';
-    
-    const response = await axios.get(`${process.env.REACT_APP_URL}${endpoint}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    
-    setNotices(response.data.data);
-  } catch (error) {
-    toast.error('Failed to fetch notices');
-    console.error('Fetch error:', error);
-  } finally {
-    setLoading(false);
-  }
-}, [userRole]);
+  const fetchNotices = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const endpoint = userRole === 'parent' ? '/api/notices/active' : '/api/notices';
+      
+      const response = await axios.get(`${process.env.REACT_APP_URL}${endpoint}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      setNotices(response.data.data);
+    } catch (error) {
+      toast.error('Failed to fetch notices');
+      console.error('Fetch error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -91,7 +91,7 @@ export default function Noticeboard() {
   // Load notices on component mount and tab change
   useEffect(() => {
     fetchNotices();
-  }, [activeTab, fetchNotices]);
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-100">

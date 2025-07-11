@@ -400,7 +400,7 @@ export default function AdmissionForm() {
                     const [day, month, year] =
                       studentData.dateOfBirth.split("-");
                     // Create date in local timezone (no UTC conversion)
-                    //const date = new Date(year, month - 1, day);
+                    const date = new Date(year, month - 1, day);
                     studentData.dateOfBirth = `${year}-${month.padStart(
                       2,
                       "0"
@@ -418,7 +418,7 @@ export default function AdmissionForm() {
                   ) {
                     const [month, day, year] =
                       studentData.dateOfBirth.split("/");
-                    //const date = new Date(year, month - 1, day);
+                    const date = new Date(year, month - 1, day);
                     studentData.dateOfBirth = `${year}-${month.padStart(
                       2,
                       "0"

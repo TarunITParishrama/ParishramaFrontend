@@ -49,7 +49,6 @@ export default function NewReport({ onClose }) {
   const marksTypeOptions = [
     "+1 CorrectAnswer, 0 WrongAction, 0 Unmarked",
     "+4 CorrectAnswer, -1 WrongAction, 0 Unmarked",
-    "+16 CorrectAnswer, -4 WrongAction, 0 Unmarked"
   ];
 
   // Fetch test names when stream changes (only for MCQ)

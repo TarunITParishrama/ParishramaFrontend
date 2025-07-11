@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { useFormik } from "formik";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -63,12 +63,12 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
   });
 
   // Check if current test name is a custom one (not PTT or PCT)
-  const isCustomTestName = useCallback(() => {
+  const isCustomTestName = () => {
     const upperTestName = formik.values.testName.toUpperCase();
     return formik.values.type === "PUC"
       ? upperTestName !== "PTT" && upperTestName !== "PCT"
       : formik.values.testName.length > 3; // For non-PUC tests, check length > 3
-  },[formik.values.testName, formik.values.type]);
+  };
 
   // Fetch subjects
   useEffect(() => {
@@ -115,7 +115,7 @@ const PatternsForm = ({ initialValues, onSuccess, onCancel }) => {
     });
 
     formik.setFieldValue("subjects", updatedSubjects);
-  }, [formik.values.type, formik.values.testName, markingScheme, formik, isCustomTestName]);
+  }, [formik.values.type, formik.values.testName, markingScheme]);
 
   const addSubject = () => {
     const isPTT =

@@ -227,7 +227,7 @@ export default function StudentSettings() {
       setLoading(true);
       toast.info("Updating student details...");
       const token = localStorage.getItem("token");
-      await axios.put(
+      const response = await axios.put(
         `${process.env.REACT_APP_URL}/api/updatestudent/${student._id}`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }

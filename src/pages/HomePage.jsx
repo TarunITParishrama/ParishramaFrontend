@@ -56,6 +56,7 @@ function ParishramaHomePage() {
   }, []);
   useEffect(() => {
     const role = localStorage.getItem("userRole");
+    const regNumber = localStorage.getItem("studentRegNumber");
 
     if (!role) {
       navigate("/");

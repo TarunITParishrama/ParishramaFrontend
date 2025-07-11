@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-//import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function EditReports() {
-  //const navigate = useNavigate();
+  const navigate = useNavigate();
   const [tests, setTests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -34,53 +34,53 @@ export default function EditReports() {
   const token = localStorage.getItem("token");
 
   // Calculate marks for each report
-  // const calculateMarks = (report) => {
-  //   if (!report.markedOptions || !solutions.length) {
-  //     return {
-  //       correctAnswers: 0,
-  //       wrongAnswers: 0,
-  //       totalMarks: 0,
-  //       accuracy: 0,
-  //     };
-  //   }
+  const calculateMarks = (report) => {
+    if (!report.markedOptions || !solutions.length) {
+      return {
+        correctAnswers: 0,
+        wrongAnswers: 0,
+        totalMarks: 0,
+        accuracy: 0,
+      };
+    }
 
-  //   let correct = 0;
-  //   let wrong = 0;
-  //   let totalMarks = 0;
-  //   const marksType = report.marksType || "+4/-1";
-  //   const correctMark = marksType.includes("+4") ? 4 : 1;
-  //   const wrongMark = marksType.includes("-1") ? -1 : 0;
+    let correct = 0;
+    let wrong = 0;
+    let totalMarks = 0;
+    const marksType = report.marksType || "+4/-1";
+    const correctMark = marksType.includes("+4") ? 4 : 1;
+    const wrongMark = marksType.includes("-1") ? -1 : 0;
 
-  //   const markedOptions =
-  //     report.markedOptions instanceof Map
-  //       ? Object.fromEntries(report.markedOptions)
-  //       : report.markedOptions;
+    const markedOptions =
+      report.markedOptions instanceof Map
+        ? Object.fromEntries(report.markedOptions)
+        : report.markedOptions;
 
-  //   Object.entries(markedOptions).forEach(([qNum, markedOption]) => {
-  //     const solution = solutions.find(
-  //       (s) => s.questionNumber === parseInt(qNum)
-  //     );
-  //     if (solution) {
-  //       if (markedOption === solution.correctOption) {
-  //         correct++;
-  //         totalMarks += correctMark;
-  //       } else {
-  //         wrong++;
-  //         totalMarks += wrongMark;
-  //       }
-  //     }
-  //   });
+    Object.entries(markedOptions).forEach(([qNum, markedOption]) => {
+      const solution = solutions.find(
+        (s) => s.questionNumber === parseInt(qNum)
+      );
+      if (solution) {
+        if (markedOption === solution.correctOption) {
+          correct++;
+          totalMarks += correctMark;
+        } else {
+          wrong++;
+          totalMarks += wrongMark;
+        }
+      }
+    });
 
-  //   const accuracy =
-  //     correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
+    const accuracy =
+      correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
 
-  //   return {
-  //     correctAnswers: correct,
-  //     wrongAnswers: wrong,
-  //     totalMarks,
-  //     accuracy,
-  //   };
-  // };
+    return {
+      correctAnswers: correct,
+      wrongAnswers: wrong,
+      totalMarks,
+      accuracy,
+    };
+  };
 
   // Process test data
   const processTestData = (reports) => {

@@ -1,5 +1,5 @@
 import React from "react";
-//import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
@@ -49,7 +49,7 @@ const customStyles = {
 };
 
 const AttendanceForm = () => {
-  //const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const {
     loading,

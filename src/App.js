@@ -14,6 +14,7 @@ import Students from "./pages/tab_pages/Students";
 import Batches from "./pages/tab_pages/Batches";
 import Tests from "./pages/tab_pages/Tests";
 import ReportsByMonth from "./pages/reports_related/ReportsByMonth";
+import Questions from "./pages/tab_pages/Questions";
 import Marks from "./pages/tab_pages/Marks";
 import Reports from "./pages/tab_pages/Reports";
 import Attendance from "./pages/tab_pages/Attendance";
@@ -27,6 +28,7 @@ import Feedback from "./pages/tab_pages/Feedback";
 import Leaderboard from "./pages/tab_pages/Leaderboard";
 import Settings from "./pages/admin/Settings.jsx";
 import StudentData from "./pages/stud/StudentData";
+import StudentReport from "./pages/stud/StudentReport";
 import SingleReport from "./pages/stud/SingleReport.jsx";
 import StudentProfile from "./pages/stud/StudentProfile.jsx";
 import { ToastContainer } from "react-toastify";
@@ -77,6 +79,7 @@ function App() {
             <Route path="batches" element={<Batches />} />
             <Route path="tests" element={<Tests />} />
             <Route path="reportsbymonth" element={<ReportsByMonth />} />
+            <Route path="questions" element={<Questions />} />
             <Route path="marks" element={<Marks />} />
             <Route path="reports" element={<Reports />} />
             <Route path="attendance" element={<Attendance />} />
@@ -90,6 +93,7 @@ function App() {
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="settings" element={<Settings />} />
             <Route path="student/:rollno" element={<StudentData />} />
+            <Route path="studentreport/:rollNo" element={<StudentReport />} />
           </Route>
         </Routes>
         <GoToTop />

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Calendar, momentLocalizer } from "react-big-calendar";
+import React, { useState, useEffect } from "react";
+import { Calendar, momentLocalizer} from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import axios from "axios";
@@ -16,17 +16,6 @@ export default function AttendanceReport() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const regNumber = localStorage.getItem("regNumber");
-
-  const filterDataByDate = useCallback(
-    (date, data = attendanceData) => {
-      const filtered = data
-        .filter((item) => moment(item.date).isSame(date, "day"))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-      setFilteredData(filtered);
-      setSelectedDate(date);
-    },
-    [attendanceData]
-  );
 
   useEffect(() => {
     const fetchAttendance = async () => {
@@ -87,7 +76,15 @@ export default function AttendanceReport() {
       toast.error("Student information not found");
       setLoading(false);
     }
-  }, [regNumber, navigate, filterDataByDate, selectedDate]);
+  }, [regNumber, navigate]);
+
+  const filterDataByDate = (date, data = attendanceData) => {
+    const filtered = data
+      .filter((item) => moment(item.date).isSame(date, "day"))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    setFilteredData(filtered);
+    setSelectedDate(date);
+  };
 
   const eventStyleGetter = (event) => {
     let backgroundColor = "#e0e0e0";

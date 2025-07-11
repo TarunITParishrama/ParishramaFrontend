@@ -6,7 +6,7 @@ import { useCallback } from "react";
 
 export default function StudentData() {
   const [students, setStudents] = useState([]);
-  //const [groupedStudents, setGroupedStudents] = useState({});
+  const [groupedStudents, setGroupedStudents] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,58 +25,16 @@ export default function StudentData() {
     fetchStudents(1);
   }, []);
 
-  const groupStudentsByCampus = useCallback(() => {
-    const grouped = {};
-    const campuses = [
-      ...new Set(students.map((student) => student.campus?.name || "Other")),
-    ];
-
-    campuses.forEach((campus) => {
-      let campusStudents = students.filter(
-        (student) => (student.campus?.name || "Other") === campus
-      );
-
-      // Apply search filter if exists for this campus
-      if (searchQueries[campus]) {
-        const query = searchQueries[campus].toLowerCase();
-        campusStudents = campusStudents.filter(
-          (student) =>
-            student.regNumber.toLowerCase().includes(query) ||
-            student.studentName.toLowerCase().includes(query)
-        );
-      }
-
-      // Apply section filter if exists for this campus
-      if (sectionFilters[campus]) {
-        campusStudents = campusStudents.filter(
-          (student) => student.section === sectionFilters[campus]
-        );
-      }
-
-      // Apply sorting if exists for this campus
-      if (sortOrders[campus]) {
-        campusStudents = [...campusStudents].sort((a, b) => {
-          const aNum = parseInt(a.regNumber.replace(/\D/g, ""), 10) || 0;
-          const bNum = parseInt(b.regNumber.replace(/\D/g, ""), 10) || 0;
-          return sortOrders[campus] === "asc" ? aNum - bNum : bNum - aNum;
-        });
-      }
-
-      grouped[campus] = campusStudents;
-    });
-
-    return grouped;
-  }, [students, searchQueries, sectionFilters, sortOrders]);
-  
   useEffect(() => {
-  if (students.length > 0) {
-    const campuses = Object.keys(groupStudentsByCampus());
-    if (campuses.length > 0 && Object.keys(expandedCampuses).length === 0) {
-      setExpandedCampuses({ [campuses[0]]: true });
+    if (students.length > 0) {
+      groupStudentsByCampus();
+      // Expand first campus by default
+      const campuses = Object.keys(groupStudentsByCampus());
+      if (campuses.length > 0 && Object.keys(expandedCampuses).length === 0) {
+        setExpandedCampuses({ [campuses[0]]: true });
+      }
     }
-  }
-}, [students, searchQueries, sectionFilters, sortOrders, expandedCampuses, groupStudentsByCampus]);
-
+  }, [students, searchQueries, sectionFilters, sortOrders]);
 
   const fetchStudents = async (pageNum = 1) => {
     try {
@@ -121,7 +79,48 @@ export default function StudentData() {
     [isLoadingMore, page, totalPages]
   );
 
-  
+  const groupStudentsByCampus = () => {
+    const grouped = {};
+    const campuses = [
+      ...new Set(students.map((student) => student.campus?.name || "Other")),
+    ];
+
+    campuses.forEach((campus) => {
+      let campusStudents = students.filter(
+        (student) => (student.campus?.name || "Other") === campus
+      );
+
+      // Apply search filter if exists for this campus
+      if (searchQueries[campus]) {
+        const query = searchQueries[campus].toLowerCase();
+        campusStudents = campusStudents.filter(
+          (student) =>
+            student.regNumber.toLowerCase().includes(query) ||
+            student.studentName.toLowerCase().includes(query)
+        );
+      }
+
+      // Apply section filter if exists for this campus
+      if (sectionFilters[campus]) {
+        campusStudents = campusStudents.filter(
+          (student) => student.section === sectionFilters[campus]
+        );
+      }
+
+      // Apply sorting if exists for this campus
+      if (sortOrders[campus]) {
+        campusStudents = [...campusStudents].sort((a, b) => {
+          const aNum = parseInt(a.regNumber.replace(/\D/g, ""), 10) || 0;
+          const bNum = parseInt(b.regNumber.replace(/\D/g, ""), 10) || 0;
+          return sortOrders[campus] === "asc" ? aNum - bNum : bNum - aNum;
+        });
+      }
+
+      grouped[campus] = campusStudents;
+    });
+
+    return grouped;
+  };
 
   const handleSearchChange = (campus, value) => {
     setSearchQueries((prev) => ({ ...prev, [campus]: value }));
