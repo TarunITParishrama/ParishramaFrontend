@@ -536,6 +536,9 @@ const SingleReport = () => {
                       )
                     )}
                   </div>
+                  <div>
+                    <h4 className="font-mono text-red-500">Note: Any Tests Names containig "...PDT..." is Daily Tests, "...PWT/PCT..." is Weekly Tests</h4>
+                  </div>
 
                   {/* Selected Folder Content */}
                   {groupedCompetitiveTests[selectedFolderTab] && (
@@ -664,7 +667,7 @@ const SingleReport = () => {
                                   <div className="flex justify-between items-center">
                                     <div className="flex items-center">
                                       <MdScore className="text-yellow-500 mr-1" />
-                                      <span className="font-medium">
+                                      <span className="font-medium text-black">
                                         {report.totalMarks} / {report.fullMarks}
                                       </span>
                                     </div>
