@@ -238,7 +238,7 @@ export default function ReportsByMonth() {
       solutionMap[solution.questionNumber] = {
         correctOptions: solution.correctOptions || [],
         isGrace: solution.isGrace || false,
-        subject: solution.subject, // Assuming solutions have subject information
+        subject: solution.subject,
       };
     });
 
@@ -271,49 +271,51 @@ export default function ReportsByMonth() {
         const markedOption = questionAnswers[qNum]?.trim();
         const solution = solutionMap[qNum];
 
-        if (solution) {
-          const subject = solution.subject;
-          const isGrace = solution.isGrace;
-          const correctOptions = solution.correctOptions;
-
-          if (!markedOption || markedOption === "") {
-            unattemptedCount++;
-            if (isGrace) {
-              corrAns++;
-              totalMarks += correctMark;
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].correct++;
-                subjectStats[subject].marks += correctMark;
-              }
-            }
-          } else {
-            if (correctOptions.includes(markedOption)) {
-              corrAns++;
-              totalMarks += correctMark;
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].correct++;
-                subjectStats[subject].marks += correctMark;
-              }
-            } else if (isGrace) {
-              corrAns++;
-              totalMarks +=
-                correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0); 
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].correct++;
-                subjectStats[subject].marks +=
-                  correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0);
-              }
-            } else {
-              wroAns++;
-              totalMarks += wrongMark;
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].wrong++;
-                subjectStats[subject].marks += wrongMark;
-              }
-            }
-          }
-        } else {
+        if (!solution) {
           unattemptedCount++;
+          return;
+        }
+
+        const { correctOptions, isGrace, subject } = solution;
+
+        let questionMarks = 0;
+        let isCorrect = false;
+
+        if (!markedOption || markedOption === "") {
+          // Unattempted
+          unattemptedCount++;
+          if (isGrace) {
+            questionMarks += correctMark;
+            isCorrect = true;
+          }
+        } else if (isGrace) {
+          // Handle grace questions first - all attempts get correct marks
+          questionMarks += correctMark;
+          isCorrect = true;
+        } else if (correctOptions.includes(markedOption)) {
+          // Normal correct answer
+          questionMarks += correctMark;
+          isCorrect = true;
+        } else {
+          // Normal wrong answer
+          questionMarks += wrongMark;
+        }
+
+        // Update overall totals
+        totalMarks += questionMarks;
+
+        if (isCorrect) {
+          corrAns++;
+          if (subject && subjectStats[subject]) {
+            subjectStats[subject].correct++;
+            subjectStats[subject].marks += questionMarks;
+          }
+        } else if (markedOption) {
+          wroAns++;
+          if (subject && subjectStats[subject]) {
+            subjectStats[subject].wrong++;
+            subjectStats[subject].marks += questionMarks;
+          }
         }
       });
 
@@ -325,19 +327,19 @@ export default function ReportsByMonth() {
 
       const chemistryMarks = subjectStats.Chemistry.marks;
 
-      // Total wrong answers across all subjects
+      // Total wrong answers across all subjects (after grace adjustments)
       const totalWrongAnswers = Object.values(subjectStats).reduce(
         (sum, sub) => sum + sub.wrong,
         0
       );
 
-      // Biology wrong answers
+      // Biology wrong answers (after grace adjustments)
       const biologyWrong =
         subjectStats.Biology.wrong > 0
           ? subjectStats.Biology.wrong
           : subjectStats.Botany.wrong + subjectStats.Zoology.wrong;
 
-      // Chemistry wrong answers
+      // Chemistry wrong answers (after grace adjustments)
       const chemistryWrong = subjectStats.Chemistry.wrong;
 
       const accuracy =
