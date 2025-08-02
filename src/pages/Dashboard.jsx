@@ -78,7 +78,7 @@ const getDashboardItems = (role) => {
     },
     {
       name: "Noticeboard",
-      icon: <img src={noticeboardIcon} alt="" className="w-10 h-12 inline" />,
+      icon: <img src={noticeboardIcon} alt="" className="w-10 h-12 inline rounded-full" />,
       path: "noticeboard",
       show: ["super_admin", "admin", "parent"].includes(role),
     },
@@ -144,7 +144,6 @@ const getDashboardItems = (role) => {
     },
   ];
 
-  // Add Logout item only for parent role
   const logoutItem =
     role === "parent"
       ? [
@@ -161,7 +160,6 @@ const getDashboardItems = (role) => {
   return [...commonItems, ...adminItems, ...logoutItem]
     .filter((item) => item.show === true || item.show)
     .sort((a, b) => {
-      // Always put logout at the end
       if (a.isLogout) return 1;
       if (b.isLogout) return -1;
       return a.name.localeCompare(b.name);
@@ -215,9 +213,10 @@ export default function Dashboard({ userRole }) {
               }
               navigate(item.path);
             }}
-            className={`bg-white shadow-lg rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-transform transform hover:-translate-y-1 ${
-              item.isLogout ? "hover:bg-red-50" : ""
-            }`}
+            className={`bg-white shadow-lg rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-xl transition-transform transform hover:-translate-y-1
+              ${item.isLogout ? "hover:bg-red-50" : ""}
+              ${item.name === "Noticeboard" ? "bg-yellow-100" : ""}
+            `}
           >
             <span className="text-4xl">{item.icon}</span>
             <p

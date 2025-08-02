@@ -20,16 +20,21 @@ export default function ReportsByMonth() {
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const observer = useRef();
 
-  // const styles = {
-  //   dangerZone: {
-  //     backgroundColor: '#fff5f5',
-  //     borderLeft: '4px solid #f56565'
-  //   },
-  //   dangerText: {
-  //     color: '#e53e3e',
-  //     fontWeight: '600'
-  //   }
-  // };
+  // Modal state
+  const [modalInfo, setModalInfo] = useState({
+    open: false,
+    student: null,
+    wrongQuestions: [],
+  });
+
+  const [overallWrongModal, setOverallWrongModal] = useState({
+    open: false,
+    topWrong: [],
+    stats: {},
+    reports: [],
+    solutions: [],
+  });
+  const [wrongSortOrder, setWrongSortOrder] = useState("desc");
 
   useEffect(() => {
     if (!testName || !dateFrom || !dateTo || !stream) {
@@ -42,12 +47,6 @@ export default function ReportsByMonth() {
         setLoading(true);
         setError("");
 
-        // Get date range for the month
-        // const dateObj = new Date(date);
-        // const monthStart = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
-        // const monthEnd = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0);
-
-        // Fetch reports
         const reportsResponse = await axios.get(
           `${process.env.REACT_APP_URL}/api/getreportbank`,
           {
@@ -112,7 +111,6 @@ export default function ReportsByMonth() {
           throw new Error("No solutions found for this test");
         }
 
-        // Sort solutions numerically by question number
         const sortedSolutions = solutionsResponse.data.data.sort(
           (a, b) => parseInt(a.questionNumber) - parseInt(b.questionNumber)
         );
@@ -150,7 +148,6 @@ export default function ReportsByMonth() {
           },
         }
       );
-
       const newReports = moreResponse.data.data;
       const updatedGrouped = { ...groupedReports };
 
@@ -232,17 +229,15 @@ export default function ReportsByMonth() {
     const correctMark = isCompetitive ? 4 : 1;
     const wrongMark = isCompetitive ? -1 : 0;
 
-    // Create solution map with all question numbers
     const solutionMap = {};
     solutions.forEach((solution) => {
       solutionMap[solution.questionNumber] = {
         correctOptions: solution.correctOptions || [],
         isGrace: solution.isGrace || false,
-        subject: solution.subject, // Assuming solutions have subject information
+        subject: solution.subject,
       };
     });
 
-    // Get all unique question numbers from solutions
     const allQuestionNumbers = [
       ...new Set(solutions.map((s) => s.questionNumber)),
     ].sort((a, b) => a - b);
@@ -271,53 +266,49 @@ export default function ReportsByMonth() {
         const markedOption = questionAnswers[qNum]?.trim();
         const solution = solutionMap[qNum];
 
-        if (solution) {
-          const subject = solution.subject;
-          const isGrace = solution.isGrace;
-          const correctOptions = solution.correctOptions;
-
-          if (!markedOption || markedOption === "") {
-            unattemptedCount++;
-            if (isGrace) {
-              corrAns++;
-              totalMarks += correctMark;
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].correct++;
-                subjectStats[subject].marks += correctMark;
-              }
-            }
-          } else {
-            if (correctOptions.includes(markedOption)) {
-              corrAns++;
-              totalMarks += correctMark;
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].correct++;
-                subjectStats[subject].marks += correctMark;
-              }
-            } else if (isGrace) {
-              corrAns++;
-              totalMarks +=
-                correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0); 
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].correct++;
-                subjectStats[subject].marks +=
-                  correctMark + (wrongMark < 0 ? Math.abs(wrongMark) : 0);
-              }
-            } else {
-              wroAns++;
-              totalMarks += wrongMark;
-              if (subject && subjectStats[subject]) {
-                subjectStats[subject].wrong++;
-                subjectStats[subject].marks += wrongMark;
-              }
-            }
-          }
-        } else {
+        if (!solution) {
           unattemptedCount++;
+          return;
+        }
+
+        const { correctOptions, isGrace, subject } = solution;
+
+        let questionMarks = 0;
+        let isCorrect = false;
+        if (!markedOption || markedOption === "") {
+          // Unattempted
+          unattemptedCount++;
+          if (isGrace) {
+            questionMarks += correctMark;
+            isCorrect = true;
+          }
+        } else if (isGrace) {
+          questionMarks += correctMark;
+          isCorrect = true;
+        } else if (correctOptions.includes(markedOption)) {
+          questionMarks += correctMark;
+          isCorrect = true;
+        } else {
+          questionMarks += wrongMark;
+        }
+
+        totalMarks += questionMarks;
+
+        if (isCorrect) {
+          corrAns++;
+          if (subject && subjectStats[subject]) {
+            subjectStats[subject].correct++;
+            subjectStats[subject].marks += questionMarks;
+          }
+        } else if (markedOption) {
+          wroAns++;
+          if (subject && subjectStats[subject]) {
+            subjectStats[subject].wrong++;
+            subjectStats[subject].marks += questionMarks;
+          }
         }
       });
 
-      // Calculate Biology marks (Botany + Zoology or direct Biology)
       const biologyMarks =
         subjectStats.Biology.marks > 0
           ? subjectStats.Biology.marks
@@ -325,19 +316,16 @@ export default function ReportsByMonth() {
 
       const chemistryMarks = subjectStats.Chemistry.marks;
 
-      // Total wrong answers across all subjects
       const totalWrongAnswers = Object.values(subjectStats).reduce(
         (sum, sub) => sum + sub.wrong,
         0
       );
 
-      // Biology wrong answers
       const biologyWrong =
         subjectStats.Biology.wrong > 0
           ? subjectStats.Biology.wrong
           : subjectStats.Botany.wrong + subjectStats.Zoology.wrong;
 
-      // Chemistry wrong answers
       const chemistryWrong = subjectStats.Chemistry.wrong;
 
       const accuracy =
@@ -361,60 +349,40 @@ export default function ReportsByMonth() {
         percentile: 0, // Will be calculated later
         rank: 0, // Will be calculated later
         date: report.date,
-        // Additional fields for tie-breaking
         biologyMarks,
         chemistryMarks,
         totalWrongAnswers,
         biologyWrong,
         chemistryWrong,
-        // Assuming regNumber can be used as application number for tie-breaker
         applicationNumber: parseInt(report.regNumber) || 0,
       });
     });
 
-    // Calculate ranks with tie-breaking
+    // Ranks & percentiles
     if (results.length > 0) {
-      // Sort by all tie-breaking criteria
       const sortedByMarks = [...results].sort((a, b) => {
-        // Primary sort by total marks (descending)
         if (b.totalMarks !== a.totalMarks) return b.totalMarks - a.totalMarks;
-
-        // 1. Higher marks in Biology
         if (b.biologyMarks !== a.biologyMarks)
           return b.biologyMarks - a.biologyMarks;
-
-        // 2. Higher marks in Chemistry
         if (b.chemistryMarks !== a.chemistryMarks)
           return b.chemistryMarks - a.chemistryMarks;
-
-        // 3. Fewer total wrong answers
         if (a.totalWrongAnswers !== b.totalWrongAnswers)
           return a.totalWrongAnswers - b.totalWrongAnswers;
-
-        // 4. Fewer wrong answers in Biology
         if (a.biologyWrong !== b.biologyWrong)
           return a.biologyWrong - b.biologyWrong;
-
-        // 5. Fewer wrong answers in Chemistry
         if (a.chemistryWrong !== b.chemistryWrong)
           return a.chemistryWrong - b.chemistryWrong;
-
-        // 6. Earlier application (lower application number)
         return a.applicationNumber - b.applicationNumber;
       });
 
-      // Assign ranks - always increment by 1 for each student
       for (let i = 0; i < sortedByMarks.length; i++) {
         sortedByMarks[i].rank = i + 1;
       }
 
-      // Update ranks in original results
       const rankMap = {};
       sortedByMarks.forEach((res) => {
         rankMap[res.regNumber] = res.rank;
       });
-
-      // Calculate percentiles based on the new formula
       const totalStudents = results.length;
       results.forEach((res) => {
         res.rank = rankMap[res.regNumber] || 0;
@@ -424,6 +392,95 @@ export default function ReportsByMonth() {
       });
     }
     return results;
+  };
+
+  // ---- MODAL WRONG QUESTIONS ----
+  const handleShowWrongQuestions = (studentResult, reports, solutions) => {
+    // Find report for student
+    const report = reports.find((r) => r.regNumber === studentResult.regNumber);
+    if (!report) return;
+
+    // Prepare solution map
+    const solutionMap = {};
+    solutions.forEach((sol) => {
+      solutionMap[sol.questionNumber] = sol;
+    });
+
+    // Answers from report
+    const questionAnswers =
+      report.questionAnswers instanceof Map
+        ? Object.fromEntries(report.questionAnswers)
+        : report.questionAnswers || {};
+
+    // Find wrong question numbers with details
+    const wrongQuestions = Object.entries(questionAnswers)
+      .filter(([qNum, markedOption]) => {
+        const sol = solutionMap[qNum];
+        if (!sol) return false;
+        if (sol.isGrace) return false; // skip grace
+        return markedOption && !sol.correctOptions.includes(markedOption);
+      })
+      .map(([qNum, markedOption]) => ({
+        questionNumber: qNum,
+        markedOption,
+        correctOptions: solutionMap[qNum]?.correctOptions || [],
+      }));
+
+    setModalInfo({
+      open: true,
+      student: studentResult,
+      wrongQuestions,
+    });
+  };
+  // ---- END MODAL ----
+
+  const handleShowOverallWrongQuestions = (
+    reports,
+    solutions,
+    sortOrder = "desc"
+  ) => {
+    const wrongCount = {};
+    // Prepare solution lookup
+    const solutionMap = {};
+    solutions.forEach((sol) => {
+      solutionMap[sol.questionNumber] = sol;
+    });
+
+    // Gather wrong answers from all reports
+    reports.forEach((report) => {
+      const questionAnswers =
+        report.questionAnswers instanceof Map
+          ? Object.fromEntries(report.questionAnswers)
+          : report.questionAnswers || {};
+      Object.entries(questionAnswers).forEach(([qNum, markedOption]) => {
+        const sol = solutionMap[qNum];
+        if (!sol) return;
+        if (sol.isGrace) return;
+        if (markedOption && !sol.correctOptions.includes(markedOption)) {
+          wrongCount[qNum] = (wrongCount[qNum] || 0) + 1;
+        }
+      });
+    });
+
+    // No percentage anymore
+    let wrongStatsArr = Object.entries(wrongCount)
+      .map(([qNum, count]) => ({
+        questionNumber: qNum,
+        count,
+        correctOptions: solutionMap[qNum]?.correctOptions || [],
+      }))
+      .sort((a, b) =>
+        sortOrder === "desc" ? b.count - a.count : a.count - b.count
+      );
+
+    setOverallWrongModal({
+      open: true,
+      topWrong: wrongStatsArr,
+      stats: wrongCount,
+      reports,
+      solutions,
+    });
+    setWrongSortOrder(sortOrder);
   };
 
   const handleSubmit = async (date, marksType) => {
@@ -725,7 +782,17 @@ export default function ReportsByMonth() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-green-500 uppercase tracking-wider">
                       Correct
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-red-500 uppercase tracking-wider">
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-red-500 uppercase tracking-wider cursor-pointer hover:underline"
+                      title="See which questions are most commonly answered wrong"
+                      onClick={() =>
+                        handleShowOverallWrongQuestions(
+                          reports,
+                          solutions,
+                          wrongSortOrder
+                        )
+                      }
+                    >
                       Wrong
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -743,21 +810,15 @@ export default function ReportsByMonth() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {dateResults.map((result, index) => {
+                  {dateResults.map((result, idx) => {
                     const attempted =
                       result.correctAnswers + result.wrongAnswers;
                     const totalQuestions = solutions.length;
-                    const isDangerZone = result.percentile < 50;
-
+                    // const isDangerZone = result.percentile < 50;
                     return (
-                      <tr key={index}>
+                      <tr key={idx}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {result.regNumber} {renderRankBadge(result.rank)}
-                          {/* {isDangerZone &&(
-                        <span className="ml-2 bg-red-800 text-white text-xs font-semibold px-2.5 py-0.5 rounded">
-                          Needs Attention
-                        </span>
-                      )} */}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           {attempted}/{totalQuestions}
@@ -765,8 +826,22 @@ export default function ReportsByMonth() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm bg-white text-green-600 font-bold">
                           {result.correctAnswers}
                         </td>
+                        {/* WRONG CELL = BUTTON */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm bg-white text-red-600 font-bold">
-                          {result.wrongAnswers}
+                          <button
+                            className="underline hover:text-red-800 transition"
+                            onClick={() =>
+                              handleShowWrongQuestions(
+                                result,
+                                reports,
+                                solutions
+                              )
+                            }
+                            title="View wrong questions"
+                            tabIndex={0}
+                          >
+                            {result.wrongAnswers}
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
                           {result.totalMarks}
@@ -924,7 +999,243 @@ export default function ReportsByMonth() {
             Loading more reports...
           </div>
         )}
+        {overallWrongModal.open && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40 z-50 flex justify-center items-center"
+            onClick={() =>
+              setOverallWrongModal({ open: false, topWrong: [], stats: {} })
+            }
+          >
+            <div
+              className="bg-white rounded-lg shadow-lg p-4 max-w-md w-full"
+              style={{ maxHeight: "80vh", overflow: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-base font-bold">
+                  Most Commonly Wrong Questions
+                </h3>
+                <button
+                  onClick={() =>
+                    setOverallWrongModal({
+                      open: false,
+                      topWrong: [],
+                      stats: {},
+                    })
+                  }
+                  className="font-bold text-xl text-gray-500 hover:text-red-500"
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="flex justify-between items-center mb-2">
+                {/* Sort Order Buttons */}
+                <div>
+                  <button
+                    className={`px-2 py-1 text-xs border rounded-l ${
+                      wrongSortOrder === "desc" ? "bg-blue-200" : ""
+                    }`}
+                    onClick={() =>
+                      handleShowOverallWrongQuestions(
+                        overallWrongModal.reports,
+                        overallWrongModal.solutions,
+                        "desc"
+                      )
+                    }
+                  >
+                    Highest &#8595;
+                  </button>
+                  <button
+                    className={`px-2 py-1 text-xs border-t border-b border-r rounded-r ${
+                      wrongSortOrder === "asc" ? "bg-blue-200" : ""
+                    }`}
+                    onClick={() =>
+                      handleShowOverallWrongQuestions(
+                        overallWrongModal.reports,
+                        overallWrongModal.solutions,
+                        "asc"
+                      )
+                    }
+                  >
+                    Lowest &#8593;
+                  </button>
+                </div>
+
+                {/* Save Buttons */}
+                <div>
+                  <button
+                    className="px-2 py-1 text-xs mr-2 border rounded bg-green-100 hover:bg-green-200"
+                    onClick={() => exportWrongToCSV(overallWrongModal.topWrong)}
+                  >
+                    Save as CSV
+                  </button>
+                  <button
+                    className="px-2 py-1 text-xs border rounded bg-gray-100 hover:bg-gray-200"
+                    onClick={() => exportWrongToDoc(overallWrongModal.topWrong)}
+                  >
+                    Save as DOC
+                  </button>
+                </div>
+              </div>
+
+              {overallWrongModal.topWrong.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No wrong questions found for this date.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="py-1 px-2 text-left">Q#</th>
+                        <th className="py-1 px-2 text-left">Wrong Count</th>
+                        <th className="py-1 px-2 text-left">
+                          Correct Option(s)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overallWrongModal.topWrong.map((q, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="py-1 px-2 font-semibold">
+                            Q{q.questionNumber}
+                          </td>
+                          <td className="py-1 px-2">{q.count}</td>
+                          <td className="py-1 px-2 text-green-700">
+                            {Array.isArray(q.correctOptions)
+                              ? q.correctOptions.join(",")
+                              : q.correctOptions}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {modalInfo.open && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40 z-50 flex justify-center items-center"
+            onClick={() =>
+              setModalInfo({ open: false, student: null, wrongQuestions: [] })
+            }
+          >
+            <div
+              className="bg-white rounded-lg shadow-lg p-4 max-w-md w-full"
+              style={{ maxHeight: "80vh", overflow: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-base font-bold truncate">
+                  Wrong Questions - {modalInfo.student.regNumber}
+                </h3>
+                <button
+                  onClick={() =>
+                    setModalInfo({
+                      open: false,
+                      student: null,
+                      wrongQuestions: [],
+                    })
+                  }
+                  className="font-bold text-xl text-gray-500 hover:text-red-500"
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+              </div>
+              <div>
+                {modalInfo.wrongQuestions.length === 0 ? (
+                  <p className="text-gray-500 text-xs">No wrong questions.</p>
+                ) : (
+                  <ul className="space-y-1 text-xs max-w-full">
+                    {modalInfo.wrongQuestions.map((q, idx) => (
+                      <li key={idx} className="truncate">
+                        <span className="font-semibold">
+                          Q{q.questionNumber}:
+                        </span>{" "}
+                        <span className="text-red-600 font-semibold">
+                          {q.markedOption || "None"}
+                        </span>
+                        <span className="mx-1 text-gray-500">/</span>
+                        <span className="text-green-700">
+                          {Array.isArray(q.correctOptions)
+                            ? q.correctOptions.join(",")
+                            : q.correctOptions}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
+  // Save as CSV
+  function exportWrongToCSV(topWrong) {
+    if (!topWrong.length) return;
+    const rows = [
+      ["Question Number", "Wrong Count", "Correct Option(s)"],
+      ...topWrong.map((q) => [
+        q.questionNumber,
+        q.count,
+        Array.isArray(q.correctOptions)
+          ? q.correctOptions.join(",")
+          : q.correctOptions,
+      ]),
+    ];
+    const csv = rows
+      .map((r) => r.map((e) => `"${String(e).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "most_wrong_questions.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Save as DOC (simple HTML table inside .doc)
+  function exportWrongToDoc(topWrong) {
+    if (!topWrong.length) return;
+    let html =
+      '<table border="1" style="border-collapse:collapse;font-size:12px;">';
+    html +=
+      "<tr><th>Question Number</th><th>Wrong Count</th><th>Correct Option(s)</th></tr>";
+    topWrong.forEach((q) => {
+      html += `<tr>
+      <td>Q${q.questionNumber}</td>
+      <td>${q.count}</td>
+      <td>${
+        Array.isArray(q.correctOptions)
+          ? q.correctOptions.join(",")
+          : q.correctOptions
+      }</td>
+    </tr>`;
+    });
+    html += "</table>";
+
+    const blob = new Blob(
+      [
+        '<html><head><meta charset="utf-8"></head><body>' +
+          html +
+          "</body></html>",
+      ],
+      { type: "application/msword" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "most_wrong_questions.doc";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 }
