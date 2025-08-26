@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { getMonthDateRange } from "../../utils/dateUtils";
@@ -12,54 +12,20 @@ export default function AllTests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedStream, setSelectedStream] = useState("LongTerm");
-  const observer = useRef();
 
-  // Infinite scroll logic
-  const lastElementRef = useCallback(
-    (node) => {
-      if (loading) return;
-      if (observer.current) observer.current.disconnect();
-
-      observer.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && page < totalPages) {
-          fetchReports(page + 1);
-        } else if (entries[0].isIntersecting && page >= totalPages) {
-          console.log("No more pages to load.");
-        }
-      });
-
-      if (node) observer.current.observe(node);
-    },
-    [loading, page, totalPages, selectedStream]
-  );
-
-  // Process and group reports into tests by testName
+  // Process and group reports into tests by testName.
+  // Guarantees: month entry keeps latest date for that month; tests sorted by latest report date desc.
   const processTestData = (allReports) => {
-    console.log("All reports before processing:", allReports);
     const testMap = {};
-    const longTermReports = allReports.filter((r) => r.stream === "LongTerm");
-    console.log("LongTerm reports:", longTermReports);
-    allReports.forEach((report) => {
-      // Skip if essential fields are missing
-      if (!report || !report.testName || !report.date) {
-        console.warn("Skipping report with missing fields:", report);
-        return;
-      }
 
-      // Skip if stream doesn't match
-      if (report.stream !== selectedStream) {
-        return;
-      }
+    for (const report of allReports) {
+      if (!report || !report.testName || !report.date) continue;
+      if (report.stream !== selectedStream) continue;
 
-      const date = new Date(report.date);
+      const dateObj = new Date(report.date);
+      if (isNaN(dateObj.getTime())) continue;
 
-      // Skip if date is invalid
-      if (isNaN(date.getTime())) {
-        console.warn("Invalid date in report:", report);
-        return;
-      }
-
-      const monthYear = date.toLocaleDateString("en-US", {
+      const monthYear = dateObj.toLocaleDateString("en-US", {
         month: "short",
         year: "numeric",
       });
@@ -67,48 +33,89 @@ export default function AllTests() {
       if (!testMap[report.testName]) {
         testMap[report.testName] = {
           months: {},
-          testId: report.reportId,
+          testId: report._id,
           stream: report.stream,
+          latest: dateObj,
         };
       }
 
-      testMap[report.testName].months[monthYear] = {
-        date: report.date,
-        monthName: monthYear,
-        marksType: report.marksType,
-      };
-    });
+      // Update test's latest date & testId if this report is newer
+      if (dateObj > new Date(testMap[report.testName].latest)) {
+        testMap[report.testName].latest = dateObj;
+        testMap[report.testName].testId = report._id;
+      }
 
-    return Object.entries(testMap)
-      .map(([testName, testData]) => ({
-        testName,
-        testId: testData.testId,
-        stream: testData.stream,
-        months: Object.values(testData.months).sort(
-          (a, b) => new Date(b.date) - new Date(a.date)
-        ),
-      }))
-      .sort((a, b) => a.testName.localeCompare(b.testName));
+      // For a given month, keep the report with the latest date (don't let older pages override)
+      const existingMonth = testMap[report.testName].months[monthYear];
+      if (!existingMonth || dateObj > new Date(existingMonth.date)) {
+        testMap[report.testName].months[monthYear] = {
+          date: report.date,
+          monthName: monthYear,
+          marksType: report.marksType,
+        };
+      }
+    }
+
+    const testsArray = Object.entries(testMap).map(([testName, data]) => ({
+      testName,
+      testId: data.testId,
+      stream: data.stream,
+      months: Object.values(data.months).sort(
+        (a, b) => new Date(b.date) - new Date(a.date)
+      ),
+      latest: data.latest,
+    }));
+
+    // Sort tests by latest report date (newest tests first)
+    testsArray.sort((a, b) => new Date(b.latest) - new Date(a.latest));
+
+    // remove 'latest' key if you don't want it exposed to UI
+    return testsArray;
   };
 
   const fetchReports = async (pageNum) => {
     try {
       setLoading(true);
-      const response = await axios.get(
-        `${process.env.REACT_APP_URL}/api/getallreports?page=${pageNum}&limit=50`
-      );
-      console.log("API Response:", response.data);
-      const newReports = response.data.data;
-      console.log("New reports:", newReports);
-      const allReports = [...reports, ...newReports];
+      const response = await axios.get(`${process.env.REACT_APP_URL}/api/reports`, {
+        params: { stream: selectedStream, page: pageNum, limit: 30, sort: "desc" },
+      });
 
-      setReports(allReports);
-      setPage(pageNum);
-      setTotalPages(response.data.totalPages);
-      setError("");
+      if (response.data.status === "success") {
+        const newReports = response.data.data || [];
 
-      const processedTests = processTestData(allReports);
-      setTests(processedTests);
+        // Use functional update to avoid stale 'reports' state
+        setReports((prev) => {
+          // combine previous + new
+          const combined = pageNum === 1 ? newReports.slice() : [...prev, ...newReports];
+
+          // Ensure newest-first ordering by date (guard vs backend order)
+          combined.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+          // Deduplicate by _id (preserve first occurrence -> newest-first)
+          const seen = new Set();
+          const deduped = [];
+          for (const r of combined) {
+            if (!r || !r._id) continue;
+            if (!seen.has(r._id)) {
+              seen.add(r._id);
+              deduped.push(r);
+            }
+          }
+
+          // Update paging metadata (safe to set outside setReports but keeping here to use response values)
+          setPage(response.data.page);
+          setTotalPages(response.data.totalPages);
+          setError("");
+
+          // Recompute grouped tests from deduped reports
+          const processed = processTestData(deduped);
+          setTests(processed);
+
+          return deduped;
+        });
+      } else {
+        setError("Failed to fetch reports");
+      }
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Failed to load report data");
@@ -117,13 +124,14 @@ export default function AllTests() {
     }
   };
 
-  // Fetch first page or reset when stream changes
+  // Reset & fetch when stream changes
   useEffect(() => {
     setReports([]);
     setTests([]);
     setPage(1);
     setTotalPages(1);
     fetchReports(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStream]);
 
   const handleViewData = (testName, date) => {
@@ -174,10 +182,9 @@ export default function AllTests() {
         </div>
       ) : (
         <div className="space-y-6">
-          {tests.map((test, index) => (
+          {tests.map((test) => (
             <div
               key={test.testName}
-              ref={index === tests.length - 1 ? lastElementRef : null}
               className="border border-gray-200 rounded-lg overflow-hidden"
             >
               <div className="bg-gray-100 p-4">
@@ -197,9 +204,7 @@ export default function AllTests() {
                         </span>
                       </div>
                       <button
-                        onClick={() =>
-                          handleViewData(test.testName, month.date)
-                        }
+                        onClick={() => handleViewData(test.testName, month.date)}
                         className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm"
                       >
                         View Data
@@ -211,10 +216,16 @@ export default function AllTests() {
             </div>
           ))}
 
-          {/* Infinite Scroll Spinner */}
-          {loading && page > 1 && (
-            <div className="text-center py-4 text-blue-600 font-semibold animate-pulse">
-              Loading more reports...
+          {/* Load More Button */}
+          {page < totalPages && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => fetchReports(page + 1)}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+              >
+                {loading ? "Loading..." : "Load More"}
+              </button>
             </div>
           )}
         </div>
