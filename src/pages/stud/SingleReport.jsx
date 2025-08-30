@@ -25,7 +25,6 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 ChartJS.register(
@@ -48,11 +47,9 @@ const SingleReport = () => {
   const [theoryTests, setTheoryTests] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [patterns, setPatterns] = useState([]);
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
   const [showTheoryTab, setShowTheoryTab] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState({});
-  const [folderDates, setFolderDates] = useState({});
+  const [sortOrder, setSortOrder] = useState("desc");
   const [selectedFolderTab, setSelectedFolderTab] = useState("Daily Tests");
 
   // Helper function to extract base test name (e.g., "PDT" from "PDT-25")
@@ -98,8 +95,7 @@ const SingleReport = () => {
   const groupTestsByFolder = (tests, patterns, stream) => {
     const folders = {
       "Daily Tests": {},
-      "Weekly Tests": {},
-      "Other Tests": {},
+      "Weekly&Others Tests": {},
     };
 
     tests.forEach((test) => {
@@ -112,10 +108,8 @@ const SingleReport = () => {
       let folderKey;
       if (/PDT|IPDT/.test(baseName)) {
         folderKey = "Daily Tests";
-      } else if (/PCT|IPCT/.test(baseName)) {
-        folderKey = "Weekly Tests";
       } else {
-        folderKey = "Other Tests";
+        folderKey = "Weekly&Others Tests";
       }
 
       if (!folders[folderKey][baseName]) {
@@ -125,16 +119,8 @@ const SingleReport = () => {
           tests: [],
         };
       }
-
       folders[folderKey][baseName].tests.push(test);
     });
-
-    // Sort all tests in each group
-    Object.values(folders).forEach((folder) =>
-      Object.values(folder).forEach((group) =>
-        group.tests.sort((a, b) => new Date(b.date) - new Date(a.date))
-      )
-    );
 
     return folders;
   };
@@ -191,9 +177,14 @@ const SingleReport = () => {
                   (p) => getBaseTestName(p.testName) === baseTestName
                 );
 
+                let validDate = null;
+                if (report.date) validDate = new Date(report.date);
+                else if (reportGroup.date)
+                  validDate = new Date(reportGroup.date);
+
                 return {
                   ...report,
-                  date: reportGroup.date || report.date,
+                  date: validDate ? validDate.toISOString() : null,
                   fullMarks: pattern?.totalMarks || report.fullMarks || 0,
                   isPresent: report.isPresent !== false,
                 };
@@ -265,28 +256,6 @@ const SingleReport = () => {
 
   const toggleFolder = (folderKey) => {
     setExpandedFolders((prev) => ({ ...prev, [folderKey]: !prev[folderKey] }));
-  };
-
-  const setDateFilter = (folderKey, startDate, endDate) => {
-    setFolderDates((prev) => ({
-      ...prev,
-      [folderKey]: { startDate, endDate },
-    }));
-  };
-
-  const clearDateFilters = (folderKey) => {
-    setFolderDates((prev) => ({ ...prev, [folderKey]: {} }));
-  };
-
-  const filterAndSortTests = (tests, folderKey) => {
-    const { startDate, endDate } = folderDates[folderKey] || {};
-    return tests
-      .filter((test) => {
-        if (!startDate || !endDate) return true;
-        const testDate = new Date(test.date);
-        return testDate >= startDate && testDate <= endDate;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
   };
 
   const handleReportClick = (report) => {
@@ -377,6 +346,13 @@ const SingleReport = () => {
     if (percentile < 90) return "blue";
     return "green";
   };
+  const filterAndSortTests = (tests) => {
+    return [...tests].sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      return sortOrder === "desc" ? db - da : da - db;
+    });
+  };
 
   // const filterAndSortTests = (tests) => {
   //   return tests
@@ -435,53 +411,6 @@ const SingleReport = () => {
         </div>
       </div>
 
-      {/* Date Range Picker */}
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0">
-          <div className="flex items-center">
-            <FaCalendarAlt className="text-gray-500 mr-2" />
-            <span className="font-medium text-gray-700 mr-2">
-              Filter by Date:
-            </span>
-          </div>
-          <div className="flex flex-col md:flex-row md:space-x-4 space-y-2 md:space-y-0">
-            <div className="flex items-center">
-              <label className="mr-2 text-sm text-gray-600">From:</label>
-              <DatePicker
-                selected={startDate}
-                onChange={(date) => setStartDate(date)}
-                selectsStart
-                startDate={startDate}
-                endDate={endDate}
-                placeholderText="Start Date"
-                className="border rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex items-center">
-              <label className="mr-2 text-sm text-gray-600">To:</label>
-              <DatePicker
-                selected={endDate}
-                onChange={(date) => setEndDate(date)}
-                selectsEnd
-                startDate={startDate}
-                endDate={endDate}
-                minDate={startDate}
-                placeholderText="End Date"
-                className="border rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            {(startDate || endDate) && (
-              <button
-                onClick={clearDateFilters}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Main Content with Tabs */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <Tabs
@@ -513,114 +442,65 @@ const SingleReport = () => {
               ) : (
                 <div className="space-y-8">
                   {/* Horizontal Folder Tabs */}
+
                   <div className="flex gap-4 mb-6">
-                    {["Daily Tests", "Weekly Tests", "Other Tests"].map(
-                      (folder) => (
-                        <div
-                          key={folder}
-                          onClick={() => setSelectedFolderTab(folder)}
-                          className={`px-6 py-2 rounded-full font-semibold cursor-pointer flex items-center shadow-sm transition-all
+                    {["Daily Tests", "Weekly&Others Tests"].map((folder) => (
+                      <div
+                        key={folder}
+                        onClick={() => setSelectedFolderTab(folder)}
+                        className={`px-6 py-2 rounded-full font-semibold cursor-pointer flex items-center shadow-sm transition-all
         ${
           selectedFolderTab === folder
             ? folder === "Daily Tests"
               ? "bg-red-600 text-white"
-              : folder === "Weekly Tests"
-              ? "bg-orange-500 text-white"
-              : "bg-yellow-400 text-white"
+              : "bg-orange-500 text-white"
             : "bg-gray-200 text-gray-700"
         }`}
-                        >
-                          <FaFolderOpen className="mr-2" />
-                          {folder}
-                        </div>
-                      )
-                    )}
+                      >
+                        <FaFolderOpen className="mr-2" />
+                        {folder}
+                      </div>
+                    ))}
                   </div>
+
                   <div>
-                    <h4 className="font-mono text-red-500">Note: Any Tests Names containig "...PDT..." is Daily Tests, "...PWT/PCT..." is Weekly Tests</h4>
+                    <h4 className="font-mono text-red-500">
+                      Note: Any Tests Names containig "...PDT..." is Daily
+                      Tests, "...PWT/PCT..." is Weekly Tests
+                    </h4>
                   </div>
 
                   {/* Selected Folder Content */}
                   {groupedCompetitiveTests[selectedFolderTab] && (
                     <div
                       className={`mt-0 pt-6 pb-8 px-6 rounded-2xl shadow-lg text-white
-      ${
-        selectedFolderTab === "Daily Tests"
-          ? "bg-red-400"
-          : selectedFolderTab === "Weekly Tests"
-          ? "bg-orange-400"
-          : "bg-yellow-400"
-      }`}
+    ${selectedFolderTab === "Daily Tests" ? "bg-red-400" : "bg-orange-400"}`}
                     >
                       {/* Folder-specific date filter */}
                       <div className="flex flex-wrap gap-4 mb-4 items-center">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">From:</span>
-                          <DatePicker
-                            selected={
-                              folderDates[selectedFolderTab]?.startDate || null
-                            }
-                            onChange={(date) =>
-                              setDateFilter(
-                                selectedFolderTab,
-                                date,
-                                folderDates[selectedFolderTab]?.endDate
-                              )
-                            }
-                            selectsStart
-                            startDate={
-                              folderDates[selectedFolderTab]?.startDate || null
-                            }
-                            endDate={
-                              folderDates[selectedFolderTab]?.endDate || null
-                            }
-                            className="border px-2 py-1 rounded"
-                            placeholderText="Start"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-600">To:</span>
-                          <DatePicker
-                            selected={
-                              folderDates[selectedFolderTab]?.endDate || null
-                            }
-                            onChange={(date) =>
-                              setDateFilter(
-                                selectedFolderTab,
-                                folderDates[selectedFolderTab]?.startDate,
-                                date
-                              )
-                            }
-                            selectsEnd
-                            startDate={
-                              folderDates[selectedFolderTab]?.startDate || null
-                            }
-                            endDate={
-                              folderDates[selectedFolderTab]?.endDate || null
-                            }
-                            minDate={
-                              folderDates[selectedFolderTab]?.startDate || null
-                            }
-                            className="border px-2 py-1 rounded"
-                            placeholderText="End"
-                          />
-                        </div>
-                        {(folderDates[selectedFolderTab]?.startDate ||
-                          folderDates[selectedFolderTab]?.endDate) && (
-                          <button
-                            className="text-sm text-blue-600"
-                            onClick={() => clearDateFilters(selectedFolderTab)}
+                          <span className="text-sm text-gray-800 font-semibold bg-white/70 px-2 py-1 rounded">
+                            Sort by date:
+                          </span>
+                          <select
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value)}
+                            className="border px-2 py-1 rounded text-gray-800"
                           >
-                            Clear Filters
-                          </button>
-                        )}
+                            <option value="desc">Recent to last</option>
+                            <option value="asc">Last to recent</option>
+                          </select>
+                        </div>
                       </div>
-
                       {/* Render grouped test cards */}
                       {Object.entries(
                         groupedCompetitiveTests[selectedFolderTab]
                       )
-                        .sort(([a], [b]) => a.localeCompare(b))
+                        .sort(([, aGroup], [, bGroup]) => {
+                          const ta = groupSortTime(aGroup.tests, sortOrder);
+                          const tb = groupSortTime(bGroup.tests, sortOrder);
+                          return sortOrder === "desc" ? tb - ta : ta - tb;
+                        })
                         .map(([baseName, group]) => (
                           <div key={baseName} className="mb-8">
                             <h3 className="text-md font-semibold mb-2 text-white border-b border-white pb-1">
@@ -961,6 +841,15 @@ const SingleReport = () => {
       )}
     </div>
   );
+};
+
+const groupSortTime = (tests, order) => {
+  const times = tests
+    .map((t) => Date.parse(t.date))
+    .filter((t) => !Number.isNaN(t) && t !== null);
+
+  if (!times.length) return order === "desc" ? -Infinity : Infinity;
+  return order === "desc" ? Math.max(...times) : Math.min(...times);
 };
 
 export default SingleReport;
