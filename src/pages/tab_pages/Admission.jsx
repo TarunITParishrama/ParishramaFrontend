@@ -1,28 +1,54 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdmissionForm from "../../Forms/AdmissionForm";
 import StudentData from "../stud/StudentData";
 import StudentSettings from "../stud/StudentSettings";
+import DeletedStudentsTab from "../stud/DeletedStudentsTab";
 
 export default function Admissions() {
   const navigate = useNavigate();
+
+  // Get role once
+  const userRole = useMemo(() => localStorage.getItem("userRole") || "", []);
+  // Default tab remains registrations
   const [activeTab, setActiveTab] = useState("registrations");
 
-  // Admission categories
-  const admissionSections = [
+  // Base sections
+  const baseSections = [
     { id: 1, name: "Registrations", icon: "📝", path: "registrations" },
     { id: 2, name: "Admitted", icon: "🎓", path: "admitted" },
     { id: 3, name: "Settings", icon: "⚙️", path: "settings" },
   ];
 
+  // If staff, hide Admitted; otherwise show all
+  const admissionSections = useMemo(() => {
+    if (userRole === "staff")
+      return baseSections.filter((s) => s.path !== "admitted");
+    if (userRole === "admin" || userRole === "super_admin") {
+      return [
+        ...baseSections,
+        { id: 4, name: "Deleted Students", icon: "🗑️", path: "deleted" },
+      ];
+    }
+    return baseSections;
+  }, [userRole]); // conditional rendering based on role [5]
+
   const renderContent = () => {
     switch (activeTab) {
       case "registrations":
-        return <AdmissionForm />;
+        return <AdmissionForm />; // conditional subtree render [4]
       case "admitted":
-        return <StudentData />;
+        // Guard to avoid rendering StudentData for staff even if forced into this state
+        return userRole === "staff" ? <AdmissionForm /> : <StudentData />; // role guard [9]
       case "settings":
         return <StudentSettings />;
+      case "deleted":
+        return userRole === "admin" || userRole === "super_admin" ? (
+          <DeletedStudentsTab />
+        ) : (
+          <AdmissionForm />
+        );
+
       default:
         return <AdmissionForm />;
     }
@@ -33,7 +59,7 @@ export default function Admissions() {
       {/* Top Section with Gradient */}
       <div className="bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400 text-white py-6 px-8 flex flex-col">
         <button
-          onClick={() => navigate('/home')}
+          onClick={() => navigate("/home")}
           className="text-white text-sm flex items-center mb-2"
         >
           ◀ Back to Dashboard

@@ -35,6 +35,7 @@ export default function NewReport({ onClose }) {
   const [fileData, setFileData] = useState(null);
   const [parsedData, setParsedData] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+
   const [duplicateRegNumbers, setDuplicateRegNumbers] = useState({});
   const [editableRegNumbers, setEditableRegNumbers] = useState({});
   const [showAllInvalid, setShowAllInvalid] = useState(false);
@@ -290,20 +291,15 @@ export default function NewReport({ onClose }) {
 
       const processed = data.map((row) => {
         const questionAnswer = {};
-
         for (let i = 1; i <= maxQuestionNum; i++) {
           const qKey = `Q${i}`;
           let answer = row[qKey];
-
-          // Convert numeric answers to letter format
           if (answer) {
             answer = String(answer).trim();
             if (answer === "1") answer = "A";
             else if (answer === "2") answer = "B";
             else if (answer === "3") answer = "C";
             else if (answer === "4") answer = "D";
-
-            // Only keep valid answers (A/B/C/D)
             questionAnswer[i] = ["A", "B", "C", "D"].includes(answer)
               ? answer
               : "";
@@ -317,6 +313,7 @@ export default function NewReport({ onClose }) {
           filePath: row["File"],
           questionAnswer,
           totalQuestions: maxQuestionNum,
+          rawRow: row,
         };
       });
 
@@ -486,58 +483,23 @@ export default function NewReport({ onClose }) {
     setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
     setNonExistentRegNumbers(await validateRegNumbers(updatedData));
   };
-  const downloadErrorFile = () => {
-    const rows = [];
+  const downloadErrorFile = (errorRows) => {
+    if (!errorRows || errorRows.length === 0) return;
 
-    // Invalid RegNumbers
-    invalidRegNumbers.forEach((item) => {
-      const filePath = parsedData[item.index]?.filePath || "";
-      rows.push({
-        Row: item.index + 1,
-        Issue: "Invalid RegNumber",
-        RegNumber: item.regNumber,
-        File: filePath,
-      });
-    });
-
-    // Duplicate RegNumbers
-    const groupedDuplicates = Object.entries(duplicateRegNumbers).reduce(
-      (acc, [index, reg]) => {
-        if (!acc[reg]) acc[reg] = [];
-        acc[reg].push(Number(index));
-        return acc;
-      },
-      {}
-    );
-
-    Object.entries(groupedDuplicates).forEach(([reg, indices]) => {
-      indices.forEach((index) => {
-        const filePath = parsedData[index]?.filePath || "";
-        rows.push({
-          Row: index + 1,
-          Issue: "Duplicate RegNumber",
-          RegNumber: reg,
-          File: filePath,
-        });
-      });
-    });
-
-    // Non-existent RegNumbers
-    Object.entries(nonExistentRegNumbers).forEach(([index, reg]) => {
-      const filePath = parsedData[index]?.filePath || "";
-      rows.push({
-        Row: parseInt(index) + 1,
-        Issue: "Not Found in Database",
-        RegNumber: reg,
-        File: filePath,
-      });
-    });
+    // Use rawRow to get original keys
+    const headers = Object.keys(errorRows[0].rawRow || {}).concat("Issue");
 
     const csvContent =
       "data:text/csv;charset=utf-8," +
       [
-        "Row,Issue,RegNumber,File",
-        ...rows.map((r) => `${r.Row},${r.Issue},${r.RegNumber},"${r.File}"`),
+        headers.join(","), // headers
+        ...errorRows.map((row) =>
+          headers
+            .map((h) =>
+              h === "Issue" ? `"${row.Issue}"` : `"${row.rawRow?.[h] ?? ""}"`
+            )
+            .join(",")
+        ),
       ].join("\n");
 
     const encodedUri = encodeURI(csvContent);
@@ -610,6 +572,32 @@ export default function NewReport({ onClose }) {
     };
     reader.readAsText(file);
   };
+  // Split valid and invalid rows
+  const splitValidAndInvalidData = (data) => {
+    const validRows = [];
+    const errorRows = [];
+
+    data.forEach((row, index) => {
+      const reg = String(row.regNumber).trim();
+      let issue = "";
+
+      if (!/^\d{6}$/.test(reg)) {
+        issue = "Invalid Format";
+      } else if (Object.keys(duplicateRegNumbers).includes(String(index))) {
+        issue = "Duplicate";
+      } else if (Object.keys(nonExistentRegNumbers).includes(String(index))) {
+        issue = "Not Found in DB";
+      }
+
+      if (issue) {
+        errorRows.push({ ...row, Issue: issue });
+      } else {
+        validRows.push(row);
+      }
+    });
+
+    return { validRows, errorRows };
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -626,88 +614,58 @@ export default function NewReport({ onClose }) {
         throw new Error("Please upload a valid file first");
       }
 
-      // Check invalid reg numbers
-      const invalidRegNumbers = parsedData.filter(
-        (row) => !/^\d{6}$/.test(String(row.regNumber).trim())
-      );
+      // Split valid & invalid rows
+      const { validRows, errorRows } = splitValidAndInvalidData(parsedData);
 
-      if (invalidRegNumbers.length > 0) {
-        throw new Error(
-          `There are ${invalidRegNumbers.length} invalid registration numbers`
-        );
+      if (validRows.length === 0) {
+        throw new Error("No valid records to process. Fix errors first.");
       }
 
-      // Check non-existent reg numbers
-      if (Object.keys(nonExistentRegNumbers).length > 0) {
-        throw new Error(
-          `There are ${
-            Object.keys(nonExistentRegNumbers).length
-          } registration numbers not found in the database`
-        );
-      }
+      // Prepare payload only with valid rows
+      const payload = isTheoryTest
+        ? {
+            stream: formData.stream,
+            questionType: formData.questionType,
+            testName: formData.testName,
+            date: formData.date,
+            subjectDetails,
+            studentResults: validRows.map((row) => ({
+              regNumber: row.regNumber,
+              subjectMarks: Object.entries(row.subjectMarks).map(
+                ([name, marks]) => ({ name, marks })
+              ),
+              totalMarks: row.totalMarks,
+              percentage: row.percentage,
+            })),
+          }
+        : {
+            stream: formData.stream,
+            questionType: formData.questionType,
+            testName: formData.testName,
+            date: formData.date,
+            marksType: formData.marksType,
+            reportBank: validRows,
+          };
 
-      // Check duplicate reg numbers
-      if (Object.keys(duplicateRegNumbers).length > 0) {
-        throw new Error(
-          `There are ${
-            Object.keys(duplicateRegNumbers).length
-          } duplicate registration numbers`
-        );
-      }
+      const token = localStorage.getItem("token");
+      const url = isTheoryTest
+        ? `${process.env.REACT_APP_URL}/api/createtheory`
+        : `${process.env.REACT_APP_URL}/api/createreport`;
 
-      if (isTheoryTest) {
-        const hasEmptySubject = subjectDetails.some((sub) => !sub.name);
-        if (hasEmptySubject) {
-          throw new Error("Please select all subject names");
+      const response = await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.status === "success") {
+        if (errorRows.length > 0) {
+          downloadErrorFile(errorRows); // export error rows
+          alert(
+            `Report created successfully with ${validRows.length} valid records. ${errorRows.length} error rows exported.`
+          );
+        } else {
+          alert("Report created successfully with all records!");
         }
-        // Submit theory test
-        const payload = {
-          stream: formData.stream,
-          questionType: formData.questionType,
-          testName: formData.testName,
-          date: formData.date,
-          subjectDetails,
-          studentResults: parsedData.map((row) => ({
-            regNumber: row.regNumber,
-            subjectMarks: Object.entries(row.subjectMarks).map(
-              ([name, marks]) => ({ name, marks })
-            ),
-            totalMarks: row.totalMarks,
-            percentage: row.percentage,
-          })),
-        };
-
-        const token = localStorage.getItem("token");
-        const response = await axios.post(
-          `${process.env.REACT_APP_URL}/api/createtheory`,
-          payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (response.data.status === "success") {
-          alert("Theory test report created successfully!");
-          onClose();
-        }
-      } else {
-        // Submit MCQ test
-        const payload = {
-          stream: formData.stream,
-          questionType: formData.questionType,
-          testName: formData.testName,
-          date: formData.date,
-          marksType: formData.marksType,
-          reportBank: parsedData,
-        };
-
-        const response = await axios.post(
-          `${process.env.REACT_APP_URL}/api/createreport`,
-          payload
-        );
-
-        if (response.data.status === "success") {
-          alert("Report created successfully!");
-          onClose();
-        }
+        onClose();
       }
     } catch (err) {
       setError(
@@ -1351,10 +1309,7 @@ export default function NewReport({ onClose }) {
                   loading ||
                   isUploading ||
                   validatingRegNumbers ||
-                  (!isTheoryTest && testNames.length === 0) ||
-                  invalidRegNumbers.length > 0 ||
-                  Object.keys(duplicateRegNumbers).length > 0 ||
-                  Object.keys(nonExistentRegNumbers).length > 0
+                  (!isTheoryTest && testNames.length === 0)
                 }
                 className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                   loading ||

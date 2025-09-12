@@ -13,7 +13,8 @@ export default function StudentSettings() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showMedicalDetails, setShowMedicalDetails] = useState(false);
-
+  const [deleteReason, setDeleteReason] = useState("");
+  const apiBase = (process.env.REACT_APP_URL || "").replace(/\/+$/, ""); // strip trailing slash
   const [formData, setFormData] = useState({
     admissionYear: new Date().getFullYear(),
     campus: "",
@@ -252,11 +253,13 @@ export default function StudentSettings() {
   };
 
   const handleDelete = async () => {
-    if (
-      !window.confirm(
-        `Permanently delete ${student.studentName} (Reg: ${student.regNumber})?`
-      )
-    ) {
+    if (loading) return; // prevent double submits
+    const ok = window.confirm(
+      `Permanently delete ${student.studentName} (Reg: ${student.regNumber})?`
+    );
+    if (!ok) return; // do not set loading if cancelled
+    if (!deleteReason.trim()) {
+      toast.error("Please provide a reason for deletion");
       return;
     }
 
@@ -264,16 +267,17 @@ export default function StudentSettings() {
       setLoading(true);
       toast.info("Deleting student record...");
       const token = localStorage.getItem("token");
-      await axios.delete(
-        `${process.env.REACT_APP_URL}/api/deletestudent/${student._id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
+      await axios.delete(`${apiBase}/api/deletestudent/${student._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { reason: deleteReason.trim() },
+      });
       toast.success(`Student ${student.studentName} deleted successfully`);
+      // reset UI
       setStudent(null);
       setRegNumber("");
+      setDeleteReason("");
       setFormData({
-        admissionYear: new Date().getFullYear(),
+        /* ...defaults as in file... */ admissionYear: new Date().getFullYear(),
         campus: "",
         gender: "Boy",
         admissionType: "Residential",
@@ -284,7 +288,7 @@ export default function StudentSettings() {
         section: "",
         fatherName: "",
         fatherMobile: "",
-        emailId: "", // Reset emailId
+        emailId: "",
         address: "",
         contact: "",
         medicalIssues: "No",
@@ -851,6 +855,14 @@ export default function StudentSettings() {
                 this student will be permanently removed.
               </p>
               <div className="flex space-x-4">
+                <textarea
+                  className="w-full border p-2 rounded mb-4"
+                  placeholder="Enter reason for deletion (required)"
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  rows={2}
+                />
+
                 <button
                   onClick={() => setActiveTab("edit")}
                   className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"

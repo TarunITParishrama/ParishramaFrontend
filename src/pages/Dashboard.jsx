@@ -128,7 +128,7 @@ const getDashboardItems = (role) => {
       name: "Admission",
       icon: <img src={admissionicon} alt="" className="w-12 h-10 inline" />,
       path: "admission",
-      show: ["super_admin", "admin", "staff"].includes(role),
+      show: ["super_admin", "admin"].includes(role),
     },
     {
       name: "Settings",
