@@ -38,8 +38,7 @@ export default function Admissions() {
       case "registrations":
         return <AdmissionForm />; // conditional subtree render [4]
       case "admitted":
-        // Guard to avoid rendering StudentData for staff even if forced into this state
-        return userRole === "staff" ? <AdmissionForm /> : <StudentData />; // role guard [9]
+        return userRole === "staff" ? <AdmissionForm /> : <StudentData />;
       case "settings":
         return <StudentSettings />;
       case "deleted":

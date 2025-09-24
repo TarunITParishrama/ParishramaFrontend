@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import axios from "axios";
 import { FiSearch, FiX } from "react-icons/fi";
 import { toast } from "react-toastify";
+import {
+  getTestPrefixes,
+  filterReportsByPrefix,
+} from "../../utils/testUtils.js";
 
 const DownloadReports = () => {
   // Common states
@@ -24,8 +30,11 @@ const DownloadReports = () => {
   const [detailedReports, setDetailedReports] = useState([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   // Tab state
   const [activeTab, setActiveTab] = useState("individual");
+  const [availableTests, setAvailableTests] = useState([]);
+  const [selectedTest, setSelectedTest] = useState("");
 
   // Fetch campuses for bulk mode
   useEffect(() => {
@@ -150,6 +159,9 @@ const DownloadReports = () => {
         }
       );
       setDetailedReports(res.data.data);
+      const prefixes = getTestPrefixes(res.data.data);
+      setAvailableTests(prefixes);
+
       toast.success(
         `Found ${res.data.totalReports} reports for ${res.data.totalStudents} students`
       );
@@ -443,96 +455,95 @@ const DownloadReports = () => {
   };
 
   const appendCounsellingForms = (doc, margin) => {
-  const departments = [
-    "Physics",
-    "Chemistry",
-    "Biology",
-    "Mathematics",
-    "______________", // for 'Others'
-  ];
+    const departments = [
+      "Physics",
+      "Chemistry",
+      "Biology",
+      "Mathematics",
+      "______________", // for 'Others'
+    ];
 
-  const questions = [
-    "Alertness in Classroom",
-    "Understanding Levels",
-    "Effectiveness in Reading",
-    "Memory Skills",
-    "MCQ Solving Ability",
-    "Time Management in Tests",
-    "Class Notes Verification & Handwriting",
-    "Ability to solve Questions in Theory Tests",
-    "Study Planning & Strategy",
-  ];
+    const questions = [
+      "Alertness in Classroom",
+      "Understanding Levels",
+      "Effectiveness in Reading",
+      "Memory Skills",
+      "MCQ Solving Ability",
+      "Time Management in Tests",
+      "Class Notes Verification & Handwriting",
+      "Ability to solve Questions in Theory Tests",
+      "Study Planning & Strategy",
+    ];
 
-  const pageWidth = doc.internal.pageSize.width;
-  const fullWidth = pageWidth - 2 * margin;
-  const suggestionsHeight = 30;
-  const formHeight = 130;
-  let yStart = 20;
+    const pageWidth = doc.internal.pageSize.width;
+    const fullWidth = pageWidth - 2 * margin;
+    const suggestionsHeight = 30;
+    const formHeight = 130;
+    let yStart = 20;
 
-  departments.forEach((dept, index) => {
-    // Every 2 forms, start new page
-    if (index % 2 === 0 && index !== 0) {
-      doc.addPage();
-      yStart = 20;
-    }
+    departments.forEach((dept, index) => {
+      // Every 2 forms, start new page
+      if (index % 2 === 0 && index !== 0) {
+        doc.addPage();
+        yStart = 20;
+      }
 
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(20, 20, 100);
-    doc.text(`Department of ${dept}`, margin, yStart);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 20, 100);
+      doc.text(`Department of ${dept}`, margin, yStart);
 
-    const tableData = questions.map((q) => [q, "", "", ""]);
-    autoTable(doc, {
-      startY: yStart + 5,
-      head: [["Questions", "Good", "Average", "Poor"]],
-      body: tableData,
-      styles: {
-        fontSize: 7.5,
-        cellPadding: 1.6,
-        lineWidth: 0.2,
-        lineColor: [0, 0, 0],
-      },
-      headStyles: {
-        fillColor: [26, 188, 156],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      columnStyles: {
-        0: { halign: "left", cellWidth: fullWidth * 0.55 },
-        1: { halign: "center", cellWidth: fullWidth * 0.12 },
-        2: { halign: "center", cellWidth: fullWidth * 0.12 },
-        3: { halign: "center", cellWidth: fullWidth * 0.12 },
-      },
-      margin: { left: margin, right: margin },
-      tableWidth: fullWidth * 0.95,
-      didDrawPage: (data) => {
-        const tableBottom = data.cursor.y;
+      const tableData = questions.map((q) => [q, "", "", ""]);
+      autoTable(doc, {
+        startY: yStart + 5,
+        head: [["Questions", "Good", "Average", "Poor"]],
+        body: tableData,
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 1.6,
+          lineWidth: 0.2,
+          lineColor: [0, 0, 0],
+        },
+        headStyles: {
+          fillColor: [26, 188, 156],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        columnStyles: {
+          0: { halign: "left", cellWidth: fullWidth * 0.55 },
+          1: { halign: "center", cellWidth: fullWidth * 0.12 },
+          2: { halign: "center", cellWidth: fullWidth * 0.12 },
+          3: { halign: "center", cellWidth: fullWidth * 0.12 },
+        },
+        margin: { left: margin, right: margin },
+        tableWidth: fullWidth * 0.95,
+        didDrawPage: (data) => {
+          const tableBottom = data.cursor.y;
 
-        // 📦 Suggestion Box (full-width)
-        const boxY = tableBottom + 10;
-        const boxHeight = 30;
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.3);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text("Suggestions", margin + 2, boxY + 5);
-        doc.rect(margin, boxY, fullWidth, suggestionsHeight);
+          // 📦 Suggestion Box (full-width)
+          const boxY = tableBottom + 10;
+          const boxHeight = 30;
+          doc.setDrawColor(0);
+          doc.setLineWidth(0.3);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text("Suggestions", margin + 2, boxY + 5);
+          doc.rect(margin, boxY, fullWidth, suggestionsHeight);
 
-        // 🖋 Signature lines
-        const sigY = boxY + suggestionsHeight + 12;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(20, 20, 100);
-        doc.text("Lecturer Name & Signature with Date", margin, sigY);
-        doc.text("Student Signature", pageWidth - margin - 50, sigY);
+          // 🖋 Signature lines
+          const sigY = boxY + suggestionsHeight + 12;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(20, 20, 100);
+          doc.text("Lecturer Name & Signature with Date", margin, sigY);
+          doc.text("Student Signature", pageWidth - margin - 50, sigY);
 
-        // Update yStart for next form in the same page
-        yStart = sigY + 20;
-      },
+          // Update yStart for next form in the same page
+          yStart = sigY + 20;
+        },
+      });
     });
-  });
-};
-
+  };
 
   //Bulk PDF
   const generateBulkPDF = async (
@@ -663,8 +674,13 @@ const DownloadReports = () => {
         return match ? parseInt(match[0]) : 0;
       };
 
-      const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
-
+      const allSubjects = Array.from(
+        new Set(
+          allReports.flatMap(
+            (t) => t.subjects?.map((s) => s.name || s.subjectName) || []
+          )
+        )
+      );
       let pagesUsed = 0;
 
       for (const [category, tests] of Object.entries(grouped)) {
@@ -704,8 +720,11 @@ const DownloadReports = () => {
 
           allSubjects.forEach((subj) => {
             const found = test.subjects?.find(
-              (s) => s.name === subj || s.subjectName === subj
+              (s) =>
+                s.name?.toLowerCase() === subj.toLowerCase() ||
+                s.subjectName?.toLowerCase() === subj.toLowerCase()
             );
+
             const marks =
               found?.scored ?? found?.marks ?? found?.obtainedMarks ?? 0;
             const max =
@@ -783,7 +802,7 @@ const DownloadReports = () => {
           },
         });
 
-        if (++pagesUsed < 2) {
+        if (++pagesUsed < 3) {
           doc.addPage();
           y = margin;
         }
@@ -792,9 +811,83 @@ const DownloadReports = () => {
       // From page 3 onward, append counselling forms
       doc.addPage();
       appendCounsellingForms(doc, margin);
+      if (student !== studentsList[studentsList.length - 1]) {
+        doc.addPage();
+        y = margin;
+      }
     }
 
     doc.save("Bulk_Student_Reports.pdf");
+  };
+
+  const generateBulkExcel = (students, reports) => {
+    // 1. Collect unique testNames sorted by number
+    const testNames = [...new Set(reports.map((r) => r.testName))].sort(
+      (a, b) => {
+        const getNum = (str) => parseInt(str.replace(/\D+/g, "")) || 0;
+        return getNum(a) - getNum(b);
+      }
+    );
+
+    // 2. Collect subjects dynamically across reports
+    const allSubjects = Array.from(
+      new Set(
+        reports.flatMap(
+          (r) => r.subjects?.map((s) => s.subjectName || s.name) || []
+        )
+      )
+    );
+
+    // 3. Build headers
+    const headers = ["RegNumber", "StudentName", "Campus", "Section"];
+    testNames.forEach((test) => {
+      allSubjects.forEach((sub) => headers.push(`${test}_${sub}`));
+      headers.push(`${test}_OverallTotalMarks`);
+    });
+
+    // 4. Build rows
+    const rows = students.map((student) => {
+      const row = [
+        student.regNumber,
+        student.studentName,
+        student.campus,
+        student.section,
+      ];
+
+      testNames.forEach((test) => {
+        const report = reports.find(
+          (r) => r.regNumber === student.regNumber && r.testName === test
+        );
+
+        if (report) {
+          allSubjects.forEach((sub) => {
+            const found = report.subjects?.find(
+              (s) =>
+                s.subjectName?.toLowerCase() === sub.toLowerCase() ||
+                s.name?.toLowerCase() === sub.toLowerCase()
+            );
+            row.push(found ? found.scored : "A"); // Absent = A
+          });
+          row.push(report.overallTotalMarks ?? 0);
+        } else {
+          allSubjects.forEach(() => row.push("A"));
+          row.push(0);
+        }
+      });
+
+      return row;
+    });
+
+    // 5. Create Excel file
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reports");
+
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(
+      new Blob([buf], { type: "application/octet-stream" }),
+      "Campus_Test_Reports.xlsx"
+    );
   };
 
   //Helper functions to display Image in PDF
@@ -977,58 +1070,136 @@ const DownloadReports = () => {
                 </option>
               ))}
             </select>
+            <select
+              className="border px-3 py-2 rounded"
+              value={selectedTest}
+              onChange={(e) => setSelectedTest(e.target.value)}
+              disabled={!availableTests.length}
+            >
+              <option value="">All Tests</option>
+              {availableTests.map((test, i) => (
+                <option key={i} value={test}>
+                  {test}
+                </option>
+              ))}
+            </select>
+
             <button
               onClick={fetchReportsForCampus}
               className="bg-blue-600 text-white px-4 py-2 rounded"
+              disabled={!selectedCampus}
             >
               Load Reports
             </button>
-            <button
-              onClick={async () => {
-                try {
-                  setIsDownloading(true); // loading starts
-
-                  const finalData = [...detailedReports]; // Assuming detailedReports is the complete source
-
-                  const reportsData = finalData.filter(
-                    (r) =>
-                      r.testName.includes("PDT") ||
-                      r.testName.includes("PCT") ||
-                      r.testName.includes("IP")
-                  );
-
-                  const theoryReports = finalData.filter((r) =>
-                    r.testName.includes("PTT")
-                  );
-
-                  const students = [
-                    ...new Set(finalData.map((r) => r.regNumber)),
-                  ].map((reg) => ({ regNumber: reg }));
-
-                  if (!Array.isArray(finalData) || !finalData.length) {
-                    toast.error("No data to generate reports");
-                    return;
-                  }
-
-                  await generateBulkPDF(students, reportsData, theoryReports);
-                } catch (err) {
-                  toast.error("Error generating PDF");
-                } finally {
-                  setIsDownloading(false); // loading ends
+            <div className="relative inline-block">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+                disabled={
+                  !selectedCampus ||
+                 //</div> !selectedTest ||
+                  !detailedReports.length ||
+                  isDownloading
                 }
-              }}
-              className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
-              disabled={!detailedReports.length || isDownloading}
-            >
-              {isDownloading ? (
-                <>
-                  <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                  Generating Reports (60-90 sec)...
-                </>
-              ) : (
-                "Download PDF"
+              >
+                {isDownloading ? (
+                  <>
+                    <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    Generating Reports...
+                  </>
+                ) : (
+                  "Download Reports ▾"
+                )}
+              </button>
+
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg z-10">
+                  {/* Excel */}
+                  <button
+                    onClick={() => {
+                      try {
+                        const finalReports = filterReportsByPrefix(
+                          detailedReports,
+                          selectedTest
+                        );
+                        const students = [
+                          ...new Map(
+                            finalReports.map((r) => [
+                              r.regNumber,
+                              {
+                                regNumber: r.regNumber,
+                                studentName: r.studentName,
+                                campus: r.campus,
+                                section: r.section,
+                              },
+                            ])
+                          ).values(),
+                        ];
+
+                        if (!finalReports.length) {
+                          toast.error("No data for Excel");
+                          return;
+                        }
+
+                        generateBulkExcel(students, finalReports);
+                      } catch (err) {
+                        toast.error("Error generating Excel");
+                      } finally {
+                        setIsMenuOpen(false); // close after action
+                      }
+                    }}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Download Excel
+                  </button>
+
+                  {/* PDF */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        setIsDownloading(true);
+                        const finalReports = filterReportsByPrefix(
+                          detailedReports,
+                          selectedTest
+                        );
+                        const reportsData = finalReports.filter(
+                          (r) =>
+                            r.testName.includes("PDT") ||
+                            r.testName.includes("PCT") ||
+                            r.testName.includes("IP")
+                        );
+                        const theoryReports = finalReports.filter((r) =>
+                          r.testName.includes("PTT")
+                        );
+
+                        const students = [
+                          ...new Set(finalReports.map((r) => r.regNumber)),
+                        ].map((reg) => ({ regNumber: reg }));
+
+                        if (!finalReports.length) {
+                          toast.error("No data for PDF");
+                          return;
+                        }
+
+                        await generateBulkPDF(
+                          students,
+                          finalReports,
+                          theoryReports
+                        );
+                      } catch (err) {
+                        toast.error("Error generating PDF");
+                      } finally {
+                        setIsDownloading(false);
+                        setIsMenuOpen(false); // close after action
+                      }
+                    }}
+                    className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                  >
+                    Download PDF
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
           </div>
 
           {isLoadingReports && (
