@@ -440,27 +440,23 @@ const DownloadReports = () => {
       });
 
       // Overall average (current behavior: includes absents; switch to attendedTotals if you want to exclude)
-      const overallDenom = totals.length || 1;
+      const overallDenom = attendedTotals.length || 1;
       const overallAvg = (
-        totals.reduce((a, b) => a + b, 0) / overallDenom
+        attendedTotals.reduce((a, b) => a + b, 0) / overallDenom
       ).toFixed(2);
 
-      // Build Average row with per-subject averages (absents excluded subject-wise)
+      // Build Average row (subject-wise averages already exclude absents)
       const avgRow = Array(headers.length).fill("");
-      avgRow[0] = "Average"; // label in Test Name
-      avgRow[1] = ""; // Date empty
+      avgRow[0] = "Average";
+      avgRow[1] = "";
 
-      // Fill subject columns with mean per attended tests for that subject
-      // Column indices: Test Name (0), Date (1), subjects start at 2
       allSubjects.forEach((s, idx) => {
         const denom = subjCounts[s] || 1;
         const mean = (subjSums[s] / denom).toFixed(2);
         avgRow[2 + idx] = mean;
       });
 
-      // Put overall average in Total column: index = 2 + allSubjects.length
-      avgRow[2 + allSubjects.length] = overallAvg;
-      // Leave Percentile, Rank empty
+      avgRow[2 + allSubjects.length] = overallAvg; // Total column
       rows.push(avgRow);
 
       // Best/Lowest only if there is at least one attended test
@@ -867,12 +863,12 @@ const DownloadReports = () => {
         });
 
         // Overall average in Total column (current: includes absents)
-        const overallDenom = totals.length || 1;
+        const overallDenom = attendedTotals.length || 1;
         const overallAvg = (
-          totals.reduce((a, b) => a + b, 0) / overallDenom
+          attendedTotals.reduce((a, b) => a + b, 0) / overallDenom
         ).toFixed(2);
 
-        // Build Average row with per-subject averages (absents excluded)
+        // Average row
         const avgRow = Array(headers.length).fill("");
         avgRow[0] = "Average";
         avgRow[1] = "";
@@ -883,8 +879,7 @@ const DownloadReports = () => {
           avgRow[2 + idx] = mean;
         });
 
-        // Total average
-        avgRow[2 + logicalSubjects.length] = overallAvg;
+        avgRow[2 + logicalSubjects.length] = overallAvg; // Total column
         rows.push(avgRow);
 
         // Best/Lowest only if at least one attended test exists
