@@ -23,6 +23,8 @@ const DownloadReports = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentReports, setStudentReports] = useState([]);
   const [theoryReports, setTheoryReports] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [selectedSection, setSelectedSection] = useState("");
 
   // Bulk mode states
   const [campuses, setCampuses] = useState([]);
@@ -52,6 +54,29 @@ const DownloadReports = () => {
 
     fetchCampuses();
   }, []);
+
+  // Fetch sections whenever selectedCampus changes
+  useEffect(() => {
+    const loadSections = async () => {
+      setSections([]);
+      setSelectedSection("");
+      if (!selectedCampus) return;
+      try {
+        const res = await axios.get(
+          `${BASE_URL}/api/getsections?campus=${encodeURIComponent(
+            selectedCampus
+          )}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        // API returns { status, campus, count, sections: [...] }
+        setSections(res.data.sections || res.data.data || []);
+      } catch (e) {
+        toast.error("Failed to load sections");
+        console.error(e);
+      }
+    };
+    loadSections();
+  }, [selectedCampus]);
 
   // Individual mode functions
   const handleSearch = async (e) => {
@@ -145,32 +170,81 @@ const DownloadReports = () => {
   };
 
   const fetchReportsForCampus = async () => {
-    if (!selectedCampus) return;
+    if (!selectedCampus || !selectedSection) return;
 
     try {
       setIsLoadingReports(true);
-      toast.info("Loading reports for selected campus...");
+      toast.info("Loading reports for selected campus & section...");
       const res = await axios.get(
         `${BASE_URL}/api/loaddetailedreports?campus=${encodeURIComponent(
           selectedCampus
-        )}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        )}&section=${encodeURIComponent(selectedSection)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      setDetailedReports(res.data.data);
-      const prefixes = getTestPrefixes(res.data.data);
-      setAvailableTests(prefixes);
-
+      const compReports = res.data.data || [];
+      const theoryRes = await axios.get(
+        `${BASE_URL}/api/gettheoryrowsbycampus?campus=${encodeURIComponent(
+          selectedCampus
+        )}&section=${encodeURIComponent(selectedSection)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const theoryRows = theoryRes.data.data || [];
+      const merged = [...compReports, ...theoryRows];
+      setDetailedReports(merged);
+      setAvailableTests(getTestPrefixes(merged));
       toast.success(
         `Found ${res.data.totalReports} reports for ${res.data.totalStudents} students`
       );
     } catch (err) {
-      toast.error("Failed to load reports for campus");
+      toast.error("Failed to load reports for campus & section");
       console.error(err);
     } finally {
       setIsLoadingReports(false);
     }
+  };
+
+  const norm = (s) =>
+    String(s || "")
+      .trim()
+      .toLowerCase();
+  const pickNum = (...vals) => {
+    for (const v of vals) {
+      const n = Number(v);
+      if (!isNaN(n)) return n;
+    }
+    return 0;
+  };
+
+  // Returns { scored, max } for a logical subject, combining Botany+Zoology into Biology when needed.
+  const getSubjectMarks = (subjects, logical) => {
+    const list = subjects || [];
+
+    const findBy = (label) =>
+      list.find(
+        (s) =>
+          norm(s.name) === norm(label) || norm(s.subjectName) === norm(label)
+      );
+
+    const valFrom = (s) => ({
+      scored: pickNum(s?.scored, s?.marks, s?.obtainedMarks),
+      max: pickNum(s?.max, s?.totalMarks, s?.fullMarks, s?.full),
+    });
+
+    if (norm(logical) !== "biology") {
+      const s = findBy(logical);
+      return s ? valFrom(s) : { scored: 0, max: 0 };
+    }
+
+    const bio = findBy("Biology");
+    if (bio) return valFrom(bio);
+
+    const bot = findBy("Botany");
+    const zoo = findBy("Zoology");
+    if (!bot && !zoo) return { scored: 0, max: 0 };
+
+    const b = bot ? valFrom(bot) : { scored: 0, max: 0 };
+    const z = zoo ? valFrom(zoo) : { scored: 0, max: 0 };
+    return { scored: b.scored + z.scored, max: b.max + z.max };
   };
 
   //Individual PDF
@@ -186,7 +260,6 @@ const DownloadReports = () => {
     let y = margin;
 
     const headerLogo = await loadImageAsBase64("/assets/mainlogo.png");
-
     if (headerLogo) {
       doc.addImage(headerLogo, "PNG", margin, y, 18, 18);
     }
@@ -202,7 +275,7 @@ const DownloadReports = () => {
     doc.line(margin, y + 25, doc.internal.pageSize.width - margin, y + 25);
     y += 33;
 
-    // 🧾 Title
+    // Title
     doc.setFontSize(16);
     doc.setTextColor(40, 40, 40);
     doc.text("Progress Report", doc.internal.pageSize.width / 2, y, {
@@ -210,7 +283,7 @@ const DownloadReports = () => {
     });
     y += 10;
 
-    // 📋 Personal and Academic Info
+    // Personal and Academic Info
     const formatDate = (isoDate) => {
       if (!isoDate) return "-";
       const d = new Date(isoDate);
@@ -218,10 +291,10 @@ const DownloadReports = () => {
         d.getMonth() + 1
       ).padStart(2, "0")}-${d.getFullYear()}`;
     };
+
     // Alignment Config
     const leftLabelX = margin;
     const leftValueX = margin + 32;
-
     const rightLabelX = margin + 100;
     const rightValueX = rightLabelX + 22;
 
@@ -234,7 +307,7 @@ const DownloadReports = () => {
 
     doc.setFontSize(11);
 
-    // 🔹 Name & Reg No
+    // Name & Reg No
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 30, 30);
     doc.text("• Name:", leftLabelX, y);
@@ -246,7 +319,7 @@ const DownloadReports = () => {
     doc.text(selectedStudent.regNumber || "-", rightValueX, y);
     y += 6;
 
-    // 🔹 DOB & Campus
+    // DOB & Campus
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 30, 30);
     doc.text("• DOB:", leftLabelX, y);
@@ -258,7 +331,7 @@ const DownloadReports = () => {
     doc.text(selectedStudent.campus?.name || "-", rightValueX, y);
     y += 6;
 
-    // 🔹 Parent & Section
+    // Parent & Section
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 30, 30);
     doc.text("• Parent:", leftLabelX, y);
@@ -270,7 +343,7 @@ const DownloadReports = () => {
     doc.text(selectedStudent.section || "-", rightValueX, y);
     y += 6;
 
-    // 🔹 Mobile
+    // Mobile
     doc.setFont("helvetica", "bold");
     doc.setTextColor(30, 30, 30);
     doc.text("• Mobile:", leftLabelX, y);
@@ -280,66 +353,60 @@ const DownloadReports = () => {
     doc.text(selectedStudent.fatherMobile || "-", leftValueX, y);
     y += 10;
 
-    // Group and organize tests
-    const grouped = {
-      "Daily Tests Performance": [],
-      "Weekly Tests Performance": [],
-      "Theory Tests Performance": [],
-      "Others Tests Performance": [],
+    // Group and organize tests by test prefix (e.g., PPT, PDT, PCT, etc.)
+    const getPrefix = (name) => {
+      if (!name) return "Others";
+      const n = String(name).toUpperCase().replace(/\s+/g, "");
+      const m = n.match(/^[A-Z]+/);
+      return m ? m[0] : "Others";
     };
 
+    const groupsMap = new Map();
     allReports.forEach((test) => {
-      const name = test.testName.toUpperCase();
-      if (name.includes("BPCT") || name.includes("BPWT")) return;
-      if (name.includes("PDT") || name.includes("IPDT"))
-        grouped["Daily Tests Performance"].push(test);
-      else if (
-        name.includes("PCT") ||
-        name.includes("PWT") ||
-        name.includes("IPCT") ||
-        name.includes("IPWT")
-      )
-        grouped["Weekly Tests Performance"].push(test);
-      else if (name.includes("PTT"))
-        grouped["Theory Tests Performance"].push(test);
-      else grouped["Others Tests Performance"].push(test);
+      const prefix = getPrefix(test.testName);
+      if (prefix.includes("BPCT") || prefix.includes("BPWT")) return; // skip baseline if required
+      if (!groupsMap.has(prefix)) groupsMap.set(prefix, []);
+      groupsMap.get(prefix).push(test);
     });
 
+    // Sort tests within each group by embedded number
     const extractNumber = (str) => {
-      const match = str.replace(/\s+/g, "").match(/(\d+)/);
+      const match = String(str || "")
+        .replace(/\s+/g, "")
+        .match(/(\d+)/);
       return match ? parseInt(match[0]) : 0;
     };
 
+    // Fixed logical subjects
     const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
 
-    Object.entries(grouped).forEach(([category, tests]) => {
-      if (!tests.length) return;
+    for (const [prefix, tests] of groupsMap.entries()) {
+      if (!tests.length) continue;
 
       tests.sort(
         (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
       );
 
+      // Section title
       doc.setFontSize(13);
       doc.setTextColor(20, 20, 100);
-      doc.text(category, margin, y);
+      doc.text(`${prefix} Tests`, margin, y);
       y += 6;
 
-      // Dynamic Max Marks in headers
+      // Header max marks computed from the first test in this group,
+      // using getSubjectMarks so Biology can be Botany+Zoology if split.
       const subjectMaxMap = {};
       for (const subj of allSubjects) subjectMaxMap[subj] = "-";
       let totalMax = 0;
       if (tests.length) {
-        tests[0].subjects?.forEach((s) => {
-          const sub = s.name || s.subjectName;
-          if (allSubjects.includes(sub)) {
-            subjectMaxMap[sub] =
-              s.max ?? s.totalMarks ?? s.fullMarks ?? s.full ?? "-";
-          }
+        const first = tests[0];
+        const maxVals = {};
+        allSubjects.forEach((s) => {
+          const { max } = getSubjectMarks(first.subjects, s);
+          maxVals[s] = Number(max) || 0;
+          subjectMaxMap[s] = max ? String(max) : "-";
         });
-        totalMax = Object.values(subjectMaxMap).reduce((a, b) => {
-          const v = parseInt(b);
-          return isNaN(v) ? a : a + v;
-        }, 0);
+        totalMax = Object.values(maxVals).reduce((a, b) => a + b, 0);
       }
 
       const headers = [
@@ -352,72 +419,91 @@ const DownloadReports = () => {
       ];
 
       const rows = [];
-      let allTotals = [];
-      let bestTest = null;
-      let lowestTest = null;
+      const totals = [];
+      const attendedTotals = []; // for Best/Lowest among attended
+      let best = null;
+      let low = null;
 
-      tests.forEach((test) => {
-        const row = [
-          test.testName,
-          new Date(test.date).toLocaleDateString("en-IN"),
-        ];
+      // Subject-wise accumulators (exclude absents row-by-row)
+      const subjSums = Object.fromEntries(allSubjects.map((s) => [s, 0]));
+      const subjCounts = Object.fromEntries(allSubjects.map((s) => [s, 0]));
+
+      tests.forEach((t) => {
+        const row = [t.testName, new Date(t.date).toLocaleDateString("en-IN")];
         let total = 0;
 
+        const perRowMarks = {};
         allSubjects.forEach((subj) => {
-          const found = test.subjects?.find(
-            (s) => s.name === subj || s.subjectName === subj
-          );
-          const marks =
-            found?.scored ?? found?.marks ?? found?.obtainedMarks ?? 0;
-          row.push(String(marks || 0));
-          total += Number(marks);
+          const { scored } = getSubjectMarks(t.subjects, subj);
+          const marks = Number(scored) || 0;
+          perRowMarks[subj] = marks;
+          row.push(String(marks));
+          total += marks;
         });
 
-        if (total === 0) {
-          for (let i = 2; i < 6; i++) row[i] = "Absent";
-          row.push("0", "0", "-");
-        } else {
-          row.push(
-            total.toString(),
-            test.percentile?.toString() ?? "-",
-            test.rank?.toString() ?? "-"
-          );
+        const isAbsent = total === 0;
+
+        // For overall average (you may switch to attendedTotals if preferred)
+        totals.push(total);
+
+        // Subject-wise averages exclude absents
+        if (!isAbsent) {
+          allSubjects.forEach((s) => {
+            subjSums[s] += perRowMarks[s];
+            subjCounts[s] += 1;
+          });
         }
 
-        if (!bestTest || total > bestTest.total)
-          bestTest = { name: test.testName, total };
-        if (!lowestTest || total < lowestTest.total)
-          lowestTest = { name: test.testName, total };
+        // Best/Lowest among attended
+        if (!isAbsent) {
+          attendedTotals.push(total);
+          if (!best || total > best.total) best = { name: t.testName, total };
+          if (!low || total < low.total) low = { name: t.testName, total };
+        }
 
-        allTotals.push(total);
+        row.push(
+          total.toString(),
+          t.percentile?.toString() ?? "-",
+          t.rank?.toString() ?? "-"
+        );
         rows.push(row);
       });
 
-      if (allTotals.length) {
-        const avg = (
-          allTotals.reduce((a, b) => a + b, 0) / allTotals.length
-        ).toFixed(2);
-        rows.push(["Average", "", "", "", "", avg, "", ""]);
-        rows.push([
-          `Best: `,
-          "",
-          "",
-          `${bestTest.name}`,
-          "",
-          `${bestTest.total}`,
-          "",
-          "",
-        ]);
-        rows.push([
-          `Lowest: `,
-          "",
-          "",
-          `${lowestTest.name}`,
-          "",
-          `${lowestTest.total}`,
-          "",
-          "",
-        ]);
+      // Overall average (current behavior: includes absents; switch to attendedTotals if you want to exclude)
+      const overallDenom = attendedTotals.length || 1;
+      const overallAvg = (
+        attendedTotals.reduce((a, b) => a + b, 0) / overallDenom
+      ).toFixed(2);
+
+      // Build Average row (subject-wise averages already exclude absents)
+      const avgRow = Array(headers.length).fill("");
+      avgRow[0] = "Average";
+      avgRow[1] = "";
+
+      allSubjects.forEach((s, idx) => {
+        const denom = subjCounts[s] || 1;
+        const mean = (subjSums[s] / denom).toFixed(2);
+        avgRow[2 + idx] = mean;
+      });
+
+      avgRow[2 + allSubjects.length] = overallAvg; // Total column
+      rows.push(avgRow);
+
+      // Best/Lowest only if there is at least one attended test
+      if (attendedTotals.length) {
+        const bestRow = Array(headers.length).fill("");
+        bestRow[0] = `Best: ${best.name}`;
+        bestRow[2 + allSubjects.length] = String(best.total);
+        rows.push(bestRow);
+
+        const lowRow = Array(headers.length).fill("");
+        lowRow[0] = `Lowest: ${low.name}`;
+        lowRow[2 + allSubjects.length] = String(low.total);
+        rows.push(lowRow);
+      } else {
+        const noteRow = Array(headers.length).fill("");
+        noteRow[0] = "No attended tests in this group";
+        rows.push(noteRow);
       }
 
       autoTable(doc, {
@@ -446,8 +532,9 @@ const DownloadReports = () => {
         doc.addPage();
         y = margin;
       }
-    });
+    }
 
+    // After all tables, append counselling forms
     doc.addPage();
     appendCounsellingForms(doc, margin);
 
@@ -546,6 +633,47 @@ const DownloadReports = () => {
   };
 
   //Bulk PDF
+
+  // const norm = (s) => String(s || "").trim().toLowerCase();
+  // const pickNum = (...vals) => {
+  //   for (const v of vals) {
+  //     const n = Number(v);
+  //     if (!isNaN(n)) return n;
+  //   }
+  //   return 0;
+  // };
+
+  // Returns { scored, max } for a logical subject, combining Botany+Zoology into Biology when needed.
+  // const getSubjectMarks = (subjects, logical) => {
+  //   const list = subjects || [];
+
+  //   const findBy = (label) =>
+  //     list.find(
+  //       (s) => norm(s.name) === norm(label) || norm(s.subjectName) === norm(label)
+  //     );
+
+  //   const valFrom = (s) => ({
+  //     scored: pickNum(s?.scored, s?.marks, s?.obtainedMarks),
+  //     max: pickNum(s?.max, s?.totalMarks, s?.fullMarks, s?.full),
+  //   });
+
+  //   if (norm(logical) !== "biology") {
+  //     const s = findBy(logical);
+  //     return s ? valFrom(s) : { scored: 0, max: 0 };
+  //   }
+
+  //   const bio = findBy("Biology");
+  //   if (bio) return valFrom(bio);
+
+  //   const bot = findBy("Botany");
+  //   const zoo = findBy("Zoology");
+  //   if (!bot && !zoo) return { scored: 0, max: 0 };
+
+  //   const b = bot ? valFrom(bot) : { scored: 0, max: 0 };
+  //   const z = zoo ? valFrom(zoo) : { scored: 0, max: 0 };
+  //   return { scored: b.scored + z.scored, max: b.max + z.max };
+  // };
+
   const generateBulkPDF = async (
     studentsList,
     reportsData,
@@ -561,77 +689,68 @@ const DownloadReports = () => {
     const token = localStorage.getItem("token");
     const headerLogo = await loadImageAsBase64("/assets/mainlogo.png");
 
+    // prefix helper
+    const getPrefix = (name) => {
+      if (!name) return "Others";
+      const n = String(name).toUpperCase().replace(/\s+/g, "");
+      const m = n.match(/^[A-Z]+/);
+      return m ? m[0] : "Others";
+    };
+
+    const extractNumber = (str) => {
+      const match = String(str || "")
+        .replace(/\s+/g, "")
+        .match(/(\d+)/);
+      return match ? parseInt(match[0]) : 0;
+    };
+
+    // Fixed logical subjects for NEET stream with Bio combined
+    const logicalSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
+
+    let studentIndex = 0;
     for (const student of studentsList) {
-      // Fetch full student data from backend
+      // Fetch full student data for header (robustness for campus/section)
       let selectedStudent = { regNumber: student.regNumber };
       try {
         const res = await axios.get(
           `${BASE_URL}/api/getstudentbyreg/${student.regNumber}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        selectedStudent = res.data.data;
+        selectedStudent = res.data.data || selectedStudent;
       } catch (err) {
-        console.warn(
-          `Warning: Couldn't fetch data for ${student.regNumber}`,
-          err
-        );
-        continue; // Skip this student if fetch fails
+        // proceed with minimal data
       }
 
-      const studentReports = reportsData.filter(
+      // Collect reports for this student
+      const studentReports = (reportsData || []).filter(
         (r) => r.regNumber === student.regNumber
       );
-      const theory = theoryReportsData.filter(
+      const theory = (theoryReportsData || []).filter(
         (r) => r.regNumber === student.regNumber
       );
-
       const allReports = [...studentReports, ...theory];
-      if (!allReports.length) continue;
+      if (!allReports.length) {
+        studentIndex++;
+        continue;
+      }
 
-      const grouped = {
-        "Daily Tests": [],
-        "Weekly Tests": [],
-        "Theory Tests": [],
-        Others: [],
-      };
-
-      allReports.forEach((test) => {
-        const name = test.testName?.toUpperCase?.() || "";
-        if (name.includes("BPCT") || name.includes("BPWT")) return;
-
-        if (name.includes("PDT") || name.includes("IPDT")) {
-          grouped["Daily Tests"].push(test);
-        } else if (
-          name.includes("PCT") ||
-          name.includes("PWT") ||
-          name.includes("IPCT") ||
-          name.includes("IPWT")
-        ) {
-          grouped["Weekly Tests"].push(test);
-        } else if (name.includes("PTT")) {
-          grouped["Theory Tests"].push(test);
-        } else {
-          grouped["Others"].push(test);
-        }
-      });
-
+      // fresh page for each student (except first uses initial page)
       let y = margin;
+      if (studentIndex > 0) doc.addPage();
 
+      // Header
       if (headerLogo) {
         doc.addImage(headerLogo, "PNG", margin, y, 18, 18);
       }
-
       doc.setFontSize(15);
       doc.setTextColor(30, 30, 30);
       doc.text("Parishrama Group of Institutions", margin + 22, y + 12);
+
       doc.setDrawColor(200);
       doc.line(margin, y + 20, doc.internal.pageSize.width - margin, y + 20);
       y += 28;
 
+      // Title
       doc.setFontSize(16);
       doc.setTextColor(40, 40, 40);
       doc.text("Progress Report", doc.internal.pageSize.width / 2, y, {
@@ -639,15 +758,13 @@ const DownloadReports = () => {
       });
       y += 10;
 
+      // Student info
       doc.setFontSize(12);
       doc.setTextColor(40, 40, 40);
       doc.text("Personal Details", margin, y);
       doc.text("Academic Details", margin + 100, y);
       y += 6;
-      doc.setTextColor(60, 60, 60);
-      doc.text(`Name: ${selectedStudent.studentName || "-"}`, margin, y);
-      doc.text(`Reg No: ${selectedStudent.regNumber}`, margin + 100, y);
-      y += 6;
+
       const formatDate = (isoDate) => {
         if (!isoDate) return "-";
         const d = new Date(isoDate);
@@ -656,6 +773,11 @@ const DownloadReports = () => {
         ).padStart(2, "0")}-${d.getFullYear()}`;
       };
 
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Name: ${selectedStudent.studentName || "-"}`, margin, y);
+      doc.text(`Reg No: ${selectedStudent.regNumber || "-"}`, margin + 100, y);
+      y += 6;
+
       doc.text(`DOB: ${formatDate(selectedStudent.dateOfBirth)}`, margin, y);
       doc.text(
         `Campus: ${selectedStudent?.campus?.name || "-"}`,
@@ -663,134 +785,161 @@ const DownloadReports = () => {
         y
       );
       y += 6;
+
       doc.text(`Parent: ${selectedStudent.fatherName || "-"}`, margin, y);
       doc.text(`Section: ${selectedStudent.section || "-"}`, margin + 100, y);
       y += 6;
+
       doc.text(`Mobile: ${selectedStudent.fatherMobile || "-"}`, margin, y);
       y += 10;
 
-      const extractNumber = (str) => {
-        const match = str.replace(/\s+/g, "").match(/(\d+)/);
-        return match ? parseInt(match[0]) : 0;
-      };
+      // Build prefix groups for this student
+      const groupsMap = new Map();
+      allReports.forEach((t) => {
+        const prefix = getPrefix(t.testName);
+        if (prefix.includes("BPCT") || prefix.includes("BPWT")) return; // skip baseline if required
+        if (!groupsMap.has(prefix)) groupsMap.set(prefix, []);
+        groupsMap.get(prefix).push(t);
+      });
 
-      const allSubjects = Array.from(
-        new Set(
-          allReports.flatMap(
-            (t) => t.subjects?.map((s) => s.name || s.subjectName) || []
-          )
-        )
-      );
-      let pagesUsed = 0;
-
-      for (const [category, tests] of Object.entries(grouped)) {
+      for (const [prefix, tests] of groupsMap.entries()) {
         if (!tests.length) continue;
 
         tests.sort(
           (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
         );
 
+        // Section title
         doc.setFontSize(13);
         doc.setTextColor(20, 20, 100);
-        doc.text(category, margin, y);
+        doc.text(`${prefix} Tests`, margin, y);
         y += 6;
+
+        // Header max marks from first test in group using Biology-combine logic
+        const subjectMaxMap = {};
+        for (const subj of logicalSubjects) subjectMaxMap[subj] = "-";
+        let totalMax = 0;
+        if (tests.length) {
+          const first = tests[0];
+          const maxVals = {};
+          logicalSubjects.forEach((s) => {
+            const { max } = getSubjectMarks(first.subjects, s);
+            maxVals[s] = Number(max) || 0;
+            subjectMaxMap[s] = max ? String(max) : "-";
+          });
+          totalMax = Object.values(maxVals).reduce((a, b) => a + b, 0);
+        }
 
         const headers = [
           "Test Name",
           "Date",
-          ...allSubjects,
-          "Total Marks",
-          "Max Marks",
+          ...logicalSubjects.map((s) => `${s} (${subjectMaxMap[s]})`),
+          `Total (${totalMax})`,
           "Percentile",
           "Rank",
         ];
 
         const rows = [];
-        let allTotals = [];
-        let bestTest = null;
-        let lowestTest = null;
+        const totals = [];
+        const attendedTotals = [];
+        let best = null;
+        let low = null;
 
-        tests.forEach((test) => {
+        // Subject-wise accumulators (exclude absents per row)
+        const subjSums = Object.fromEntries(logicalSubjects.map((s) => [s, 0]));
+        const subjCounts = Object.fromEntries(
+          logicalSubjects.map((s) => [s, 0])
+        );
+
+        tests.forEach((t) => {
           const row = [
-            test.testName,
-            new Date(test.date).toLocaleDateString("en-IN"),
+            t.testName,
+            new Date(t.date).toLocaleDateString("en-IN"),
           ];
           let total = 0;
-          let full = 0;
 
-          allSubjects.forEach((subj) => {
-            const found = test.subjects?.find(
-              (s) =>
-                s.name?.toLowerCase() === subj.toLowerCase() ||
-                s.subjectName?.toLowerCase() === subj.toLowerCase()
-            );
-
-            const marks =
-              found?.scored ?? found?.marks ?? found?.obtainedMarks ?? 0;
-            const max =
-              found?.max ?? found?.totalMarks ?? found?.fullMarks ?? 0;
-            row.push(String(marks || 0));
-            total += Number(marks);
-            full += Number(max);
+          const perRowMarks = {};
+          logicalSubjects.forEach((subj) => {
+            const { scored } = getSubjectMarks(t.subjects, subj);
+            const marks = Number(scored) || 0;
+            perRowMarks[subj] = marks;
+            row.push(String(marks));
+            total += marks;
           });
 
-          if (total === 0 && full === 0) {
-            for (let i = 2; i < 6; i++) row[i] = "Absent";
-            row.push("0", "0", "-", test.rank ?? "-");
-          } else {
-            row.push(
-              total.toString(),
-              full.toString(),
-              test.percentile?.toString() ?? "-",
-              test.rank?.toString() ?? "-"
-            );
+          const isAbsent = total === 0;
+
+          totals.push(total);
+
+          if (!isAbsent) {
+            // For subject-wise averages
+            logicalSubjects.forEach((s) => {
+              subjSums[s] += perRowMarks[s];
+              subjCounts[s] += 1;
+            });
+
+            // For Best/Lowest
+            attendedTotals.push(total);
+            if (!best || total > best.total) best = { name: t.testName, total };
+            if (!low || total < low.total) low = { name: t.testName, total };
           }
 
-          if (!bestTest || total > bestTest.total)
-            bestTest = { name: test.testName, total, full };
-          if (!lowestTest || total < lowestTest.total)
-            lowestTest = { name: test.testName, total, full };
-
-          allTotals.push(total);
+          row.push(
+            total.toString(),
+            t.percentile?.toString() ?? "-",
+            t.rank?.toString() ?? "-"
+          );
           rows.push(row);
         });
 
-        if (allTotals.length) {
-          const avg = (
-            allTotals.reduce((a, b) => a + b, 0) / allTotals.length
-          ).toFixed(2);
-          rows.push(["Average", "", "", "", "", "", avg, "", "", ""]);
-          rows.push([
-            `Best: ${bestTest.name}`,
-            "",
-            "",
-            "",
-            "",
-            "",
-            `${bestTest.total}/${bestTest.full}`,
-            "",
-            "",
-            "",
-          ]);
-          rows.push([
-            `Lowest: ${lowestTest.name}`,
-            "",
-            "",
-            "",
-            "",
-            "",
-            `${lowestTest.total}/${lowestTest.full}`,
-            "",
-            "",
-            "",
-          ]);
+        // Overall average in Total column (current: includes absents)
+        const overallDenom = attendedTotals.length || 1;
+        const overallAvg = (
+          attendedTotals.reduce((a, b) => a + b, 0) / overallDenom
+        ).toFixed(2);
+
+        // Average row
+        const avgRow = Array(headers.length).fill("");
+        avgRow[0] = "Average";
+        avgRow[1] = "";
+
+        logicalSubjects.forEach((s, idx) => {
+          const denom = subjCounts[s] || 1;
+          const mean = (subjSums[s] / denom).toFixed(2);
+          avgRow[2 + idx] = mean;
+        });
+
+        avgRow[2 + logicalSubjects.length] = overallAvg; // Total column
+        rows.push(avgRow);
+
+        // Best/Lowest only if at least one attended test exists
+        if (attendedTotals.length) {
+          const bestRow = Array(headers.length).fill("");
+          bestRow[0] = `Best: ${best.name}`;
+          bestRow[2 + logicalSubjects.length] = String(best.total);
+          rows.push(bestRow);
+
+          const lowRow = Array(headers.length).fill("");
+          lowRow[0] = `Lowest: ${low.name}`;
+          lowRow[2 + logicalSubjects.length] = String(low.total);
+          rows.push(lowRow);
+        } else {
+          const noteRow = Array(headers.length).fill("");
+          noteRow[0] = "No attended tests in this group";
+          rows.push(noteRow);
         }
 
         autoTable(doc, {
           head: [headers],
           body: rows,
           startY: y,
-          styles: { fontSize: 9, halign: "center", cellPadding: 2 },
+          styles: {
+            fontSize: 9,
+            halign: "center",
+            cellPadding: 2,
+            lineWidth: 0.1,
+            lineColor: [0, 0, 0],
+          },
           headStyles: {
             fillColor: [26, 188, 156],
             textColor: 255,
@@ -802,26 +951,25 @@ const DownloadReports = () => {
           },
         });
 
-        if (++pagesUsed < 3) {
+        if (y > 270) {
           doc.addPage();
           y = margin;
         }
       }
 
-      // From page 3 onward, append counselling forms
+      // After all tables for this student, append counselling forms
       doc.addPage();
       appendCounsellingForms(doc, margin);
-      if (student !== studentsList[studentsList.length - 1]) {
-        doc.addPage();
-        y = margin;
-      }
+
+      studentIndex++;
     }
 
-    doc.save("Bulk_Student_Reports.pdf");
+    doc.save("BulkStudentReports.pdf");
   };
 
   const generateBulkExcel = (students, reports) => {
     // 1. Collect unique testNames sorted by number
+
     const testNames = [...new Set(reports.map((r) => r.testName))].sort(
       (a, b) => {
         const getNum = (str) => parseInt(str.replace(/\D+/g, "")) || 0;
@@ -923,6 +1071,7 @@ const DownloadReports = () => {
         resolve(null);
       }
     });
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">Download Student Reports</h2>
@@ -1070,6 +1219,25 @@ const DownloadReports = () => {
                 </option>
               ))}
             </select>
+
+            <select
+              className="border px-3 py-2 rounded"
+              value={selectedSection}
+              onChange={(e) => setSelectedSection(e.target.value)}
+              disabled={!selectedCampus || sections.length === 0}
+            >
+              <option value="">Select Section</option>
+              {sections.map((s, i) => {
+                const val = typeof s === "string" ? s : s.name || s._id || "";
+                const label = typeof s === "string" ? s : s.name || String(val);
+                return (
+                  <option key={`${val}-${i}`} value={val}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+
             <select
               className="border px-3 py-2 rounded"
               value={selectedTest}
@@ -1087,7 +1255,7 @@ const DownloadReports = () => {
             <button
               onClick={fetchReportsForCampus}
               className="bg-blue-600 text-white px-4 py-2 rounded"
-              disabled={!selectedCampus}
+              disabled={!selectedCampus || !selectedSection}
             >
               Load Reports
             </button>
@@ -1097,7 +1265,7 @@ const DownloadReports = () => {
                 className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
                 disabled={
                   !selectedCampus ||
-                 //</div> !selectedTest ||
+                  !selectedSection ||
                   !detailedReports.length ||
                   isDownloading
                 }
@@ -1158,39 +1326,46 @@ const DownloadReports = () => {
                     onClick={async () => {
                       try {
                         setIsDownloading(true);
+
                         const finalReports = filterReportsByPrefix(
                           detailedReports,
                           selectedTest
                         );
-                        const reportsData = finalReports.filter(
-                          (r) =>
-                            r.testName.includes("PDT") ||
-                            r.testName.includes("PCT") ||
-                            r.testName.includes("IP")
-                        );
+                        if (!finalReports.length) {
+                          toast.error("No data for PDF");
+                          return;
+                        }
+
+                        // Robust theory detector
+                        const isTheory = (name) => {
+                          const n = String(name || "")
+                            .toUpperCase()
+                            .trim();
+                          return n.includes("IPTT") || n.includes("PTT"); // add others explicitly if needed
+                        };
+
                         const theoryReports = finalReports.filter((r) =>
-                          r.testName.includes("PTT")
+                          isTheory(r.testName)
+                        );
+                        const competitiveReports = finalReports.filter(
+                          (r) => !isTheory(r.testName)
                         );
 
                         const students = [
                           ...new Set(finalReports.map((r) => r.regNumber)),
                         ].map((reg) => ({ regNumber: reg }));
 
-                        if (!finalReports.length) {
-                          toast.error("No data for PDF");
-                          return;
-                        }
-
                         await generateBulkPDF(
                           students,
-                          finalReports,
-                          theoryReports
+                          competitiveReports, // non-theory
+                          theoryReports // theory
                         );
                       } catch (err) {
                         toast.error("Error generating PDF");
+                        console.error(err);
                       } finally {
                         setIsDownloading(false);
-                        setIsMenuOpen(false); // close after action
+                        setIsMenuOpen(false);
                       }
                     }}
                     className="block w-full text-left px-4 py-2 hover:bg-gray-100"

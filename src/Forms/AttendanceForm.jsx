@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import DatePicker from "react-datepicker";
 import TimePicker from "react-time-picker";
 import Select from "react-select";
+import { useMemo, useState } from "react";
 
 import useAttendanceLogic from "./logic/UseAttendanceLogic";
 
@@ -50,6 +51,7 @@ const customStyles = {
 
 const AttendanceForm = () => {
   const navigate = useNavigate();
+  const [nameSortOrder, setNameSortOrder] = useState("asc"); // 'asc' | 'desc'
 
   const {
     loading,
@@ -90,6 +92,17 @@ const AttendanceForm = () => {
       time: attendanceTime,
     },
   });
+  // const sortedStudents = useMemo(() => {
+  //   const copy = [...filteredStudents];
+  //   copy.sort((a, b) => {
+  //     const an = (a.studentName || "").toLocaleLowerCase();
+  //     const bn = (b.studentName || "").toLocaleLowerCase();
+  //     if (an < bn) return nameSortOrder === "asc" ? -1 : 1;
+  //     if (an > bn) return nameSortOrder === "asc" ? 1 : -1;
+  //     return 0;
+  //   });
+  //   return copy;
+  // }, [filteredStudents, nameSortOrder]);
 
   const onSubmit = async (formData) => {
     if (filteredStudents.length === 0) {
@@ -307,6 +320,25 @@ const AttendanceForm = () => {
           ) : filteredStudents.length > 0 ? (
             <div className="mb-6">
               <div className="overflow-x-auto max-w-full">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-gray-600">
+                    Sorting by Student Name:{" "}
+                    {nameSortOrder === "asc" ? "A → Z" : "Z → A"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNameSortOrder((prev) =>
+                        prev === "asc" ? "desc" : "asc"
+                      )
+                    }
+                    className="px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50"
+                    disabled={loading}
+                  >
+                    {nameSortOrder === "asc" ? "Sort Z → A" : "Sort A → Z"}
+                  </button>
+                </div>
+
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -328,71 +360,82 @@ const AttendanceForm = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredStudents.map((student) => (
-                      <tr key={student.regNumber} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-100 overflow-hidden border-2 border-gray-300">
-                            {student.studentImageURL ? (
-                              <img
-                                src={student.studentImageURL}
-                                alt={student.studentName}
-                                className="h-10 w-10 object-cover rounded-full"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = getInitialsAvatar(
-                                    student.studentName
-                                  );
-                                }}
-                              />
-                            ) : (
-                              <img
-                                src={getInitialsAvatar(student.studentName)}
-                                alt={student.studentName}
-                                className="h-10 w-10 object-cover rounded-full"
-                              />
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {student.regNumber}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {student.studentName}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <input
-                            type="checkbox"
-                            checked={
-                              attendanceRecords[student.regNumber]?.absent ||
-                              false
-                            }
-                            onChange={() =>
-                              handleAttendanceChange(
-                                student.regNumber,
-                                "absent"
-                              )
-                            }
-                            className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <input
-                            type="checkbox"
-                            checked={
-                              attendanceRecords[student.regNumber]?.forgiven ||
-                              false
-                            }
-                            onChange={() =>
-                              handleAttendanceChange(
-                                student.regNumber,
-                                "forgiven"
-                              )
-                            }
-                            className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {[...filteredStudents]
+                      .sort((a, b) => {
+                        const an = (a.studentName || "").toLocaleLowerCase();
+                        const bn = (b.studentName || "").toLocaleLowerCase();
+                        if (an < bn) return nameSortOrder === "asc" ? -1 : 1;
+                        if (an > bn) return nameSortOrder === "asc" ? 1 : -1;
+                        return 0;
+                      })
+                      .map((student) => (
+                        <tr
+                          key={student.regNumber}
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-100 overflow-hidden border-2 border-gray-300">
+                              {student.studentImageURL ? (
+                                <img
+                                  src={student.studentImageURL}
+                                  alt={student.studentName}
+                                  className="h-10 w-10 object-cover rounded-full"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = getInitialsAvatar(
+                                      student.studentName
+                                    );
+                                  }}
+                                />
+                              ) : (
+                                <img
+                                  src={getInitialsAvatar(student.studentName)}
+                                  alt={student.studentName}
+                                  className="h-10 w-10 object-cover rounded-full"
+                                />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {student.regNumber}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {student.studentName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input
+                              type="checkbox"
+                              checked={
+                                attendanceRecords[student.regNumber]?.absent ||
+                                false
+                              }
+                              onChange={() =>
+                                handleAttendanceChange(
+                                  student.regNumber,
+                                  "absent"
+                                )
+                              }
+                              className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <input
+                              type="checkbox"
+                              checked={
+                                attendanceRecords[student.regNumber]
+                                  ?.forgiven || false
+                              }
+                              onChange={() =>
+                                handleAttendanceChange(
+                                  student.regNumber,
+                                  "forgiven"
+                                )
+                              }
+                              className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                            />
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
