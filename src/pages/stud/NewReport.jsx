@@ -45,6 +45,16 @@ export default function NewReport({ onClose }) {
   const [nonExistentRegNumbers, setNonExistentRegNumbers] = useState({});
   const [showAllNonExistent, setShowAllNonExistent] = useState(false);
   const [validatingRegNumbers, setValidatingRegNumbers] = useState(false);
+  const CORE_SUBJECTS = [
+    "English",
+    "Second Language",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Mathematics",
+  ]; // fixed order
+
+  const [subjectCount, setSubjectCount] = useState(0);
 
   // Marks type options
   const marksTypeOptions = [
@@ -127,12 +137,27 @@ export default function NewReport({ onClose }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    // When question type changes, update isTheoryTest state
     if (name === "questionType") {
-      setIsTheoryTest(value === "Theory");
-    }
+      const isTheory = value === "Theory";
+      setIsTheoryTest(isTheory);
 
+      if (isTheory) {
+        // default to 6
+        const defaultCount = 6;
+        setSubjectCount(defaultCount);
+
+        const initialSubjects = CORE_SUBJECTS.slice(0, defaultCount).map(
+          (s) => ({
+            name: s,
+            maxMarks: 100, // or keep your prior default 25
+          })
+        );
+        setSubjectDetails(initialSubjects);
+      } else {
+        setSubjectCount(0);
+        setSubjectDetails([]);
+      }
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -353,16 +378,38 @@ export default function NewReport({ onClose }) {
       key.match(/^(regno|rollno|registration|id)/i)
     );
 
+    const normalize = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .normalize("NFKC")
+        .replace(/[^a-z]/g, ""); // keep only letters
+
+    const headers = Object.keys(firstRow);
+    const normHeaderMap = headers.reduce((acc, key) => {
+      acc[key] = normalize(key);
+      return acc;
+    }, {});
+
     // Find the column for each subject
     const subjectColumns = {};
     subjectDetails.forEach((subject) => {
-      const subjectLower = subject.name.toLowerCase();
-      const matchingKey = Object.keys(firstRow).find((key) => {
-        const keyLower = key.toLowerCase().replace(/[^a-z]/g, "");
-        return keyLower.includes(subjectLower);
-      });
-      if (matchingKey) {
-        subjectColumns[subject.name] = matchingKey;
+      const sn = normalize(subject.name);
+
+      // 1) exact normalized match
+      let match = headers.find((k) => normHeaderMap[k] === sn);
+
+      // 2) startsWith normalized match (e.g., "secondlanguage" vs "secondlanguagepaper1")
+      if (!match) {
+        match = headers.find((k) => normHeaderMap[k].startsWith(sn));
+      }
+
+      // 3) includes normalized match (fallback)
+      if (!match) {
+        match = headers.find((k) => normHeaderMap[k].includes(sn));
+      }
+
+      if (match) {
+        subjectColumns[subject.name] = match;
       }
     });
 
@@ -883,29 +930,58 @@ export default function NewReport({ onClose }) {
                 </div>
               )}
 
+              {isTheoryTest && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Number of Subjects
+                  </label>
+                  <select
+                    value={subjectCount}
+                    onChange={(e) => {
+                      const count = Math.min(
+                        6,
+                        Math.max(1, parseInt(e.target.value || "0", 10))
+                      );
+                      setSubjectCount(count);
+                      const seeded = CORE_SUBJECTS.slice(0, count).map(
+                        (s, idx) => {
+                          const existing = subjectDetails[idx];
+                          return {
+                            name: s,
+                            maxMarks: existing?.maxMarks ?? 100, // keep user-changed marks if shrinking/growing
+                          };
+                        }
+                      );
+                      setSubjectDetails(seeded);
+                    }}
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select count</option>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Subject Details - Only for Theory */}
               {isTheoryTest && (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Subject Details *
+                    Subject Details
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {subjectDetails.map((subject, index) => (
                       <div key={index} className="space-y-2">
-                        <select
+                        <input
+                          type="text"
                           value={subject.name}
-                          onChange={(e) =>
-                            handleSubjectChange(index, "name", e.target.value)
-                          }
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          {subjects.map((sub, i) => (
-                            <option key={i} value={sub.subjectName}>
-                              {sub.subjectName}
-                            </option>
-                          ))}
-                        </select>
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700"
+                        />
                         <input
                           type="number"
                           value={subject.maxMarks}
@@ -913,12 +989,12 @@ export default function NewReport({ onClose }) {
                             handleSubjectChange(
                               index,
                               "maxMarks",
-                              parseInt(e.target.value) || 0
+                              Math.max(1, parseInt(e.target.value || "0", 10))
                             )
                           }
                           required
-                          min="1"
-                          max="50"
+                          min={1}
+                          max={200}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Max marks"
                         />
@@ -960,8 +1036,10 @@ export default function NewReport({ onClose }) {
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
                       {isTheoryTest
-                        ? "File should contain RegNo and 4 subject columns (Physics, Chemistry, Biology, Mathematics)"
-                        : "File should contain RegNo and Question columns (Q1, Q2, etc.)"}
+                        ? `File should contain RegNo and ${subjectDetails
+                            .map((s) => s.name)
+                            .join(", ")} columns`
+                        : "File should contain RegNo and Question columns Q1, Q2, etc."}
                     </p>
                   </div>
                 )}

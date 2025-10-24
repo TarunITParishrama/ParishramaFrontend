@@ -247,6 +247,19 @@ const DownloadReports = () => {
     return { scored: b.scored + z.scored, max: b.max + z.max };
   };
 
+  const isQuarterlyTheory = (name) => {
+    const n = String(name || "").toUpperCase();
+    return n.includes("QUARTERLY TEST") || n.includes("I QUARTERLY TEST");
+  };
+
+  const quarterlySubjects = [
+    "English",
+    "Second Language",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Mathematics",
+  ];
   //Individual PDF
   const generateIndividualPDF = async () => {
     if (!selectedStudent) return toast.warn("No student selected");
@@ -378,11 +391,16 @@ const DownloadReports = () => {
     };
 
     // Fixed logical subjects
-    const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
+    // const allSubjects = ["Physics", "Chemistry", "Mathematics", "Biology"];
 
     for (const [prefix, tests] of groupsMap.entries()) {
       if (!tests.length) continue;
-
+      const groupHasQuarterly = tests.some((t) =>
+        isQuarterlyTheory(t.testName)
+      );
+      const subjectsForThisGroup = groupHasQuarterly
+        ? quarterlySubjects
+        : ["Physics", "Chemistry", "Mathematics", "Biology"];
       tests.sort(
         (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
       );
@@ -396,12 +414,13 @@ const DownloadReports = () => {
       // Header max marks computed from the first test in this group,
       // using getSubjectMarks so Biology can be Botany+Zoology if split.
       const subjectMaxMap = {};
-      for (const subj of allSubjects) subjectMaxMap[subj] = "-";
+      subjectsForThisGroup.forEach((s) => (subjectMaxMap[s] = "-"));
+
       let totalMax = 0;
       if (tests.length) {
         const first = tests[0];
         const maxVals = {};
-        allSubjects.forEach((s) => {
+        subjectsForThisGroup.forEach((s) => {
           const { max } = getSubjectMarks(first.subjects, s);
           maxVals[s] = Number(max) || 0;
           subjectMaxMap[s] = max ? String(max) : "-";
@@ -412,7 +431,7 @@ const DownloadReports = () => {
       const headers = [
         "Test Name",
         "Date",
-        ...allSubjects.map((s) => `${s} (${subjectMaxMap[s]})`),
+        ...subjectsForThisGroup.map((s) => `${s} (${subjectMaxMap[s]})`),
         `Total (${totalMax})`,
         "Percentile",
         "Rank",
@@ -420,20 +439,24 @@ const DownloadReports = () => {
 
       const rows = [];
       const totals = [];
-      const attendedTotals = []; // for Best/Lowest among attended
+      const attendedTotals = [];
       let best = null;
       let low = null;
 
-      // Subject-wise accumulators (exclude absents row-by-row)
-      const subjSums = Object.fromEntries(allSubjects.map((s) => [s, 0]));
-      const subjCounts = Object.fromEntries(allSubjects.map((s) => [s, 0]));
+      // Subject-wise accumulators
+      const subjSums = Object.fromEntries(
+        subjectsForThisGroup.map((s) => [s, 0])
+      );
+      const subjCounts = Object.fromEntries(
+        subjectsForThisGroup.map((s) => [s, 0])
+      );
 
       tests.forEach((t) => {
         const row = [t.testName, new Date(t.date).toLocaleDateString("en-IN")];
         let total = 0;
 
         const perRowMarks = {};
-        allSubjects.forEach((subj) => {
+        subjectsForThisGroup.forEach((subj) => {
           const { scored } = getSubjectMarks(t.subjects, subj);
           const marks = Number(scored) || 0;
           perRowMarks[subj] = marks;
@@ -443,19 +466,13 @@ const DownloadReports = () => {
 
         const isAbsent = total === 0;
 
-        // For overall average (you may switch to attendedTotals if preferred)
         totals.push(total);
 
-        // Subject-wise averages exclude absents
         if (!isAbsent) {
-          allSubjects.forEach((s) => {
+          subjectsForThisGroup.forEach((s) => {
             subjSums[s] += perRowMarks[s];
             subjCounts[s] += 1;
           });
-        }
-
-        // Best/Lowest among attended
-        if (!isAbsent) {
           attendedTotals.push(total);
           if (!best || total > best.total) best = { name: t.testName, total };
           if (!low || total < low.total) low = { name: t.testName, total };
@@ -475,30 +492,26 @@ const DownloadReports = () => {
         attendedTotals.reduce((a, b) => a + b, 0) / overallDenom
       ).toFixed(2);
 
-      // Build Average row (subject-wise averages already exclude absents)
       const avgRow = Array(headers.length).fill("");
       avgRow[0] = "Average";
       avgRow[1] = "";
-
-      allSubjects.forEach((s, idx) => {
+      subjectsForThisGroup.forEach((s, idx) => {
         const denom = subjCounts[s] || 1;
         const mean = (subjSums[s] / denom).toFixed(2);
         avgRow[2 + idx] = mean;
       });
-
-      avgRow[2 + allSubjects.length] = overallAvg; // Total column
+      avgRow[2 + subjectsForThisGroup.length] = overallAvg;
       rows.push(avgRow);
 
-      // Best/Lowest only if there is at least one attended test
       if (attendedTotals.length) {
         const bestRow = Array(headers.length).fill("");
         bestRow[0] = `Best: ${best.name}`;
-        bestRow[2 + allSubjects.length] = String(best.total);
+        bestRow[2 + subjectsForThisGroup.length] = String(best.total);
         rows.push(bestRow);
 
         const lowRow = Array(headers.length).fill("");
         lowRow[0] = `Lowest: ${low.name}`;
-        lowRow[2 + allSubjects.length] = String(low.total);
+        lowRow[2 + subjectsForThisGroup.length] = String(low.total);
         rows.push(lowRow);
       } else {
         const noteRow = Array(headers.length).fill("");
@@ -673,7 +686,6 @@ const DownloadReports = () => {
   //   const z = zoo ? valFrom(zoo) : { scored: 0, max: 0 };
   //   return { scored: b.scored + z.scored, max: b.max + z.max };
   // };
-
   const generateBulkPDF = async (
     studentsList,
     reportsData,
@@ -809,20 +821,28 @@ const DownloadReports = () => {
           (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
         );
 
+        // Decide subjects for this group
+        const groupHasQuarterly = tests.some((t) =>
+          isQuarterlyTheory(t.testName)
+        );
+        const subjectsForThisGroup = groupHasQuarterly
+          ? quarterlySubjects
+          : ["Physics", "Chemistry", "Mathematics", "Biology"];
+
         // Section title
         doc.setFontSize(13);
         doc.setTextColor(20, 20, 100);
         doc.text(`${prefix} Tests`, margin, y);
         y += 6;
 
-        // Header max marks from first test in group using Biology-combine logic
+        // Header max marks from first test
         const subjectMaxMap = {};
-        for (const subj of logicalSubjects) subjectMaxMap[subj] = "-";
+        subjectsForThisGroup.forEach((s) => (subjectMaxMap[s] = "-"));
         let totalMax = 0;
         if (tests.length) {
           const first = tests[0];
           const maxVals = {};
-          logicalSubjects.forEach((s) => {
+          subjectsForThisGroup.forEach((s) => {
             const { max } = getSubjectMarks(first.subjects, s);
             maxVals[s] = Number(max) || 0;
             subjectMaxMap[s] = max ? String(max) : "-";
@@ -833,7 +853,7 @@ const DownloadReports = () => {
         const headers = [
           "Test Name",
           "Date",
-          ...logicalSubjects.map((s) => `${s} (${subjectMaxMap[s]})`),
+          ...subjectsForThisGroup.map((s) => `${s} (${subjectMaxMap[s]})`),
           `Total (${totalMax})`,
           "Percentile",
           "Rank",
@@ -845,10 +865,12 @@ const DownloadReports = () => {
         let best = null;
         let low = null;
 
-        // Subject-wise accumulators (exclude absents per row)
-        const subjSums = Object.fromEntries(logicalSubjects.map((s) => [s, 0]));
+        // Subject-wise accumulators
+        const subjSums = Object.fromEntries(
+          subjectsForThisGroup.map((s) => [s, 0])
+        );
         const subjCounts = Object.fromEntries(
-          logicalSubjects.map((s) => [s, 0])
+          subjectsForThisGroup.map((s) => [s, 0])
         );
 
         tests.forEach((t) => {
@@ -859,7 +881,7 @@ const DownloadReports = () => {
           let total = 0;
 
           const perRowMarks = {};
-          logicalSubjects.forEach((subj) => {
+          subjectsForThisGroup.forEach((subj) => {
             const { scored } = getSubjectMarks(t.subjects, subj);
             const marks = Number(scored) || 0;
             perRowMarks[subj] = marks;
@@ -868,17 +890,13 @@ const DownloadReports = () => {
           });
 
           const isAbsent = total === 0;
-
           totals.push(total);
 
           if (!isAbsent) {
-            // For subject-wise averages
-            logicalSubjects.forEach((s) => {
+            subjectsForThisGroup.forEach((s) => {
               subjSums[s] += perRowMarks[s];
               subjCounts[s] += 1;
             });
-
-            // For Best/Lowest
             attendedTotals.push(total);
             if (!best || total > best.total) best = { name: t.testName, total };
             if (!low || total < low.total) low = { name: t.testName, total };
@@ -892,36 +910,31 @@ const DownloadReports = () => {
           rows.push(row);
         });
 
-        // Overall average in Total column (current: includes absents)
         const overallDenom = attendedTotals.length || 1;
         const overallAvg = (
           attendedTotals.reduce((a, b) => a + b, 0) / overallDenom
         ).toFixed(2);
 
-        // Average row
         const avgRow = Array(headers.length).fill("");
         avgRow[0] = "Average";
         avgRow[1] = "";
-
-        logicalSubjects.forEach((s, idx) => {
+        subjectsForThisGroup.forEach((s, idx) => {
           const denom = subjCounts[s] || 1;
           const mean = (subjSums[s] / denom).toFixed(2);
           avgRow[2 + idx] = mean;
         });
-
-        avgRow[2 + logicalSubjects.length] = overallAvg; // Total column
+        avgRow[2 + subjectsForThisGroup.length] = overallAvg;
         rows.push(avgRow);
 
-        // Best/Lowest only if at least one attended test exists
         if (attendedTotals.length) {
           const bestRow = Array(headers.length).fill("");
           bestRow[0] = `Best: ${best.name}`;
-          bestRow[2 + logicalSubjects.length] = String(best.total);
+          bestRow[2 + subjectsForThisGroup.length] = String(best.total);
           rows.push(bestRow);
 
           const lowRow = Array(headers.length).fill("");
           lowRow[0] = `Lowest: ${low.name}`;
-          lowRow[2 + logicalSubjects.length] = String(low.total);
+          lowRow[2 + subjectsForThisGroup.length] = String(low.total);
           rows.push(lowRow);
         } else {
           const noteRow = Array(headers.length).fill("");
@@ -960,6 +973,19 @@ const DownloadReports = () => {
       // After all tables for this student, append counselling forms
       doc.addPage();
       appendCounsellingForms(doc, margin);
+      const totalPages = doc.getNumberOfPages();
+      if (totalPages % 2 === 1) {
+        // Optionally mark the filler page
+        doc.setFontSize(10);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          "This page intentionally left blank.",
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() / 2,
+          { align: "center" }
+        );
+        doc.addPage(); // move to a clean page for the next student
+      }
 
       studentIndex++;
     }
