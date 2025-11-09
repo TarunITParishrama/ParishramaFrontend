@@ -646,7 +646,6 @@ const DownloadReports = () => {
   };
 
   //Bulk PDF
-
   // const norm = (s) => String(s || "").trim().toLowerCase();
   // const pickNum = (...vals) => {
   //   for (const v of vals) {

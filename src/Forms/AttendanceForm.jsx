@@ -52,6 +52,8 @@ const customStyles = {
 const AttendanceForm = () => {
   const navigate = useNavigate();
   const [nameSortOrder, setNameSortOrder] = useState("asc"); // 'asc' | 'desc'
+  const [submitting, setSubmitting] = useState(false);
+  const [lastSubmitSuccess, setLastSubmitSuccess] = useState(false);
 
   const {
     loading,
@@ -82,6 +84,7 @@ const AttendanceForm = () => {
     control,
     setValue,
     formState: { errors },
+    reset,
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -92,6 +95,7 @@ const AttendanceForm = () => {
       time: attendanceTime,
     },
   });
+
   // const sortedStudents = useMemo(() => {
   //   const copy = [...filteredStudents];
   //   copy.sort((a, b) => {
@@ -105,12 +109,17 @@ const AttendanceForm = () => {
   // }, [filteredStudents, nameSortOrder]);
 
   const onSubmit = async (formData) => {
+    // prevent duplicate submits
+    if (submitting) return;
+
     if (filteredStudents.length === 0) {
       toast.error("No students to submit attendance for.");
       return;
     }
 
     try {
+      setSubmitting(true);
+
       const token = localStorage.getItem("token");
 
       const attendanceData = filteredStudents.map((student) => ({
@@ -134,11 +143,33 @@ const AttendanceForm = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // Success feedback
       toast.success("Attendance recorded successfully!");
+      setLastSubmitSuccess(true);
+
+      // Clear selections and form values
+      handleClear(); // clears attendanceRecords, counts, etc.
+      reset({
+        campus: "",
+        section: "",
+        subject: "",
+        date: null,
+        time: "",
+      });
+      setValue("campus", "");
+      setValue("section", "");
+      setValue("subject", "");
+      setValue("date", null);
+      setValue("time", "");
+
+      // Auto-hide inline banner after 4s
+      setTimeout(() => setLastSubmitSuccess(false), 4000);
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Failed to record attendance"
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -169,6 +200,7 @@ const AttendanceForm = () => {
                     {...field}
                     isSearchable
                     isClearable
+                    isDisabled={loading || submitting}
                     options={campuses.map((campus) => ({
                       value: campus._id,
                       label: campus.name,
@@ -203,7 +235,7 @@ const AttendanceForm = () => {
                   setValue("section", e.target.value);
                 }}
                 className="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                disabled={!filters.campus || loading}
+                disabled={!filters.campus || loading || submitting}
               >
                 <option value="">All Sections</option>
                 {sections.map((section) => (
@@ -225,7 +257,7 @@ const AttendanceForm = () => {
                   setValue("subject", e.target.value);
                 }}
                 className="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                disabled={loading}
+                disabled={loading || submitting}
               >
                 <option value="">Select Subject</option>
                 {subjects.map((subject) => (
@@ -257,6 +289,7 @@ const AttendanceForm = () => {
                     }}
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     dateFormat="dd-MM-yyyy"
+                    disabled={loading || submitting}
                   />
                 )}
               />
@@ -284,6 +317,7 @@ const AttendanceForm = () => {
                     className="w-full p-2 border rounded focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     disableClock={true}
                     clearIcon={null}
+                    disabled={loading || submitting}
                   />
                 )}
               />
@@ -306,7 +340,7 @@ const AttendanceForm = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full p-2 border rounded"
-              disabled={loading}
+              disabled={loading || submitting}
             />
           </div>
 
@@ -333,7 +367,7 @@ const AttendanceForm = () => {
                       )
                     }
                     className="px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-white hover:bg-gray-50"
-                    disabled={loading}
+                    disabled={loading || submitting}
                   >
                     {nameSortOrder === "asc" ? "Sort Z → A" : "Sort A → Z"}
                   </button>
@@ -416,6 +450,7 @@ const AttendanceForm = () => {
                                 )
                               }
                               className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                              disabled={loading || submitting}
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -432,6 +467,7 @@ const AttendanceForm = () => {
                                 )
                               }
                               className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                              disabled={loading || submitting}
                             />
                           </td>
                         </tr>
@@ -480,11 +516,18 @@ const AttendanceForm = () => {
           {/* Submit and Clear Buttons */}
           {/* Buttons */}
           <div className="flex justify-end space-x-4">
+            {/* Inline success banner */}
+            {lastSubmitSuccess && (
+              <div className="mb-4 rounded border border-green-300 bg-green-50 p-3 text-green-800">
+                Attendance saved successfully.
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleClear}
               className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              disabled={loading}
+              disabled={loading || submitting}
             >
               Clear
             </button>
@@ -492,8 +535,9 @@ const AttendanceForm = () => {
             <button
               type="submit"
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-br from-red-600 via-orange-500 to-yellow-400 hover:from-red-700 hover:via-orange-600 hover:to-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || submitting || filteredStudents.length === 0}
             >
-              {loading ? "Submitting..." : "Submit Attendance"}
+              {submitting ? "Submitting..." : "Submit Attendance"}
             </button>
           </div>
         </form>

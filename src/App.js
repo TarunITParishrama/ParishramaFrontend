@@ -4,6 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation
 } from "react-router-dom";
 import { SpeedInsights } from "@vercel/speed-insights/react"
 import Login from "./pages/LoginPage";
@@ -37,8 +38,21 @@ import ScrollDown from "./utils/ScrollDown.jsx";
 import DownloadReports from "./pages/stud/DownloadReports.jsx";
 import CreateProfile from "./pages/admin/CreateProfile.jsx";
 import ViewProfile from "./pages/tab_pages/ViewProfile.jsx";
+import ParentsFeedback from "./pages/parents/ParentFeedback.jsx";
 
 function App() {
+
+  function FloatingControlsGuard() {
+  const { pathname } = useLocation();
+  const show = pathname.startsWith("/home"); // only inside homepage
+  if (!show) return null;
+  return (
+    <>
+      <GoToTop />
+      <ScrollDown />
+    </>
+  );
+}
   return (
     <div className="h-screen">
       <ToastContainer
@@ -94,10 +108,10 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="student/:rollno" element={<StudentData />} />
             <Route path="studentreport/:rollNo" element={<StudentReport />} />
+            <Route path="parents-feedback" element={<ParentsFeedback />} />
           </Route>
         </Routes>
-        <GoToTop />
-        <ScrollDown />
+        <FloatingControlsGuard />
       </Router>
       <SpeedInsights />
     </div>
