@@ -116,7 +116,7 @@ const getDashboardItems = (role) => {
       name: "Hostel",
       icon: <img src={hostelIcon} alt="" className="w-12 h-10 inline" />,
       path: "hostel",
-      show: ["super_admin", "admin"].includes(role),
+      show: ["super_admin", "admin", "parent"].includes(role),
     },
     {
       name: "Solutions",
