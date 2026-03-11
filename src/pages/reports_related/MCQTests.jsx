@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import crown from "../../assets/crown.png";
 import Select from "react-select";
+import { toast } from "react-toastify";
 
 // const subjectStyles = {
 //   Physics: { background: "rgba(100, 149, 237, 0.1)", watermark: "⚛️" },
@@ -30,6 +31,8 @@ export default function MCQTests({
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [filtersApplied, setFiltersApplied] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   // Fetch all test names when component mounts or stream changes
   useEffect(() => {
@@ -39,7 +42,7 @@ export default function MCQTests({
         const token = localStorage.getItem("token");
         const response = await fetch(
           `${process.env.REACT_APP_URL}/api/getalltestnames?stream=${streamFilter}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         const data = await response.json();
         if (data.status === "success") {
@@ -66,13 +69,13 @@ export default function MCQTests({
       // Fetch test results
       const resultsRes = await fetch(
         `${process.env.REACT_APP_URL}/api/gettestresultsbytest/${testName}?stream=${streamFilter}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       const resultsData = await resultsRes.json();
 
       if (resultsData.status !== "success") {
         throw new Error(
-          resultsData.message || "No results found for this test"
+          resultsData.message || "No results found for this test",
         );
       }
 
@@ -121,20 +124,20 @@ export default function MCQTests({
           selectedAdmissionYear === "All" ||
           student.admissionYear?.toString() === selectedAdmissionYear;
         return matchesCampus && matchesSection && matchesYear;
-      }
+      },
     );
 
     const studentMap = new Map(
       filteredStudents.map(([reg, student]) => [
         normalize(reg),
         { ...student, regNumber: normalize(reg) },
-      ])
+      ]),
     );
     const fullStudentMap = new Map(
       Object.entries(students).map(([reg, student]) => [
         normalize(reg),
         { ...student, regNumber: normalize(reg) },
-      ])
+      ]),
     );
 
     const usedRegs = new Set();
@@ -255,6 +258,75 @@ export default function MCQTests({
     return data;
   }, [combinedData, sortConfig, filtersApplied]);
 
+  const handleDeleteTestResults = async () => {
+    // Get ALL regNumbers from filtered sortedData (present + absent)
+    const filteredRegNumbers = sortedData.map((item) => item.regNumber);
+
+    const campusFilter =
+      selectedCampus !== "All" ? selectedCampus : "All Campuses";
+    const sectionFilter =
+      selectedSection !== "All" ? selectedSection : "All Sections";
+
+    if (
+      !window.confirm(
+        `⚠️ Delete ${sortedData.length} FILTERED records for "${selectedTestName}"?\n\n` +
+          `📊 Present: ${presentCount} | Absent: ${absentCount} | Total: ${sortedData.length}\n` +
+          `🏫 Campus: ${campusFilter} | 📚 Section: ${sectionFilter}\n\n` +
+          `✅ Only affects these ${filteredRegNumbers.length} students\n\n` +
+          `Cannot be undone!`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(
+        `${process.env.REACT_APP_URL}/api/deletetestresultsbyfilters`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            testName: selectedTestName,
+            stream: streamFilter,
+            selectedCampus,
+            selectedSection,
+            selectedAdmissionYear,
+            regNumbers: filteredRegNumbers, // 🎯 KEY FIX: Send exact regNumbers
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (data.status === "success") {
+        setDeleteSuccess(true);
+        setTestResults([]);
+        setFiltersApplied(false);
+        setSelectedTestName("");
+
+        toast.success(
+          `✅ Deleted ${data.deletedCount}/${sortedData.length} filtered results!`,
+        );
+
+        setTimeout(() => {
+          window.location.href = "/home/tests";
+        }, 2000);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (err) {
+      toast.error(err.message || "Delete failed");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const submitDetailedReport = async () => {
     if (!selectedTestName || sortedData.length === 0) {
       setSubmitError("No test selected or no results available");
@@ -276,7 +348,7 @@ export default function MCQTests({
             ([subjectName, subjectData]) => ({
               subjectName,
               totalMarks: subjectData.marks,
-            })
+            }),
           )
         : [];
 
@@ -296,7 +368,7 @@ export default function MCQTests({
                   subjectName,
                   scored: subjectData.scored,
                   totalMarks: subjectData.marks,
-                })
+                }),
               )
             : subjectStructure.map((subject) => ({
                 subjectName: subject.subjectName,
@@ -336,7 +408,7 @@ export default function MCQTests({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ reports }),
-        }
+        },
       );
 
       const data = await response.json();
@@ -417,7 +489,7 @@ export default function MCQTests({
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `TestResults_${selectedTestName}_${selectedCampus}.csv`
+      `TestResults_${selectedTestName}_${selectedCampus}.csv`,
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -532,6 +604,22 @@ export default function MCQTests({
                 Download CSV
               </button>
               <button
+                onClick={handleDeleteTestResults}
+                disabled={
+                  deleteLoading || !filtersApplied || sortedData.length === 0
+                }
+                className={`px-4 py-2 rounded font-medium ${
+                  deleteLoading || !filtersApplied || sortedData.length === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 text-white"
+                }`}
+              >
+                {deleteLoading
+                  ? "Deleting..."
+                  : `Delete ${sortedData.length} Filtered Results`}
+              </button>
+
+              <button
                 onClick={submitDetailedReport}
                 disabled={submitLoading}
                 className={`px-4 py-2 rounded ${
@@ -554,6 +642,14 @@ export default function MCQTests({
           {submitSuccess && (
             <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
               <p>Detailed reports submitted successfully!</p>
+            </div>
+          )}
+          {deleteSuccess && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-8 py-6 rounded-lg mb-8 text-center animate-pulse">
+              <div className="text-2xl font-bold mb-2">
+                {selectedTestName} results deleted
+              </div>
+              <div className="text-lg">Redirecting to Tests page in 2s...</div>
             </div>
           )}
 
@@ -604,7 +700,7 @@ export default function MCQTests({
                         >
                           {subject} ({data.marks})
                         </th>
-                      )
+                      ),
                     )}
 
                   <th className="py-3 px-4 border-b">Total</th>
@@ -666,7 +762,7 @@ export default function MCQTests({
                           >
                             {row.subjects?.[subject]?.scored ?? 0}
                           </td>
-                        )
+                        ),
                       )}
 
                     <td className="py-2 px-4 border-b text-center font-medium">

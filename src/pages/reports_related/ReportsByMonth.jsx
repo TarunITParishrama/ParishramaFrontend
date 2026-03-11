@@ -19,12 +19,22 @@ export default function ReportsByMonth() {
   const [totalPages, setTotalPages] = useState(1);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const observer = useRef();
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
   // Modal state
   const [modalInfo, setModalInfo] = useState({
     open: false,
     student: null,
     wrongQuestions: [],
+  });
+
+  const [overallCorrectModal, setOverallCorrectModal] = useState({
+    open: false,
+    topCorrect: [],
+    stats: {},
+    reports: [],
+    solutions: [],
   });
 
   const [overallWrongModal, setOverallWrongModal] = useState({
@@ -58,7 +68,7 @@ export default function ReportsByMonth() {
               page: 1,
               limit: 100,
             },
-          }
+          },
         );
 
         const { data, totalPages: tp } = reportsResponse.data;
@@ -74,7 +84,7 @@ export default function ReportsByMonth() {
 
         const groupedByDate = {};
         const sortedReports = [...data].sort((a, b) =>
-          a.regNumber.localeCompare(b.regNumber)
+          a.regNumber.localeCompare(b.regNumber),
         );
 
         sortedReports.forEach((report) => {
@@ -101,7 +111,7 @@ export default function ReportsByMonth() {
         // Fetch solutions
         const solutionsResponse = await axios.get(
           `${process.env.REACT_APP_URL}/api/getsolutionbank`,
-          { params: { testName, stream } }
+          { params: { testName, stream } },
         );
 
         if (
@@ -112,7 +122,7 @@ export default function ReportsByMonth() {
         }
 
         const sortedSolutions = solutionsResponse.data.data.sort(
-          (a, b) => parseInt(a.questionNumber) - parseInt(b.questionNumber)
+          (a, b) => parseInt(a.questionNumber) - parseInt(b.questionNumber),
         );
         setSolutions(sortedSolutions);
       } catch (err) {
@@ -127,6 +137,20 @@ export default function ReportsByMonth() {
 
     fetchData();
   }, [testName, dateFrom, dateTo, stream, navigate]);
+
+  // Live countdown
+  useEffect(() => {
+    if (deleted) {
+      const countdownEl = document.getElementById("countdown");
+      let count = 2;
+      const interval = setInterval(() => {
+        count--;
+        if (countdownEl) countdownEl.textContent = count;
+        if (count <= 0) clearInterval(interval);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [deleted]);
 
   const loadMoreReports = async () => {
     if (page >= totalPages || isFetchingMore) return;
@@ -146,7 +170,7 @@ export default function ReportsByMonth() {
             page: nextPage,
             limit: 100,
           },
-        }
+        },
       );
       const newReports = moreResponse.data.data;
       const updatedGrouped = { ...groupedReports };
@@ -194,7 +218,7 @@ export default function ReportsByMonth() {
 
       if (node) observer.current.observe(node);
     },
-    [isFetchingMore, page, totalPages]
+    [isFetchingMore, page, totalPages],
   );
 
   const renderRankBadge = (rank) => {
@@ -318,7 +342,7 @@ export default function ReportsByMonth() {
 
       const totalWrongAnswers = Object.values(subjectStats).reduce(
         (sum, sub) => sum + sub.wrong,
-        0
+        0,
       );
 
       const biologyWrong =
@@ -343,7 +367,9 @@ export default function ReportsByMonth() {
         percentage:
           totalQuestions > 0
             ? parseFloat(
-                ((totalMarks / (totalQuestions * correctMark)) * 100).toFixed(2)
+                ((totalMarks / (totalQuestions * correctMark)) * 100).toFixed(
+                  2,
+                ),
               )
             : 0,
         percentile: 0, // Will be calculated later
@@ -387,11 +413,71 @@ export default function ReportsByMonth() {
       results.forEach((res) => {
         res.rank = rankMap[res.regNumber] || 0;
         res.percentile = parseFloat(
-          ((totalStudents - res.rank) / totalStudents) * 100
+          ((totalStudents - res.rank) / totalStudents) * 100,
         ).toFixed(2);
       });
     }
     return results;
+  };
+
+  const openOverallCorrectQuestions = (reports, solutions, marksType) => {
+    // Build solution map
+    const solutionMap = {};
+    solutions.forEach((sol) => {
+      solutionMap[sol.questionNumber] = sol;
+    });
+
+    // Count how many students marked each question correctly
+    const correctCountMap = {}; // { qNum: { count, correctOptions } }
+
+    reports.forEach((report) => {
+      const questionAnswers =
+        report.questionAnswers instanceof Map
+          ? Object.fromEntries(report.questionAnswers)
+          : report.questionAnswers || {};
+
+      Object.entries(questionAnswers).forEach(([qNum, markedOption]) => {
+        const sol = solutionMap[qNum];
+        if (!sol) return;
+
+        const { correctOptions = [], isGrace } = sol;
+
+        let isCorrect = false;
+        if (isGrace) {
+          // Grace questions are correct for everyone
+          isCorrect = true;
+        } else if (
+          markedOption &&
+          correctOptions.includes(markedOption.trim())
+        ) {
+          isCorrect = true;
+        }
+
+        if (isCorrect) {
+          if (!correctCountMap[qNum]) {
+            correctCountMap[qNum] = {
+              questionNumber: qNum,
+              count: 0,
+              correctOptions: correctOptions,
+            };
+          }
+          correctCountMap[qNum].count += 1;
+        }
+      });
+    });
+
+    // Convert to sorted array
+    const topCorrect = Object.values(correctCountMap).sort(
+      (a, b) => Number(a.questionNumber) - Number(b.questionNumber),
+    );
+
+    setOverallCorrectModal({
+      open: true,
+      topCorrect,
+      stats: {}, // if you want extra stats later
+      reports,
+      solutions,
+    });
   };
 
   // ---- MODAL WRONG QUESTIONS ----
@@ -437,7 +523,7 @@ export default function ReportsByMonth() {
   const handleShowOverallWrongQuestions = (
     reports,
     solutions,
-    sortOrder = "desc"
+    sortOrder = "desc",
   ) => {
     const wrongCount = {};
     // Prepare solution lookup
@@ -470,7 +556,7 @@ export default function ReportsByMonth() {
         correctOptions: solutionMap[qNum]?.correctOptions || [],
       }))
       .sort((a, b) =>
-        sortOrder === "desc" ? b.count - a.count : a.count - b.count
+        sortOrder === "desc" ? b.count - a.count : a.count - b.count,
       );
 
     setOverallWrongModal({
@@ -481,6 +567,35 @@ export default function ReportsByMonth() {
       solutions,
     });
     setWrongSortOrder(sortOrder);
+  };
+
+  const handleDeleteTest = async () => {
+    if (
+      !window.confirm(
+        `Delete all data for "${testName}"? This cannot be undone.`,
+      )
+    )
+      return;
+
+    try {
+      setDeleteLoading(true);
+      await axios.post(
+        `${process.env.REACT_APP_URL}/api/delete-by-testname`,
+        { testName },
+        { headers: { "Content-Type": "application/json" } },
+      );
+      setDeleted(true);
+      toast.success(`${testName} deleted successfully! Redirecting...`);
+
+      // AUTO REDIRECT after 2 seconds
+      setTimeout(() => {
+        window.location.href = "/home/reports"; // Refreshes AllTests.jsx
+      }, 2000);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Delete failed");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const handleSubmit = async (date, marksType) => {
@@ -501,7 +616,7 @@ export default function ReportsByMonth() {
         {
           params: { type: stream.includes("PUC") ? "PUC" : "LongTerm" },
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (!patternResponse.data?.data) {
@@ -510,7 +625,7 @@ export default function ReportsByMonth() {
 
       const baseTestName = testName.replace(/\s*-\s*\d+/g, "").trim();
       const pattern = patternResponse.data.data.find(
-        (p) => p.testName && p.testName.trim() === baseTestName
+        (p) => p.testName && p.testName.trim() === baseTestName,
       );
 
       if (!pattern) {
@@ -519,7 +634,7 @@ export default function ReportsByMonth() {
 
       // 2. Get subject details and define question distribution
       const subjectIds = pattern.subjects.map((sub) =>
-        typeof sub.subject === "string" ? sub.subject : sub.subject._id
+        typeof sub.subject === "string" ? sub.subject : sub.subject._id,
       );
 
       const subjectsResponse = await axios.get(
@@ -527,7 +642,7 @@ export default function ReportsByMonth() {
         {
           params: { ids: subjectIds.join(",") },
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       // Create subject map with ID as key and name as value
@@ -586,7 +701,7 @@ export default function ReportsByMonth() {
               const qNumStr = qNum.toString();
               const markedOption = questionAnswers[qNumStr]?.trim();
               const solution = solutions.find(
-                (s) => s.questionNumber.toString() === qNumStr
+                (s) => s.questionNumber.toString() === qNumStr,
               );
 
               if (!solution) continue;
@@ -609,15 +724,15 @@ export default function ReportsByMonth() {
                 subjectData.totalMarks > 0
                   ? parseFloat(
                       ((subjectScored / subjectData.totalMarks) * 100).toFixed(
-                        2
-                      )
+                        2,
+                      ),
                     )
                   : 0,
             };
 
             totalScored += subjectScored;
             totalPossible += subjectData.totalMarks;
-          }
+          },
         );
 
         return {
@@ -639,7 +754,7 @@ export default function ReportsByMonth() {
       const checkResponse = await axios.post(
         `${process.env.REACT_APP_URL}/api/checkexistingtestresults`,
         { results: resultsWithSubjects },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const { existingCount } = checkResponse.data.data;
@@ -649,7 +764,7 @@ export default function ReportsByMonth() {
         const confirm = window.confirm(
           `This will update ${existingCount} existing test results and create ${
             resultsWithSubjects.length - existingCount
-          } new ones. Continue?`
+          } new ones. Continue?`,
         );
         if (!confirm) {
           setSubmitLoading(false);
@@ -661,13 +776,13 @@ export default function ReportsByMonth() {
       const createResponse = await axios.post(
         `${process.env.REACT_APP_URL}/api/createtestresults`,
         { results: resultsWithSubjects },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       setSubmitSuccess(true);
       toast.success(
         `Successfully processed ${resultsWithSubjects.length} test results (${createResponse.data.data.created} created, ${createResponse.data.data.updated} updated)`,
-        { position: "top-right", autoClose: 5000 }
+        { position: "top-right", autoClose: 5000 },
       );
     } catch (err) {
       console.error("Submission error:", err);
@@ -676,7 +791,7 @@ export default function ReportsByMonth() {
         err.response?.data?.message ||
           err.message ||
           "Failed to submit results",
-        { position: "top-right", autoClose: 5000 }
+        { position: "top-right", autoClose: 5000 },
       );
     } finally {
       setSubmitLoading(false);
@@ -734,11 +849,36 @@ export default function ReportsByMonth() {
     // Generate file name
     const fileName = `${testName.replace(/\s+/g, "_")}_${formattedDate.replace(
       /\s+/g,
-      "_"
+      "_",
     )}_results.xlsx`;
 
     // Download the file
     XLSX.writeFile(wb, fileName);
+  };
+
+  // put this near other helpers, above renderDateTables / JSX usage
+  const exportCorrectToExcel = (topCorrect) => {
+    if (!topCorrect.length) {
+      toast.warning("No correct questions data to export");
+      return;
+    }
+
+    const excelData = topCorrect.map((q) => ({
+      "Question No.": `Q${q.questionNumber}`,
+      "Students Correct": q.count,
+      "Correct Option(s)": Array.isArray(q.correctOptions)
+        ? q.correctOptions.join(", ")
+        : q.correctOptions,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Correct Questions");
+
+    ws["!cols"] = [{ wch: 15 }, { wch: 18 }, { wch: 20 }];
+
+    XLSX.writeFile(wb, "correct_questions.xlsx");
+    toast.success("Correct questions exported to Excel!");
   };
 
   const renderDateTables = () => {
@@ -769,6 +909,17 @@ export default function ReportsByMonth() {
                 Marking Scheme: {marksType}
               </span>
             </div>
+            {deleted && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-8 py-6 rounded-lg mb-8 text-center animate-pulse">
+                <div className="text-2xl font-bold mb-2">
+                  {testName} is deleted
+                </div>
+                <div className="text-lg">
+                  Redirecting to Reports page in <span id="countdown">2</span>
+                  s...
+                </div>
+              </div>
+            )}
             <div className="overflow-x-auto mb-4">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -779,7 +930,16 @@ export default function ReportsByMonth() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Attempted
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-500 uppercase tracking-wider">
+                    <th
+                      className="cursor-pointer text-green-600 underline"
+                      onClick={() =>
+                        openOverallCorrectQuestions(
+                          reports,
+                          solutions,
+                          marksType,
+                        )
+                      }
+                    >
                       Correct
                     </th>
                     <th
@@ -789,7 +949,7 @@ export default function ReportsByMonth() {
                         handleShowOverallWrongQuestions(
                           reports,
                           solutions,
-                          wrongSortOrder
+                          wrongSortOrder,
                         )
                       }
                     >
@@ -834,7 +994,7 @@ export default function ReportsByMonth() {
                               handleShowWrongQuestions(
                                 result,
                                 reports,
-                                solutions
+                                solutions,
                               )
                             }
                             title="View wrong questions"
@@ -882,7 +1042,24 @@ export default function ReportsByMonth() {
                 </svg>
                 Download Results (Excel)
               </button>
-
+              {!submitSuccess && (
+                <button
+                  onClick={handleDeleteTest}
+                  disabled={deleteLoading}
+                  className="px-6 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 transition font-medium mr-4"
+                >
+                  {deleteLoading ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" /* spinner SVG */
+                      />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete Test Data"
+                  )}
+                </button>
+              )}
               <div className="flex items-center">
                 {submitSuccess && (
                   <div className="mr-4 flex items-center text-green-600">
@@ -944,7 +1121,7 @@ export default function ReportsByMonth() {
             {error && <div className="text-red-500 mt-2">{error}</div>}
           </div>
         );
-      }
+      },
     );
   };
 
@@ -999,6 +1176,66 @@ export default function ReportsByMonth() {
             Loading more reports...
           </div>
         )}
+        {overallCorrectModal.open && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white rounded-lg p-4 max-h-[80vh] w-full max-w-3xl overflow-y-auto">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg font-semibold">
+                  Questions answered correctly
+                </h2>
+                <div className="flex gap-2">
+                  <button
+                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm"
+                    onClick={() =>
+                      exportCorrectToExcel(overallCorrectModal.topCorrect)
+                    }
+                  >
+                    Export to Excel
+                  </button>
+                  <button
+                    className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                    onClick={() =>
+                      setOverallCorrectModal((prev) => ({
+                        ...prev,
+                        open: false,
+                      }))
+                    }
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <table className="w-full text-sm border">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border px-2 py-1 text-left">Question No.</th>
+                    <th className="border px-2 py-1 text-left">
+                      Students correct
+                    </th>
+                    <th className="border px-2 py-1 text-left">
+                      Correct option(s)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overallCorrectModal.topCorrect.map((q) => (
+                    <tr key={q.questionNumber}>
+                      <td className="border px-2 py-1">Q{q.questionNumber}</td>
+                      <td className="border px-2 py-1">{q.count}</td>
+                      <td className="border px-2 py-1">
+                        {Array.isArray(q.correctOptions)
+                          ? q.correctOptions.join(", ")
+                          : q.correctOptions}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {overallWrongModal.open && (
           <div
             className="fixed inset-0 bg-black bg-opacity-40 z-50 flex justify-center items-center"
@@ -1041,7 +1278,7 @@ export default function ReportsByMonth() {
                       handleShowOverallWrongQuestions(
                         overallWrongModal.reports,
                         overallWrongModal.solutions,
-                        "desc"
+                        "desc",
                       )
                     }
                   >
@@ -1055,7 +1292,7 @@ export default function ReportsByMonth() {
                       handleShowOverallWrongQuestions(
                         overallWrongModal.reports,
                         overallWrongModal.solutions,
-                        "asc"
+                        "asc",
                       )
                     }
                   >
@@ -1178,6 +1415,7 @@ export default function ReportsByMonth() {
       </div>
     </div>
   );
+
   // Save as CSV
   function exportWrongToCSV(topWrong) {
     if (!topWrong.length) return;
@@ -1229,7 +1467,7 @@ export default function ReportsByMonth() {
           html +
           "</body></html>",
       ],
-      { type: "application/msword" }
+      { type: "application/msword" },
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
