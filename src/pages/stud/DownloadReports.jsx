@@ -24,11 +24,11 @@ const DownloadReports = () => {
   const [studentReports, setStudentReports] = useState([]);
   const [theoryReports, setTheoryReports] = useState([]);
   const [sections, setSections] = useState([]);
-  const [selectedSection, setSelectedSection] = useState("");
+  const [selectedSection, setSelectedSection] = useState([]);
 
   // Bulk mode states
   const [campuses, setCampuses] = useState([]);
-  const [selectedCampus, setSelectedCampus] = useState("");
+  const [selectedCampus, setSelectedCampus] = useState([]);
   const [detailedReports, setDetailedReports] = useState([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -60,13 +60,13 @@ const DownloadReports = () => {
     const loadSections = async () => {
       setSections([]);
       setSelectedSection("");
-      if (!selectedCampus) return;
+      if (!selectedCampus.length || selectedCampus.includes("ALL")) return;
       try {
         const res = await axios.get(
           `${BASE_URL}/api/getsections?campus=${encodeURIComponent(
-            selectedCampus
+            selectedCampus[0],
           )}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         // API returns { status, campus, count, sections: [...] }
         setSections(res.data.sections || res.data.data || []);
@@ -87,9 +87,9 @@ const DownloadReports = () => {
       setIsSearching(true);
       const response = await axios.get(
         `${BASE_URL}/api/searchstudents?query=${encodeURIComponent(
-          searchQuery
+          searchQuery,
         )}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       setSearchResults(response.data.data || []);
@@ -110,7 +110,7 @@ const DownloadReports = () => {
         `${BASE_URL}/api/getstudentbyreg/${student.regNumber}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       const studentData = studentDetailRes.data.data;
@@ -120,7 +120,7 @@ const DownloadReports = () => {
         `${BASE_URL}/api/students/${student.regNumber}/reports`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       const compTests = compRes.data.data.flatMap((group) =>
@@ -128,7 +128,7 @@ const DownloadReports = () => {
           ...report,
           date: group.date || report.date,
           type: "Competitive",
-        }))
+        })),
       );
       setStudentReports(compTests);
 
@@ -136,12 +136,12 @@ const DownloadReports = () => {
         `${BASE_URL}/api/getstudenttheory/${student.regNumber}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       const theoryTests = theoryRes.data.data.map((test) => {
         const result = test.studentResults.find(
-          (r) => r.regNumber === student.regNumber
+          (r) => r.regNumber === student.regNumber,
         );
         return {
           testName: test.testName,
@@ -150,7 +150,7 @@ const DownloadReports = () => {
           totalMarks: result.totalMarks,
           fullMarks: test.subjectDetails.reduce(
             (sum, s) => sum + s.maxMarks,
-            0
+            0,
           ),
           subjects: result.subjectMarks.map((s) => ({
             name: s.name,
@@ -170,30 +170,36 @@ const DownloadReports = () => {
   };
 
   const fetchReportsForCampus = async () => {
-    if (!selectedCampus || !selectedSection) return;
+    if (!selectedCampus.length || !selectedSection.length) return;
 
     try {
       setIsLoadingReports(true);
       toast.info("Loading reports for selected campus & section...");
+      const campusParam = selectedCampus.includes("ALL")
+        ? "All"
+        : selectedCampus.join(",");
+      const sectionParam = selectedSection.includes("ALL")
+        ? "All"
+        : selectedSection.join(",");
       const res = await axios.get(
         `${BASE_URL}/api/loaddetailedreports?campus=${encodeURIComponent(
-          selectedCampus
-        )}&section=${encodeURIComponent(selectedSection)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+          campusParam,
+        )}&section=${encodeURIComponent(sectionParam)}`,
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       const compReports = res.data.data || [];
       const theoryRes = await axios.get(
         `${BASE_URL}/api/gettheoryrowsbycampus?campus=${encodeURIComponent(
-          selectedCampus
+          selectedCampus,
         )}&section=${encodeURIComponent(selectedSection)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       const theoryRows = theoryRes.data.data || [];
       const merged = [...compReports, ...theoryRows];
       setDetailedReports(merged);
       setAvailableTests(getTestPrefixes(merged));
       toast.success(
-        `Found ${res.data.totalReports} reports for ${res.data.totalStudents} students`
+        `Found ${res.data.totalReports} reports for ${res.data.totalStudents} students`,
       );
     } catch (err) {
       toast.error("Failed to load reports for campus & section");
@@ -222,7 +228,7 @@ const DownloadReports = () => {
     const findBy = (label) =>
       list.find(
         (s) =>
-          norm(s.name) === norm(label) || norm(s.subjectName) === norm(label)
+          norm(s.name) === norm(label) || norm(s.subjectName) === norm(label),
       );
 
     const valFrom = (s) => ({
@@ -301,7 +307,7 @@ const DownloadReports = () => {
       if (!isoDate) return "-";
       const d = new Date(isoDate);
       return `${String(d.getDate()).padStart(2, "0")}-${String(
-        d.getMonth() + 1
+        d.getMonth() + 1,
       ).padStart(2, "0")}-${d.getFullYear()}`;
     };
 
@@ -396,13 +402,13 @@ const DownloadReports = () => {
     for (const [prefix, tests] of groupsMap.entries()) {
       if (!tests.length) continue;
       const groupHasQuarterly = tests.some((t) =>
-        isQuarterlyTheory(t.testName)
+        isQuarterlyTheory(t.testName),
       );
       const subjectsForThisGroup = groupHasQuarterly
         ? quarterlySubjects
         : ["Physics", "Chemistry", "Mathematics", "Biology"];
       tests.sort(
-        (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
+        (a, b) => extractNumber(a.testName) - extractNumber(b.testName),
       );
 
       // Section title
@@ -445,10 +451,10 @@ const DownloadReports = () => {
 
       // Subject-wise accumulators
       const subjSums = Object.fromEntries(
-        subjectsForThisGroup.map((s) => [s, 0])
+        subjectsForThisGroup.map((s) => [s, 0]),
       );
       const subjCounts = Object.fromEntries(
-        subjectsForThisGroup.map((s) => [s, 0])
+        subjectsForThisGroup.map((s) => [s, 0]),
       );
 
       tests.forEach((t) => {
@@ -481,7 +487,7 @@ const DownloadReports = () => {
         row.push(
           total.toString(),
           t.percentile?.toString() ?? "-",
-          t.rank?.toString() ?? "-"
+          t.rank?.toString() ?? "-",
         );
         rows.push(row);
       });
@@ -688,7 +694,7 @@ const DownloadReports = () => {
   const generateBulkPDF = async (
     studentsList,
     reportsData,
-    theoryReportsData
+    theoryReportsData,
   ) => {
     if (!Array.isArray(studentsList) || !studentsList.length) {
       toast.error("No student data to generate bulk PDF");
@@ -725,7 +731,7 @@ const DownloadReports = () => {
       try {
         const res = await axios.get(
           `${BASE_URL}/api/getstudentbyreg/${student.regNumber}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
         selectedStudent = res.data.data || selectedStudent;
       } catch (err) {
@@ -734,10 +740,10 @@ const DownloadReports = () => {
 
       // Collect reports for this student
       const studentReports = (reportsData || []).filter(
-        (r) => r.regNumber === student.regNumber
+        (r) => r.regNumber === student.regNumber,
       );
       const theory = (theoryReportsData || []).filter(
-        (r) => r.regNumber === student.regNumber
+        (r) => r.regNumber === student.regNumber,
       );
       const allReports = [...studentReports, ...theory];
       if (!allReports.length) {
@@ -780,7 +786,7 @@ const DownloadReports = () => {
         if (!isoDate) return "-";
         const d = new Date(isoDate);
         return `${String(d.getDate()).padStart(2, "0")}-${String(
-          d.getMonth() + 1
+          d.getMonth() + 1,
         ).padStart(2, "0")}-${d.getFullYear()}`;
       };
 
@@ -793,7 +799,7 @@ const DownloadReports = () => {
       doc.text(
         `Campus: ${selectedStudent?.campus?.name || "-"}`,
         margin + 100,
-        y
+        y,
       );
       y += 6;
 
@@ -817,12 +823,12 @@ const DownloadReports = () => {
         if (!tests.length) continue;
 
         tests.sort(
-          (a, b) => extractNumber(a.testName) - extractNumber(b.testName)
+          (a, b) => extractNumber(a.testName) - extractNumber(b.testName),
         );
 
         // Decide subjects for this group
         const groupHasQuarterly = tests.some((t) =>
-          isQuarterlyTheory(t.testName)
+          isQuarterlyTheory(t.testName),
         );
         const subjectsForThisGroup = groupHasQuarterly
           ? quarterlySubjects
@@ -866,10 +872,10 @@ const DownloadReports = () => {
 
         // Subject-wise accumulators
         const subjSums = Object.fromEntries(
-          subjectsForThisGroup.map((s) => [s, 0])
+          subjectsForThisGroup.map((s) => [s, 0]),
         );
         const subjCounts = Object.fromEntries(
-          subjectsForThisGroup.map((s) => [s, 0])
+          subjectsForThisGroup.map((s) => [s, 0]),
         );
 
         tests.forEach((t) => {
@@ -904,7 +910,7 @@ const DownloadReports = () => {
           row.push(
             total.toString(),
             t.percentile?.toString() ?? "-",
-            t.rank?.toString() ?? "-"
+            t.rank?.toString() ?? "-",
           );
           rows.push(row);
         });
@@ -981,7 +987,7 @@ const DownloadReports = () => {
           "This page intentionally left blank.",
           doc.internal.pageSize.getWidth() / 2,
           doc.internal.pageSize.getHeight() / 2,
-          { align: "center" }
+          { align: "center" },
         );
         doc.addPage(); // move to a clean page for the next student
       }
@@ -992,76 +998,41 @@ const DownloadReports = () => {
     doc.save("BulkStudentReports.pdf");
   };
 
-  const generateBulkExcel = (students, reports) => {
-    // 1. Collect unique testNames sorted by number
+const handleDownloadExcel = async () => {
+  try {
+    setIsDownloading(true);
 
-    const testNames = [...new Set(reports.map((r) => r.testName))].sort(
-      (a, b) => {
-        const getNum = (str) => parseInt(str.replace(/\D+/g, "")) || 0;
-        return getNum(a) - getNum(b);
-      }
-    );
+    const campusParam = selectedCampus.includes("ALL")
+      ? "ALL"
+      : selectedCampus.join(",");
 
-    // 2. Collect subjects dynamically across reports
-    const allSubjects = Array.from(
-      new Set(
-        reports.flatMap(
-          (r) => r.subjects?.map((s) => s.subjectName || s.name) || []
-        )
-      )
-    );
+    const sectionParam = selectedSection.includes("ALL")
+      ? "ALL"
+      : selectedSection.join(",");
 
-    // 3. Build headers
-    const headers = ["RegNumber", "StudentName", "Campus", "Section"];
-    testNames.forEach((test) => {
-      allSubjects.forEach((sub) => headers.push(`${test}_${sub}`));
-      headers.push(`${test}_OverallTotalMarks`);
+    const url = `${BASE_URL}/api/download-bulk-excel?campus=${encodeURIComponent(
+      campusParam
+    )}&section=${encodeURIComponent(
+      sectionParam
+    )}&test=${encodeURIComponent(selectedTest || "")}`;
+
+    const response = await axios.get(url, {
+      responseType: "blob",
+      headers: { Authorization: `Bearer ${token}` },
     });
 
-    // 4. Build rows
-    const rows = students.map((student) => {
-      const row = [
-        student.regNumber,
-        student.studentName,
-        student.campus,
-        student.section,
-      ];
+    const blob = new Blob([response.data]);
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.download = "BulkReports.xlsx";
+    link.click();
 
-      testNames.forEach((test) => {
-        const report = reports.find(
-          (r) => r.regNumber === student.regNumber && r.testName === test
-        );
-
-        if (report) {
-          allSubjects.forEach((sub) => {
-            const found = report.subjects?.find(
-              (s) =>
-                s.subjectName?.toLowerCase() === sub.toLowerCase() ||
-                s.name?.toLowerCase() === sub.toLowerCase()
-            );
-            row.push(found ? found.scored : "A"); // Absent = A
-          });
-          row.push(report.overallTotalMarks ?? 0);
-        } else {
-          allSubjects.forEach(() => row.push("A"));
-          row.push(0);
-        }
-      });
-
-      return row;
-    });
-
-    // 5. Create Excel file
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reports");
-
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([buf], { type: "application/octet-stream" }),
-      "Campus_Test_Reports.xlsx"
-    );
-  };
+  } catch (err) {
+    toast.error("Error downloading Excel");
+  } finally {
+    setIsDownloading(false);
+  }
+};
 
   //Helper functions to display Image in PDF
   const fetchImageAsBase64 = async (url) => {
@@ -1164,7 +1135,7 @@ const DownloadReports = () => {
                       src={
                         s.studentImageURL ||
                         `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          s.studentName
+                          s.studentName,
                         )}&background=random`
                       }
                       className="h-10 w-10 rounded-full"
@@ -1195,7 +1166,7 @@ const DownloadReports = () => {
                   src={
                     selectedStudent.studentImageURL ||
                     `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      selectedStudent.studentName
+                      selectedStudent.studentName,
                     )}&background=random`
                   }
                   className="h-16 w-16 rounded-full"
@@ -1233,11 +1204,23 @@ const DownloadReports = () => {
         <div className="border p-4 rounded shadow-md">
           <div className="flex gap-4 mb-4">
             <select
+              multiple
               className="border px-3 py-2 rounded"
               value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
+              onChange={(e) => {
+                const values = Array.from(
+                  e.target.selectedOptions,
+                  (o) => o.value,
+                );
+
+                if (values.includes("ALL")) {
+                  setSelectedCampus(["ALL"]);
+                } else {
+                  setSelectedCampus(values);
+                }
+              }}
             >
-              <option value="">Select Campus</option>
+              <option value="ALL">All Campuses</option>
               {campuses.map((c) => (
                 <option key={c._id} value={c.name}>
                   {c.name}
@@ -1246,12 +1229,23 @@ const DownloadReports = () => {
             </select>
 
             <select
+              multiple
               className="border px-3 py-2 rounded"
               value={selectedSection}
-              onChange={(e) => setSelectedSection(e.target.value)}
-              disabled={!selectedCampus || sections.length === 0}
+              onChange={(e) => {
+                const values = Array.from(
+                  e.target.selectedOptions,
+                  (o) => o.value,
+                );
+
+                if (values.includes("ALL")) {
+                  setSelectedSection(["ALL"]);
+                } else {
+                  setSelectedSection(values);
+                }
+              }}
             >
-              <option value="">Select Section</option>
+              <option value="ALL">All Sections</option>
               {sections.map((s, i) => {
                 const val = typeof s === "string" ? s : s.name || s._id || "";
                 const label = typeof s === "string" ? s : s.name || String(val);
@@ -1280,7 +1274,7 @@ const DownloadReports = () => {
             <button
               onClick={fetchReportsForCampus}
               className="bg-blue-600 text-white px-4 py-2 rounded"
-              disabled={!selectedCampus || !selectedSection}
+              disabled={!selectedCampus.length || !selectedSection.length || isLoadingReports}
             >
               Load Reports
             </button>
@@ -1309,38 +1303,7 @@ const DownloadReports = () => {
                 <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-lg z-10">
                   {/* Excel */}
                   <button
-                    onClick={() => {
-                      try {
-                        const finalReports = filterReportsByPrefix(
-                          detailedReports,
-                          selectedTest
-                        );
-                        const students = [
-                          ...new Map(
-                            finalReports.map((r) => [
-                              r.regNumber,
-                              {
-                                regNumber: r.regNumber,
-                                studentName: r.studentName,
-                                campus: r.campus,
-                                section: r.section,
-                              },
-                            ])
-                          ).values(),
-                        ];
-
-                        if (!finalReports.length) {
-                          toast.error("No data for Excel");
-                          return;
-                        }
-
-                        generateBulkExcel(students, finalReports);
-                      } catch (err) {
-                        toast.error("Error generating Excel");
-                      } finally {
-                        setIsMenuOpen(false); // close after action
-                      }
-                    }}
+                    onClick={handleDownloadExcel}
                     className="block w-full text-left px-4 py-2 hover:bg-gray-100"
                   >
                     Download Excel
@@ -1354,7 +1317,7 @@ const DownloadReports = () => {
 
                         const finalReports = filterReportsByPrefix(
                           detailedReports,
-                          selectedTest
+                          selectedTest,
                         );
                         if (!finalReports.length) {
                           toast.error("No data for PDF");
@@ -1370,10 +1333,10 @@ const DownloadReports = () => {
                         };
 
                         const theoryReports = finalReports.filter((r) =>
-                          isTheory(r.testName)
+                          isTheory(r.testName),
                         );
                         const competitiveReports = finalReports.filter(
-                          (r) => !isTheory(r.testName)
+                          (r) => !isTheory(r.testName),
                         );
 
                         const students = [
@@ -1383,7 +1346,7 @@ const DownloadReports = () => {
                         await generateBulkPDF(
                           students,
                           competitiveReports, // non-theory
-                          theoryReports // theory
+                          theoryReports, // theory
                         );
                       } catch (err) {
                         toast.error("Error generating PDF");
@@ -1404,7 +1367,7 @@ const DownloadReports = () => {
 
           {isLoadingReports && (
             <div className="text-blue-700 font-semibold">
-              Downloading... (Please wait ~90-120s for larger campuses)
+              Downloading... (Please wait more than 2mins for larger campuses)
             </div>
           )}
 
