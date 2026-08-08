@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  @apply h-full bg-gradient-to-b from-red-600 via-orange-500 to-yellow-400;
+}
+.rbc-show-more {
+  display: none !important;
+}

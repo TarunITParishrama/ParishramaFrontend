@@ -1,0 +1,1578 @@
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useDropzone } from "react-dropzone";
+import * as XLSX from "xlsx";
+import Papa from "papaparse";
+import Select from "react-select";
+
+export default function NewReport({ onClose }) {
+  const fetchStudentByRegNumber = async (regNumber) => {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      `${process.env.REACT_APP_URL}/api/searchstudents?query=${regNumber}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+    return response.data?.data?.find(
+      (student) => student.regNumber === regNumber,
+    );
+  };
+
+  const [formData, setFormData] = useState({
+    stream: "LongTerm",
+    questionType: "",
+    testName: "",
+    date: "",
+    marksType: "",
+  });
+
+  const [testNames, setTestNames] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [fileData, setFileData] = useState(null);
+  const [parsedData, setParsedData] = useState([]);
+  const [regPrefix, setRegPrefix] = useState("");
+  const [showPrefixModal, setShowPrefixModal] = useState(false);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [duplicateRegNumbers, setDuplicateRegNumbers] = useState({});
+  const [editableRegNumbers, setEditableRegNumbers] = useState({});
+  const [showAllInvalid, setShowAllInvalid] = useState(false);
+  const [isTheoryTest, setIsTheoryTest] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [subjectDetails, setSubjectDetails] = useState([]);
+  const [nonExistentRegNumbers, setNonExistentRegNumbers] = useState({});
+  const [showAllNonExistent, setShowAllNonExistent] = useState(false);
+  const [validatingRegNumbers, setValidatingRegNumbers] = useState(false);
+  const CORE_SUBJECTS = [
+    "English",
+    "Second Language",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Mathematics",
+  ]; // fixed order
+
+  const [subjectCount, setSubjectCount] = useState(0);
+
+  // Marks type options
+  const marksTypeOptions = [
+    "+1 CorrectAnswer, 0 WrongAction, 0 Unmarked",
+    "+4 CorrectAnswer, -1 WrongAction, 0 Unmarked",
+  ];
+
+  // Fetch test names when stream changes (only for MCQ)
+  useEffect(() => {
+    if (isTheoryTest) {
+      const fetchSubjects = async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await axios.get(
+            `${process.env.REACT_APP_URL}/api/getsubjects`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+          if (response.data?.data) {
+            setSubjects(response.data.data);
+            const preferredOrder = [
+              "Physics",
+              "Chemistry",
+              "Biology",
+              "Mathematics",
+            ];
+            const sortedSubjects = preferredOrder
+              .map((subjectName) =>
+                response.data.data.find((s) => s.subjectName === subjectName),
+              )
+              .filter(Boolean);
+
+            const initialSubjects = sortedSubjects.map((subject) => ({
+              name: subject.subjectName,
+              maxMarks: 25,
+            }));
+
+            setSubjectDetails(initialSubjects);
+          }
+        } catch (err) {
+          setError("Failed to fetch Subjects");
+        }
+      };
+      fetchSubjects();
+    }
+
+    const fetchTestNames = async () => {
+      try {
+        setError("");
+        const response = await axios.get(
+          `${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${formData.stream}`,
+        );
+
+        if (!response.data?.data || response.data.data.length === 0) {
+          setTestNames([]);
+          setError(`No tests available for ${formData.stream} stream`);
+          return;
+        }
+
+        const uniqueTestNames = [
+          ...new Set(
+            response.data.data.map((item) => item.solutionRef.testName),
+          ),
+        ];
+        setTestNames(uniqueTestNames);
+      } catch (err) {
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to fetch test names",
+        );
+        setTestNames([]);
+      }
+    };
+    fetchTestNames();
+  }, [formData.stream, isTheoryTest]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "questionType") {
+      const isTheory = value === "Theory";
+      setIsTheoryTest(isTheory);
+
+      if (isTheory) {
+        // default to 6
+        const defaultCount = 6;
+        setSubjectCount(defaultCount);
+
+        const initialSubjects = CORE_SUBJECTS.slice(0, defaultCount).map(
+          (s) => ({
+            name: s,
+            maxMarks: 100, // or keep your prior default 25
+          }),
+        );
+        setSubjectDetails(initialSubjects);
+      } else {
+        setSubjectCount(0);
+        setSubjectDetails([]);
+      }
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubjectChange = (index, field, value) => {
+    setSubjectDetails((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      "application/vnd.ms-excel": [".xls", ".xlsx"],
+      "text/csv": [".csv"],
+    },
+    maxFiles: 1,
+    onDrop: (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        const file = acceptedFiles[0];
+
+        setFileData(file);
+        setPendingFile(file);
+
+        detectPrefixRequirement(file);
+      }
+    },
+  });
+  const detectPrefixRequirement = (file) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = e.target.result;
+
+        if (file.name.endsWith(".csv")) {
+          Papa.parse(data, {
+            header: true,
+            complete: ({ data }) => {
+              checkRegNumbers(data, file);
+            },
+          });
+        } else {
+          const workbook = XLSX.read(data, { type: "binary" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
+
+          checkRegNumbers(json, file);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("Unable to inspect uploaded file.");
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  };
+  const checkRegNumbers = (rows, file) => {
+    if (!rows.length) {
+      parseFile(file);
+      return;
+    }
+
+    const firstRow = rows[0];
+
+    const regNoKey = Object.keys(firstRow).find((key) =>
+      key.match(/^(regno|rollno|registration|id)/i),
+    );
+
+    if (!regNoKey) {
+      setError("File must contain student ID column.");
+      return;
+    }
+
+    const hasShortReg = rows.some((row) => {
+      const reg = String(row[regNoKey] || "").trim();
+
+      return /^\d{1,5}$/.test(reg);
+    });
+
+    if (hasShortReg && !regPrefix) {
+      setShowPrefixModal(true);
+      return;
+    }
+
+    parseFile(file);
+  };
+  const handlePrefixContinue = () => {
+    setShowPrefixModal(false);
+
+    if (pendingFile) {
+      parseFile(pendingFile);
+      setPendingFile(null);
+    }
+  };
+
+  const parseFile = (file) => {
+    setIsUploading(true);
+    setError("");
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target.result;
+        if (file.name.endsWith(".csv")) {
+          parseCSV(data);
+        } else {
+          parseExcel(data);
+        }
+      } catch (err) {
+        setError("Error parsing file. Please check the format.");
+        console.error(err);
+      } finally {
+        setIsUploading(false);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const parseExcel = async (data) => {
+    try {
+      const workbook = XLSX.read(data, { type: "binary" });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (isTheoryTest) {
+        await processTheoryData(jsonData);
+      } else {
+        await processMCQData(jsonData);
+      }
+    } catch (err) {
+      setError("Invalid Excel file format");
+      console.error(err);
+    }
+  };
+
+  const parseCSV = (data) => {
+    Papa.parse(data, {
+      header: true,
+      complete: async (results) => {
+        if (results.errors.length > 0) {
+          setError("CSV parsing errors detected");
+          console.error("CSV errors:", results.errors);
+        }
+
+        if (isTheoryTest) {
+          await processTheoryData(results.data);
+        } else {
+          await processMCQData(results.data);
+        }
+      },
+      error: (err) => {
+        setError("Error parsing CSV file");
+        console.error(err);
+      },
+    });
+  };
+
+  const validateRegNumbers = async (data) => {
+    const token = localStorage.getItem("token");
+    setValidatingRegNumbers(true);
+
+    const regNumbers = data.map((row) => String(row.regNumber).trim());
+
+    try {
+      const response = await axios.post(
+        `${process.env.REACT_APP_URL}/api/check-missing-regnumbers`,
+        { regNumbers },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      // response.data.missing = [reg1, reg2, ...]
+      const invalid = {};
+      data.forEach((row, index) => {
+        if (response.data.missing.includes(row.regNumber)) {
+          invalid[index] = row.regNumber;
+        }
+      });
+
+      return invalid;
+    } catch (err) {
+      console.error("Error during batch regNumber check:", err);
+      return {};
+    } finally {
+      setValidatingRegNumbers(false);
+    }
+  };
+
+  const processMCQData = async (data) => {
+    if (!data || data.length === 0) {
+      setError("No valid data found in the file");
+      setParsedData([]);
+      return;
+    }
+
+    const firstRow = data[0] || {};
+    const regNoKey = Object.keys(firstRow).find((key) =>
+      key.match(/^(regno|rollno|registration|id)/i),
+    );
+
+    const questionKeys = Object.keys(firstRow)
+      .filter((key) => key.match(/^q\d+$/i))
+      .sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, ""));
+        const numB = parseInt(b.replace(/\D/g, ""));
+        return numA - numB;
+      });
+
+    if (!regNoKey) {
+      setError("File must contain student ID column");
+      setParsedData([]);
+      return;
+    }
+
+    if (questionKeys.length === 0) {
+      setError("File must contain question columns (Q1, Q2, etc.)");
+      setParsedData([]);
+      return;
+    }
+
+    try {
+      const maxQuestionNum = questionKeys.reduce((max, key) => {
+        const num = parseInt(key.replace(/\D/g, ""));
+        return num > max ? num : max;
+      }, 0);
+
+      const processed = data.map((row) => {
+        const questionAnswer = {};
+        for (let i = 1; i <= maxQuestionNum; i++) {
+          const qKey = `Q${i}`;
+          let answer = row[qKey];
+          if (answer) {
+            answer = String(answer).trim();
+            if (answer === "1") answer = "A";
+            else if (answer === "2") answer = "B";
+            else if (answer === "3") answer = "C";
+            else if (answer === "4") answer = "D";
+            questionAnswer[i] = ["A", "B", "C", "D"].includes(answer)
+              ? answer
+              : "";
+          } else {
+            questionAnswer[i] = "";
+          }
+        }
+        const rawReg = String(row[regNoKey]).trim();
+
+        const finalReg = regPrefix ? regPrefix + rawReg : rawReg;
+        return {
+          regNumber: finalReg,
+          filePath: row["File"],
+          questionAnswer,
+          totalQuestions: maxQuestionNum,
+          rawRow: row,
+        };
+      });
+
+      setParsedData(processed);
+
+      const invalidRegNumbers = {};
+      processed.forEach((row, index) => {
+        if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
+          invalidRegNumbers[index] = row.regNumber;
+        }
+      });
+      setEditableRegNumbers(invalidRegNumbers);
+      setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
+
+      // Validate against database
+      const nonExistent = await validateRegNumbers(processed);
+      setNonExistentRegNumbers(nonExistent);
+
+      setError("");
+    } catch (err) {
+      setError("Error processing file data");
+      console.error("Processing error:", err);
+      setParsedData([]);
+    }
+  };
+
+  const processTheoryData = async (data) => {
+    if (!data || data.length === 0) {
+      setError("No valid data found in the file");
+      setParsedData([]);
+      return;
+    }
+
+    // Expected columns for theory test
+    const firstRow = data[0] || {};
+    const regNoKey = Object.keys(firstRow).find((key) =>
+      key.match(/^(regno|rollno|registration|id)/i),
+    );
+
+    const normalize = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .normalize("NFKC")
+        .replace(/[^a-z]/g, ""); // keep only letters
+
+    const headers = Object.keys(firstRow);
+    const normHeaderMap = headers.reduce((acc, key) => {
+      acc[key] = normalize(key);
+      return acc;
+    }, {});
+
+    // Find the column for each subject
+    const subjectColumns = {};
+    subjectDetails.forEach((subject) => {
+      const sn = normalize(subject.name);
+
+      // 1) exact normalized match
+      let match = headers.find((k) => normHeaderMap[k] === sn);
+
+      // 2) startsWith normalized match (e.g., "secondlanguage" vs "secondlanguagepaper1")
+      if (!match) {
+        match = headers.find((k) => normHeaderMap[k].startsWith(sn));
+      }
+
+      // 3) includes normalized match (fallback)
+      if (!match) {
+        match = headers.find((k) => normHeaderMap[k].includes(sn));
+      }
+
+      if (match) {
+        subjectColumns[subject.name] = match;
+      }
+    });
+
+    if (!regNoKey) {
+      setError("File must contain student ID column");
+      setParsedData([]);
+      return;
+    }
+
+    const missingSubjects = subjectDetails.filter(
+      (subject) => !subjectColumns[subject.name],
+    );
+    if (missingSubjects.length > 0) {
+      setError(
+        `Missing columns for: ${missingSubjects.map((s) => s.name).join(", ")}`,
+      );
+      setParsedData([]);
+      return;
+    }
+
+    try {
+      const processed = data.map((row) => {
+        const subjectMarks = {};
+        let totalMarks = 0;
+
+        subjectDetails.forEach((subject) => {
+          const key = subjectColumns[subject.name];
+          const marks = parseFloat(row[key]) || 0;
+          subjectMarks[subject.name] = marks;
+          totalMarks += marks;
+        });
+
+        const totalPossible = subjectDetails.reduce(
+          (sum, sub) => sum + sub.maxMarks,
+          0,
+        );
+        const percentage =
+          totalPossible > 0 ? (totalMarks / totalPossible) * 100 : 0;
+        const rawReg = String(row[regNoKey]).trim();
+
+        const finalReg = regPrefix ? regPrefix + rawReg : rawReg;
+        return {
+          regNumber: finalReg,
+          subjectMarks,
+          totalMarks,
+          percentage: parseFloat(percentage.toFixed(2)),
+        };
+      });
+
+      setParsedData(processed);
+
+      const invalidRegNumbers = {};
+      processed.forEach((row, index) => {
+        if (!/^\d{6}$/.test(String(row.regNumber).trim())) {
+          invalidRegNumbers[index] = row.regNumber;
+        }
+      });
+      setEditableRegNumbers(invalidRegNumbers);
+      setDuplicateRegNumbers(findDuplicateRegNumbers(processed));
+
+      // Validate against database
+      const nonExistent = await validateRegNumbers(processed);
+      setNonExistentRegNumbers(nonExistent);
+
+      setError("");
+    } catch (err) {
+      setError("Error processing theory test data");
+      console.error("Processing error:", err);
+      setParsedData([]);
+    }
+  };
+
+  const handleRegNumberChange = (index, value) => {
+    setEditableRegNumbers((prev) => ({
+      ...prev,
+      [index]: value,
+    }));
+  };
+
+  const updateParsedDataWithEdits = async () => {
+    const updatedData = [...parsedData];
+    const regNumbersToCheck = Object.entries(editableRegNumbers);
+
+    let validChanges = [];
+
+    for (const [indexStr, newReg] of regNumbersToCheck) {
+      const index = parseInt(indexStr);
+      const oldReg = updatedData[index].regNumber;
+      if (String(oldReg).trim() !== String(newReg).trim()) {
+        try {
+          const student = await fetchStudentByRegNumber(newReg.trim());
+          if (student) {
+            const confirmUpdate = window.confirm(
+              `RegNo ${newReg} belongs to ${student.studentName}. Do you want to apply this change?`,
+            );
+            if (confirmUpdate) {
+              validChanges.push({ index, newReg });
+            }
+          } else {
+            const confirmUpdate = window.confirm(
+              `RegNo ${newReg} not found in Students database. Do you still want to proceed?`,
+            );
+            if (confirmUpdate) {
+              validChanges.push({ index, newReg });
+            }
+          }
+        } catch (err) {
+          console.error(`Error validating RegNo ${newReg}`, err);
+        }
+      }
+    }
+
+    // Apply valid changes
+    validChanges.forEach(({ index, newReg }) => {
+      updatedData[index].regNumber = newReg.trim();
+    });
+
+    setParsedData(updatedData);
+    setEditableRegNumbers({});
+    setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+    setNonExistentRegNumbers(await validateRegNumbers(updatedData));
+  };
+  const downloadErrorFile = (errorRows) => {
+    if (!errorRows || errorRows.length === 0) return;
+
+    // Use rawRow to get original keys
+    const headers = Object.keys(errorRows[0].rawRow || {}).concat("Issue");
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","), // headers
+        ...errorRows.map((row) =>
+          headers
+            .map((h) =>
+              h === "Issue" ? `"${row.Issue}"` : `"${row.rawRow?.[h] ?? ""}"`,
+            )
+            .join(","),
+        ),
+      ].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "error_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleReuploadErrorFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      Papa.parse(event.target.result, {
+        header: true,
+        complete: async ({ data }) => {
+          const updatedData = [...parsedData];
+          let validChanges = [];
+
+          for (const row of data) {
+            const index = parseInt(row.Row, 10) - 1;
+            const newReg = row.RegNumber?.trim();
+
+            if (!isNaN(index) && newReg) {
+              try {
+                const student = await fetchStudentByRegNumber(newReg);
+                let proceed = false;
+
+                if (student) {
+                  proceed = window.confirm(
+                    `Row ${index + 1}: RegNo ${newReg} belongs to ${
+                      student.studentName
+                    }. Apply this change?`,
+                  );
+                } else {
+                  proceed = window.confirm(
+                    `Row ${
+                      index + 1
+                    }: RegNo ${newReg} not found in database. Proceed anyway?`,
+                  );
+                }
+
+                if (proceed) {
+                  validChanges.push({ index, newReg });
+                }
+              } catch (err) {
+                console.error(err);
+              }
+            }
+          }
+
+          // Apply valid regNumber changes
+          validChanges.forEach(({ index, newReg }) => {
+            updatedData[index].regNumber = newReg;
+          });
+
+          setParsedData(updatedData);
+          setEditableRegNumbers({});
+          setDuplicateRegNumbers(findDuplicateRegNumbers(updatedData));
+          setNonExistentRegNumbers(await validateRegNumbers(updatedData));
+        },
+        error: (err) => {
+          console.error("CSV Parse Error:", err);
+        },
+      });
+    };
+    reader.readAsText(file);
+  };
+  // Split valid and invalid rows
+  const splitValidAndInvalidData = (data) => {
+    const validRows = [];
+    const errorRows = [];
+
+    data.forEach((row, index) => {
+      const reg = String(row.regNumber).trim();
+      let issue = "";
+
+      if (!/^\d{6}$/.test(reg)) {
+        issue = "Invalid Format";
+      } else if (Object.keys(duplicateRegNumbers).includes(String(index))) {
+        issue = "Duplicate";
+      } else if (Object.keys(nonExistentRegNumbers).includes(String(index))) {
+        issue = "Not Found in DB";
+      }
+
+      if (issue) {
+        errorRows.push({ ...row, Issue: issue });
+      } else {
+        validRows.push(row);
+      }
+    });
+
+    return { validRows, errorRows };
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      // Validate fields
+      if (!formData.questionType || !formData.testName || !formData.date) {
+        throw new Error("All fields are required");
+      }
+
+      if (parsedData.length === 0) {
+        throw new Error("Please upload a valid file first");
+      }
+
+      // Split valid & invalid rows
+      const { validRows, errorRows } = splitValidAndInvalidData(parsedData);
+
+      if (validRows.length === 0) {
+        throw new Error("No valid records to process. Fix errors first.");
+      }
+
+      // Prepare payload only with valid rows
+      const payload = isTheoryTest
+        ? {
+            stream: formData.stream,
+            questionType: formData.questionType,
+            testName: formData.testName,
+            date: formData.date,
+            subjectDetails,
+            studentResults: validRows.map((row) => ({
+              regNumber: row.regNumber,
+              subjectMarks: Object.entries(row.subjectMarks).map(
+                ([name, marks]) => ({ name, marks }),
+              ),
+              totalMarks: row.totalMarks,
+              percentage: row.percentage,
+            })),
+          }
+        : {
+            stream: formData.stream,
+            questionType: formData.questionType,
+            testName: formData.testName,
+            date: formData.date,
+            marksType: formData.marksType,
+            reportBank: validRows,
+          };
+
+      const token = localStorage.getItem("token");
+      const url = isTheoryTest
+        ? `${process.env.REACT_APP_URL}/api/createtheory`
+        : `${process.env.REACT_APP_URL}/api/createreport`;
+
+      const response = await axios.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.status === "success") {
+        if (errorRows.length > 0) {
+          downloadErrorFile(errorRows); // export error rows
+          alert(
+            `Report created successfully with ${validRows.length} valid records. ${errorRows.length} error rows exported.`,
+          );
+        } else {
+          alert("Report created successfully with all records!");
+        }
+        onClose();
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.message || err.message || "Failed to create report",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get invalid registration numbers
+  const invalidRegNumbers = parsedData
+    .map((row, index) => ({
+      index,
+      regNumber: row.regNumber,
+      isValid: /^\d{6}$/.test(String(row.regNumber).trim()),
+    }))
+    .filter((item) => !item.isValid);
+
+  // Get valid registration numbers (for preview)
+  const validRegNumbers = parsedData
+    .map((row, index) => ({
+      index,
+      regNumber: row.regNumber,
+      isValid: /^\d{6}$/.test(String(row.regNumber).trim()),
+    }))
+    .filter((item) => item.isValid);
+
+  const findDuplicateRegNumbers = (data) => {
+    const regMap = {};
+    const duplicates = {};
+
+    data.forEach((row, index) => {
+      const reg = String(row.regNumber).trim();
+      if (!regMap[reg]) {
+        regMap[reg] = [index];
+      } else {
+        regMap[reg].push(index);
+      }
+    });
+
+    Object.entries(regMap).forEach(([reg, indices]) => {
+      if (indices.length > 1) {
+        indices.forEach((i) => {
+          duplicates[i] = reg;
+        });
+      }
+    });
+
+    return duplicates; // key: index, value: duplicate regNumber
+  };
+
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      top: "4px",
+      minHeight: "45px",
+      borderColor: state.isFocused ? "#3B82F6" : "#d1d5db", // Tailwind blue-500 or gray-300
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : null,
+      "&:hover": {
+        borderColor: "#3B82F6",
+      },
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: "0 0.75rem",
+    }),
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Create New Report</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+
+          {error && (
+            <div
+              className={`mb-4 p-3 rounded-md border ${
+                error.includes("No tests available")
+                  ? "bg-yellow-100 text-yellow-700 border-yellow-200"
+                  : "bg-red-100 text-red-700 border-red-200"
+              }`}
+            >
+              {error}
+            </div>
+          )}
+
+          {validatingRegNumbers && (
+            <div className="mb-4 p-3 rounded-md border bg-blue-50 text-blue-700 border-blue-200">
+              Validating registration numbers against database...
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Stream Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Stream *
+                </label>
+                <select
+                  name="stream"
+                  value={formData.stream}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="LongTerm">Long Term</option>
+                  <option value="PUC">PUC</option>
+                </select>
+              </div>
+
+              {/* Question Type Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Question Type *
+                </label>
+                <select
+                  name="questionType"
+                  value={formData.questionType}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select Type</option>
+                  <option value="MCQ">MCQ</option>
+                  <option value="Theory">Theory</option>
+                </select>
+              </div>
+
+              {/* Test Name - Dropdown for MCQ, Input for Theory */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Test Name *
+                </label>
+                {isTheoryTest ? (
+                  <input
+                    type="text"
+                    name="testName"
+                    value={formData.testName}
+                    onChange={handleChange}
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter test name"
+                  />
+                ) : (
+                  <Select
+                    styles={customSelectStyles}
+                    isClearable
+                    isSearchable
+                    options={testNames.map((name) => ({
+                      value: name,
+                      label: name,
+                    }))}
+                    onChange={(selectedOption) => {
+                      const value = selectedOption ? selectedOption.value : "";
+                      setFormData((prev) => ({ ...prev, testName: value }));
+                    }}
+                    placeholder="Search or select test..."
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    value={
+                      formData.testName
+                        ? { value: formData.testName, label: formData.testName }
+                        : null
+                    }
+                  />
+                )}
+              </div>
+
+              {/* Date Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Marks Type Dropdown - Only for MCQ */}
+              {!isTheoryTest && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Marks Type *
+                  </label>
+                  <select
+                    name="marksType"
+                    value={formData.marksType}
+                    onChange={handleChange}
+                    required={!isTheoryTest}
+                    disabled={isTheoryTest}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Marks Type</option>
+                    {marksTypeOptions.map((type, index) => (
+                      <option key={index} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {isTheoryTest && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Number of Subjects
+                  </label>
+                  <select
+                    value={subjectCount}
+                    onChange={(e) => {
+                      const count = Math.min(
+                        6,
+                        Math.max(1, parseInt(e.target.value || "0", 10)),
+                      );
+                      setSubjectCount(count);
+                      const seeded = CORE_SUBJECTS.slice(0, count).map(
+                        (s, idx) => {
+                          const existing = subjectDetails[idx];
+                          return {
+                            name: s,
+                            maxMarks: existing?.maxMarks ?? 100, // keep user-changed marks if shrinking/growing
+                          };
+                        },
+                      );
+                      setSubjectDetails(seeded);
+                    }}
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select count</option>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Subject Details - Only for Theory */}
+              {isTheoryTest && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subject Details
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {subjectDetails.map((subject, index) => (
+                      <div key={index} className="space-y-2">
+                        <input
+                          type="text"
+                          value={subject.name}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700"
+                        />
+                        <input
+                          type="number"
+                          value={subject.maxMarks}
+                          onChange={(e) =>
+                            handleSubjectChange(
+                              index,
+                              "maxMarks",
+                              Math.max(1, parseInt(e.target.value || "0", 10)),
+                            )
+                          }
+                          required
+                          min={1}
+                          max={200}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Max marks"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* File Upload Section */}
+            <div className="mt-6">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Registration Number Prefix
+                </label>
+
+                <select
+                  value={regPrefix}
+                  onChange={(e) => setRegPrefix(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm
+               focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">None</option>
+                  <option value="2">2</option>
+                  <option value="5">5</option>
+                </select>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Example: <strong>65780</strong> →{" "}
+                  <strong>{regPrefix || ""}65780</strong>
+                </p>
+              </div>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer ${
+                  isDragActive
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-300"
+                }`}
+              >
+                <input {...getInputProps()} />
+                {isUploading ? (
+                  <p className="text-gray-500">Processing file...</p>
+                ) : fileData ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <span className="text-blue-600">{fileData.name}</span>
+                    <span className="text-green-600">
+                      ✓ {parsedData.length} records found
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-gray-500">
+                      Drag & drop an Excel or CSV file here, or click to select
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {isTheoryTest
+                        ? `File should contain RegNo and ${subjectDetails
+                            .map((s) => s.name)
+                            .join(", ")} columns`
+                        : "File should contain RegNo and Question columns Q1, Q2, etc."}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Invalid Registration Numbers Section */}
+            {invalidRegNumbers.length > 0 && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Invalid Registration Numbers ({invalidRegNumbers.length}{" "}
+                    found)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllInvalid(!showAllInvalid)}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {showAllInvalid ? "Show Less" : "Show All"}
+                  </button>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                  <p className="text-sm text-yellow-700 mb-3">
+                    Please correct the following registration numbers (must be 6
+                    digits):
+                  </p>
+                  <div className="space-y-2">
+                    {(showAllInvalid
+                      ? invalidRegNumbers
+                      : invalidRegNumbers.slice(0, 6)
+                    ).map((item) => (
+                      <div
+                        key={item.index}
+                        className="flex items-center space-x-2"
+                      >
+                        <span className="text-sm font-medium w-24">
+                          Row {item.index + 1}:
+                        </span>
+                        <input
+                          type="text"
+                          value={
+                            editableRegNumbers[item.index] !== undefined
+                              ? editableRegNumbers[item.index]
+                              : item.regNumber
+                          }
+                          onChange={(e) =>
+                            handleRegNumberChange(item.index, e.target.value)
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                        />
+                        <span className="text-sm text-gray-500">
+                          Original: {item.regNumber}
+                        </span>
+                        {parsedData[item.index]?.filePath && (
+                          <span className="text-sm text-gray-500 break-all max-w-[200px]">
+                            File: {parsedData[item.index].filePath}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={updateParsedDataWithEdits}
+                    className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Apply Changes
+                  </button>
+                </div>
+              </div>
+            )}
+            {Object.keys(nonExistentRegNumbers).length > 0 && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Non-existent Registration Numbers (
+                    {Object.keys(nonExistentRegNumbers).length} found)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllNonExistent(!showAllNonExistent)}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {showAllNonExistent ? "Show Less" : "Show All"}
+                  </button>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-md border border-purple-200">
+                  <p className="text-sm text-purple-700 mb-3">
+                    These registration numbers were not found in the database:
+                  </p>
+                  <div className="space-y-2">
+                    {(showAllNonExistent
+                      ? Object.entries(nonExistentRegNumbers)
+                      : Object.entries(nonExistentRegNumbers).slice(0, 6)
+                    ).map(([index, reg]) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <span className="text-sm font-medium w-24">
+                          Row {parseInt(index) + 1}:
+                        </span>
+                        <input
+                          type="text"
+                          value={
+                            editableRegNumbers[index] !== undefined
+                              ? editableRegNumbers[index]
+                              : reg
+                          }
+                          onChange={(e) =>
+                            handleRegNumberChange(index, e.target.value)
+                          }
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                        />
+                        <span className="text-sm text-gray-500">
+                          Original: {reg}
+                        </span>
+                        {parsedData[index]?.filePath && (
+                          <span className="text-sm text-gray-500 break-all max-w-[200px]">
+                            File: {parsedData[index].filePath}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={updateParsedDataWithEdits}
+                    className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Apply Changes
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Duplicate Registration Numbers Section */}
+            {Object.keys(duplicateRegNumbers).length > 0 && (
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Duplicate Registration Numbers (
+                    {Object.keys(duplicateRegNumbers).length} entries)
+                  </h3>
+                </div>
+                <div className="bg-red-50 p-4 rounded-md border border-red-200">
+                  <p className="text-sm text-red-700 mb-3">
+                    These registration numbers are duplicated. Please modify at
+                    least one in each group:
+                  </p>
+                  <div className="space-y-4">
+                    {Object.entries(
+                      // Group by regNumber
+                      Object.entries(duplicateRegNumbers).reduce(
+                        (acc, [index, reg]) => {
+                          if (!acc[reg]) acc[reg] = [];
+                          acc[reg].push(Number(index));
+                          return acc;
+                        },
+                        {},
+                      ),
+                    ).map(([reg, indices]) => (
+                      <div
+                        key={reg}
+                        className="border border-red-200 rounded-md p-3 bg-white"
+                      >
+                        <p className="text-sm font-semibold text-gray-700 mb-2">
+                          RegNo: {reg} (used in {indices.length} rows)
+                        </p>
+                        {indices.map((index) => (
+                          <div
+                            key={index}
+                            className="flex items-center space-x-2 mb-2"
+                          >
+                            <span className="text-sm font-medium w-24">
+                              Row {index + 1}:
+                            </span>
+                            <input
+                              type="text"
+                              value={
+                                editableRegNumbers[index] !== undefined
+                                  ? editableRegNumbers[index]
+                                  : reg
+                              }
+                              onChange={(e) =>
+                                handleRegNumberChange(index, e.target.value)
+                              }
+                              className="px-2 py-1 border border-gray-300 rounded-md text-sm w-32"
+                            />
+                            <span className="text-sm text-gray-500">
+                              Original: {reg}
+                            </span>
+                            {parsedData[index]?.filePath && (
+                              <span className="text-sm text-gray-500 break-all max-w-[200px]">
+                                File: {parsedData[index].filePath}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={updateParsedDataWithEdits}
+                    className="mt-3 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                  >
+                    Apply Changes
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex space-x-3 mt-4">
+              <button
+                type="button"
+                onClick={downloadErrorFile}
+                className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+              >
+                Download Error File
+              </button>
+              <label className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer">
+                Reupload File
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleReuploadErrorFile}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {/* Preview Section */}
+            {validRegNumbers.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  Valid Records Preview (First 5 Rows)
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 border">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border">
+                          RegNo
+                        </th>
+                        {isTheoryTest ? (
+                          <>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border">
+                              Subjects
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border">
+                              Total Marks
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border">
+                              Percentage
+                            </th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border">
+                              Attempted
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border">
+                              Sample Answers
+                            </th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {validRegNumbers.slice(0, 5).map((item) => {
+                        const row = parsedData[item.index];
+
+                        if (isTheoryTest) {
+                          const subjectKeys = Object.keys(
+                            row.subjectMarks || {},
+                          );
+                          const subjectList = subjectKeys
+                            .map((key) => `${key}: ${row.subjectMarks[key]}`)
+                            .join(", ");
+
+                          return (
+                            <tr key={item.index}>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border">
+                                {row.regNumber}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500 border">
+                                {subjectList}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500 border">
+                                {row.totalMarks}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500 border">
+                                {row.percentage}%
+                              </td>
+                            </tr>
+                          );
+                        } else {
+                          const attempted = Object.values(
+                            row.questionAnswer,
+                          ).filter((a) => a !== "").length;
+                          const total =
+                            row.totalQuestions ||
+                            Object.keys(row.questionAnswer).length;
+                          const sampleAnswers = Object.entries(
+                            row.questionAnswer,
+                          )
+                            .filter(([_, ans]) => ans !== "")
+                            .slice(0, 5)
+                            .map(([q, ans]) => `Q${q}:${ans}`)
+                            .join(", ");
+
+                          return (
+                            <tr key={item.index}>
+                              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border">
+                                {row.regNumber}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500 border">
+                                {attempted}/{total}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-500 border">
+                                {sampleAnswers}
+                                {sampleAnswers.length === 0 ? "None" : ""}
+                              </td>
+                            </tr>
+                          );
+                        }
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  isUploading ||
+                  validatingRegNumbers ||
+                  (!isTheoryTest && testNames.length === 0)
+                }
+                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  loading ||
+                  isUploading ||
+                  validatingRegNumbers ||
+                  (!isTheoryTest && testNames.length === 0) ||
+                  invalidRegNumbers.length > 0 ||
+                  Object.keys(duplicateRegNumbers).length > 0 ||
+                  Object.keys(nonExistentRegNumbers).length > 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                {loading ? "Creating Report..." : "Create Report"}
+              </button>
+            </div>
+          </form>
+          {showPrefixModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h2 className="text-xl font-bold text-gray-800">
+                  Registration Number Prefix Required
+                </h2>
+
+                <p className="mt-3 text-sm text-gray-600 leading-relaxed">
+                  The uploaded file contains registration numbers with less than
+                  6 digits. Please select a prefix before continuing.
+                </p>
+
+                <div className="mt-5">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Registration Number Prefix
+                  </label>
+
+                  <select
+                    value={regPrefix}
+                    onChange={(e) => setRegPrefix(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md
+                     focus:outline-none focus:ring-2
+                     focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select Prefix</option>
+                    <option value="2">2</option>
+                    <option value="5">5</option>
+                  </select>
+                </div>
+
+                <div className="mt-5 rounded-md bg-gray-50 p-3 border">
+                  <p className="text-xs text-gray-500 mb-1">Example</p>
+
+                  <div className="text-sm font-medium">
+                    65780
+                    <span className="mx-2">→</span>
+                    <span className="text-blue-600">
+                      {regPrefix || "?"}65780
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowPrefixModal(false);
+                      setPendingFile(null);
+                      setFileData(null);
+                      setRegPrefix("");
+                    }}
+                    className="px-4 py-2 rounded border border-gray-300
+                     hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    disabled={!regPrefix}
+                    onClick={handlePrefixContinue}
+                    className={`px-4 py-2 rounded text-white ${
+                      regPrefix
+                        ? "bg-blue-600 hover:bg-blue-700"
+                        : "bg-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
