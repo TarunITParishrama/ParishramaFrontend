@@ -25,22 +25,25 @@ export default function ViewSolutions() {
   useEffect(() => {
     const fetchTestNames = async () => {
       try {
-        toast.info("Loading test names...", { autoClose: 2000 });
         const response = await axios.get(
-          `${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${filters.stream}`,
+          `${process.env.REACT_APP_URL}/api/getsolutiontestnames`,
+          {
+            params: {
+              stream: filters.stream,
+            },
+          },
         );
-        const uniqueTestNames = [
-          ...new Set(
-            response.data.data.map((item) => item.solutionRef.testName),
-          ),
-        ];
-        setTestNames(uniqueTestNames);
-        toast.dismiss();
+
+        setTestNames(response.data.data || []);
       } catch (err) {
         toast.error("Failed to load test names. Please try again.");
+
         console.error("Test names fetch error:", err);
+
+        setTestNames([]);
       }
     };
+
     fetchTestNames();
   }, [filters.stream]);
 

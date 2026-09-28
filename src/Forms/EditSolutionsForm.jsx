@@ -43,19 +43,24 @@ const EditSolutionsForm = ({ onSuccess }) => {
     const fetchTestNames = async () => {
       try {
         const response = await axios.get(
-          `${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${filters.stream}`,
+          `${process.env.REACT_APP_URL}/api/getsolutiontestnames`,
+          {
+            params: {
+              stream: filters.stream,
+            },
+          },
         );
-        const uniqueTestNames = [
-          ...new Set(
-            response.data.data.map((item) => item.solutionRef.testName),
-          ),
-        ];
-        setTestNames(uniqueTestNames);
+
+        setTestNames(response.data.data || []);
       } catch (err) {
         toast.error("Failed to load test names");
+
         console.error("Test names fetch error:", err);
+
+        setTestNames([]);
       }
     };
+
     fetchTestNames();
   }, [filters.stream]);
 
@@ -376,10 +381,18 @@ const EditSolutionsForm = ({ onSuccess }) => {
         solutionBank: solutionBankUpdates,
       });
 
+      const solutionIds = solutions
+        .map((test) => test.solutionRef?._id)
+        .filter(Boolean);
+
+      if (solutionIds.length === 0) {
+        throw new Error("No solution IDs found. Please search again.");
+      }
+
       const response = await axios.put(
         `${process.env.REACT_APP_URL}/api/updatesolutionsinbulk`,
         {
-          solutionId: solutions[0].solutionRef._id,
+          solutionIds,
           solutionBank: solutionBankUpdates,
         },
         {
