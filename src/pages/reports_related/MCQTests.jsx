@@ -38,6 +38,14 @@ export default function MCQTests({
 
   const [checkingDetailedReport, setCheckingDetailedReport] = useState(false);
 
+  const [submittedDetailedReportInfo, setSubmittedDetailedReportInfo] =
+    useState({
+      submitted: false,
+      submittedCampuses: [],
+      submittedSections: [],
+      submittedCombinations: [],
+    });
+
   // Fetch all test names when component mounts or stream changes
   useEffect(() => {
     const fetchTestNames = async () => {
@@ -103,8 +111,13 @@ export default function MCQTests({
 
       const token = localStorage.getItem("token");
 
+      const params = new URLSearchParams({
+        testName,
+        stream: streamFilter,
+      });
+
       const res = await fetch(
-        `${process.env.REACT_APP_URL}/api/detailedreports/check?testName=${encodeURIComponent(testName)}`,
+        `${process.env.REACT_APP_URL}/api/detailedreports/check?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -115,14 +128,60 @@ export default function MCQTests({
       const data = await res.json();
 
       if (data.status === "success") {
-        setIsDetailedReportSubmitted(data.submitted);
+        const submittedCombinations = data.submittedCombinations || [];
+
+        const normalize = (value) => value?.toString().trim().toLowerCase();
+
+        // ---------------------------------------------
+        // Check CURRENT selected test + campus + section
+        // ---------------------------------------------
+
+        const exactMatch = submittedCombinations.some(
+          (item) =>
+            normalize(item.testName) === normalize(testName) &&
+            normalize(item.campus) === normalize(selectedCampus) &&
+            normalize(item.section) === normalize(selectedSection),
+        );
+
+        setIsDetailedReportSubmitted(
+          selectedCampus !== "All" && selectedSection !== "All"
+            ? exactMatch
+            : false,
+        );
+
+        setSubmittedDetailedReportInfo({
+          submitted: data.submitted || false,
+          submittedCampuses: data.submittedCampuses || [],
+          submittedSections: data.submittedSections || [],
+          submittedCombinations,
+        });
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error checking detailed report status:", err);
+
+      setSubmittedDetailedReportInfo({
+        submitted: false,
+        submittedCampuses: [],
+        submittedSections: [],
+        submittedCombinations: [],
+      });
+
+      setIsDetailedReportSubmitted(false);
     } finally {
       setCheckingDetailedReport(false);
     }
   };
+  // const availableCampuses = useMemo(() => {
+  //   const campusSet = new Set();
+
+  //   Object.values(students || {}).forEach((student) => {
+  //     if (student?.campus) {
+  //       campusSet.add(student.campus);
+  //     }
+  //   });
+
+  //   return [...campusSet];
+  // }, [students]);
 
   const applyFilters = () => {
     setFiltersApplied(true);
@@ -432,6 +491,93 @@ export default function MCQTests({
 
         return report;
       });
+      const normalize = (value) => value?.toString().trim().toLowerCase();
+
+      const submittedCombinations =
+        submittedDetailedReportInfo.submittedCombinations || [];
+
+      const isAlreadySubmitted = (campus, section) => {
+        return submittedCombinations.some(
+          (item) =>
+            normalize(item.testName) === normalize(selectedTestName) &&
+            normalize(item.campus) === normalize(campus) &&
+            normalize(item.section) === normalize(section),
+        );
+      };
+      let reportsToSubmit = [...sortedData];
+
+      const requestedCampusIsAll = selectedCampus === "All";
+
+      const requestedSectionIsAll = selectedSection === "All";
+
+      const remainingCombinations = [];
+      if (requestedCampusIsAll || requestedSectionIsAll) {
+        const combinationMap = new Map();
+
+        sortedData.forEach((student) => {
+          const campus = student.campus;
+          const section = student.section;
+
+          if (!campus || !section) return;
+
+          const key = `${normalize(campus)}__${normalize(section)}`;
+
+          if (!combinationMap.has(key)) {
+            combinationMap.set(key, {
+              campus,
+              section,
+            });
+          }
+        });
+
+        combinationMap.forEach(({ campus, section }) => {
+          if (!isAlreadySubmitted(campus, section)) {
+            remainingCombinations.push({
+              campus,
+              section,
+            });
+          }
+        });
+
+        // Only submit records for combinations not already submitted
+        reportsToSubmit = sortedData.filter(
+          (student) => !isAlreadySubmitted(student.campus, student.section),
+        );
+      }
+
+      if (requestedCampusIsAll) {
+        const alreadySubmittedCampuses = [
+          ...new Set(
+            sortedData
+              .filter((student) =>
+                isAlreadySubmitted(student.campus, student.section),
+              )
+              .map((student) => student.campus),
+          ),
+        ];
+
+        const remainingCampuses = [
+          ...new Set(reportsToSubmit.map((student) => student.campus)),
+        ];
+
+        if (
+          alreadySubmittedCampuses.length > 0 &&
+          remainingCampuses.length > 0
+        ) {
+          const confirmed = window.confirm(
+            `Detailed reports for ${selectedTestName} have already been submitted for:\n\n` +
+              `${alreadySubmittedCampuses.join(", ")}\n\n` +
+              `Remaining campuses:\n\n` +
+              `${remainingCampuses.join(", ")}\n\n` +
+              `Do you want to submit the remaining campus data?\n\n` +
+              `Click OK to continue or Cancel to stop.`,
+          );
+
+          if (!confirmed) {
+            return;
+          }
+        }
+      }
 
       const response = await fetch(
         `${process.env.REACT_APP_URL}/api/detailedreports/bulk`,
@@ -677,6 +823,14 @@ export default function MCQTests({
                       ? "Submitted"
                       : "Submit Detailed Report"}
               </button>
+              {submittedDetailedReportInfo.submittedCampuses.length > 0 && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <span className="font-medium">
+                    Reports already submitted for:
+                  </span>{" "}
+                  {submittedDetailedReportInfo.submittedCampuses.join(", ")}
+                </div>
+              )}
             </div>
           </div>
 

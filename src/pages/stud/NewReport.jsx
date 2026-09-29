@@ -65,12 +65,14 @@ export default function NewReport({ onClose }) {
     "+4 CorrectAnswer, -1 WrongAction, 0 Unmarked",
   ];
 
-  // Fetch test names when stream changes (only for MCQ)
+  // Fetch subjects for Theory tests
+  // Fetch test names for MCQ tests
   useEffect(() => {
     if (isTheoryTest) {
       const fetchSubjects = async () => {
         try {
           const token = localStorage.getItem("token");
+
           const response = await axios.get(
             `${process.env.REACT_APP_URL}/api/getsubjects`,
             {
@@ -79,14 +81,17 @@ export default function NewReport({ onClose }) {
               },
             },
           );
+
           if (response.data?.data) {
             setSubjects(response.data.data);
+
             const preferredOrder = [
               "Physics",
               "Chemistry",
               "Biology",
               "Mathematics",
             ];
+
             const sortedSubjects = preferredOrder
               .map((subjectName) =>
                 response.data.data.find((s) => s.subjectName === subjectName),
@@ -101,41 +106,48 @@ export default function NewReport({ onClose }) {
             setSubjectDetails(initialSubjects);
           }
         } catch (err) {
+          console.error("Failed to fetch subjects:", err);
           setError("Failed to fetch Subjects");
         }
       };
+
       fetchSubjects();
-    }
+    } else {
+      const fetchTestNames = async () => {
+        try {
+          setError("");
 
-    const fetchTestNames = async () => {
-      try {
-        setError("");
-        const response = await axios.get(
-          `${process.env.REACT_APP_URL}/api/getsolutionbank?stream=${formData.stream}`,
-        );
+          const response = await axios.get(
+            `${process.env.REACT_APP_URL}/api/getsolutiontestnames`,
+            {
+              params: {
+                stream: formData.stream,
+              },
+            },
+          );
 
-        if (!response.data?.data || response.data.data.length === 0) {
+          if (!response.data?.data || response.data.data.length === 0) {
+            setTestNames([]);
+            setError(`No tests available for ${formData.stream} stream`);
+            return;
+          }
+
+          setTestNames(response.data.data);
+        } catch (err) {
+          console.error("Failed to fetch test names:", err);
+
+          setError(
+            err.response?.data?.message ||
+              err.message ||
+              "Failed to fetch test names",
+          );
+
           setTestNames([]);
-          setError(`No tests available for ${formData.stream} stream`);
-          return;
         }
+      };
 
-        const uniqueTestNames = [
-          ...new Set(
-            response.data.data.map((item) => item.solutionRef.testName),
-          ),
-        ];
-        setTestNames(uniqueTestNames);
-      } catch (err) {
-        setError(
-          err.response?.data?.message ||
-            err.message ||
-            "Failed to fetch test names",
-        );
-        setTestNames([]);
-      }
-    };
-    fetchTestNames();
+      fetchTestNames();
+    }
   }, [formData.stream, isTheoryTest]);
 
   const handleChange = (e) => {
