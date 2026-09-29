@@ -35,7 +35,7 @@ const ImageDropzone = ({ index, imageUploads, setImageUploads }) => {
         Question Image (Optional)
       </label>
 
-      <div
+      {/* <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition
         ${
@@ -79,7 +79,7 @@ const ImageDropzone = ({ index, imageUploads, setImageUploads }) => {
             </button>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
@@ -358,7 +358,7 @@ const SolutionForm = ({ onSuccess }) => {
                 <h4 className="font-medium text-gray-800 mb-3">
                   Question {index + 1}
                 </h4>
-                <div className="mb-4">
+                {/* <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Question Text
                   </label>
@@ -387,7 +387,7 @@ const SolutionForm = ({ onSuccess }) => {
                   index={index}
                   imageUploads={imageUploads}
                   setImageUploads={setImageUploads}
-                />
+                /> */}
                 {formData.questionType === "MCQ" && (
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-gray-700 mb-2">

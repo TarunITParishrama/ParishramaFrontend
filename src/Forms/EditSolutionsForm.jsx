@@ -2014,7 +2014,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
 
                       {/* Question Text */}
 
-                      <div className="mb-4">
+                      {/* <div className="mb-4">
                         <label
                           className={`block text-sm font-medium ${
                             solution.isGrace
@@ -2056,11 +2056,11 @@ const EditSolutionsForm = ({ onSuccess }) => {
                           ).length}
                           /1000
                         </div>
-                      </div>
+                      </div> */}
 
                       {/* Existing Image */}
 
-                      {solution.questionImages
+                      {/* {solution.questionImages
                         ?.length > 0 && (
                         <div className="mb-4">
                           <label className="block text-sm font-medium mb-2">
@@ -2077,7 +2077,7 @@ const EditSolutionsForm = ({ onSuccess }) => {
                             className="w-56 rounded shadow border"
                           />
                         </div>
-                      )}
+                      )} */}
 
                       {/* MCQ Options */}
 
