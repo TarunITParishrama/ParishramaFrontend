@@ -110,8 +110,13 @@ export default function ReportsByMonth() {
 
         // Fetch solutions
         const solutionsResponse = await axios.get(
-          `${process.env.REACT_APP_URL}/api/getsolutionbank`,
-          { params: { testName, stream } },
+          `${process.env.REACT_APP_URL}/api/getallsolutionbank`,
+          {
+            params: {
+              testName,
+              stream,
+            },
+          },
         );
 
         if (
