@@ -824,6 +824,108 @@ export default function ReportsByMonth() {
     }
   };
 
+  const exportStudentWrongAnswersToExcel = (
+    studentResult,
+    reports,
+    solutions,
+  ) => {
+    // Find student's report
+    const report = reports.find((r) => r.regNumber === studentResult.regNumber);
+
+    if (!report) {
+      toast.error("Student report not found");
+      return;
+    }
+
+    // Build solution lookup
+    const solutionMap = {};
+
+    solutions.forEach((sol) => {
+      solutionMap[sol.questionNumber] = sol;
+    });
+
+    // Get student's answers
+    const questionAnswers =
+      report.questionAnswers instanceof Map
+        ? Object.fromEntries(report.questionAnswers)
+        : report.questionAnswers || {};
+
+    // Find wrong questions
+    const wrongQuestions = Object.entries(questionAnswers)
+      .filter(([qNum, markedOption]) => {
+        const solution = solutionMap[qNum];
+
+        if (!solution) return false;
+
+        // Skip grace questions
+        if (solution.isGrace) return false;
+
+        return markedOption && !solution.correctOptions?.includes(markedOption);
+      })
+      .map(([qNum, markedOption]) => {
+        const solution = solutionMap[qNum];
+
+        return {
+          questionNumber: qNum,
+          questionText: solution?.questionText || "",
+          markedOption: markedOption || "",
+          correctOptions: solution?.correctOptions || [],
+          correctSolution: solution?.correctSolution || "",
+        };
+      });
+
+    if (wrongQuestions.length === 0) {
+      toast.info("This student has no wrong answers.");
+      return;
+    }
+
+    // Excel rows
+    const excelData = wrongQuestions.map((q) => ({
+      "Question No.": `Q${q.questionNumber}`,
+      Question: q.questionText,
+      "Student Answer": q.markedOption,
+      "Correct Answer": Array.isArray(q.correctOptions)
+        ? q.correctOptions.join(", ")
+        : q.correctOptions,
+      Solution: q.correctSolution,
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Wrong Answers");
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 15 }, // Question No
+      { wch: 70 }, // Question
+      { wch: 20 }, // Student Answer
+      { wch: 20 }, // Correct Answer
+      { wch: 80 }, // Solution
+    ];
+
+    // Safe filename
+    const regNumber = String(studentResult.regNumber || "student").replace(
+      /[^a-zA-Z0-9-_]/g,
+      "_",
+    );
+
+    const testNameSafe = String(testName || "test").replace(
+      /[^a-zA-Z0-9-_]/g,
+      "_",
+    );
+
+    const fileName = `${regNumber}_${testNameSafe}_wrong_answers.xlsx`;
+
+    // Download
+    XLSX.writeFile(wb, fileName);
+
+    toast.success("Wrong answers Excel downloaded");
+  };
+
   const downloadCSV = (date, reports, marksType) => {
     const dateResults = calculateResults(reports, solutions, marksType);
     const formattedDate = new Date(date).toLocaleDateString("en-US", {
@@ -1015,18 +1117,18 @@ export default function ReportsByMonth() {
                         {/* WRONG CELL = BUTTON */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm bg-white text-red-600 font-bold">
                           <button
-                            className="underline hover:text-red-800 transition"
                             onClick={() =>
-                              handleShowWrongQuestions(
+                              exportStudentWrongAnswersToExcel(
                                 result,
                                 reports,
                                 solutions,
                               )
                             }
-                            title="View wrong questions"
-                            tabIndex={0}
+                            className="inline-flex items-center gap-1 text-red-600 font-bold hover:text-red-800"
+                            title="Download wrong answers"
                           >
                             {result.wrongAnswers}
+                            <span className="text-xs">↓ Excel</span>
                           </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
@@ -1426,7 +1528,7 @@ export default function ReportsByMonth() {
             }
           >
             <div
-              className="bg-white rounded-lg shadow-lg p-6 max-w-5xl w-full"
+              className="bg-white rounded-lg shadow-lg p-6 max-w-6xl w-full"
               style={{ maxHeight: "85vh", overflow: "auto" }}
               onClick={(e) => e.stopPropagation()}
             >
