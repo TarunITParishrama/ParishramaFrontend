@@ -487,47 +487,42 @@ export default function ReportsByMonth() {
 
   // ---- MODAL WRONG QUESTIONS ----
   const handleShowWrongQuestions = (studentResult, reports, solutions) => {
-    // Find report for student
     const report = reports.find((r) => r.regNumber === studentResult.regNumber);
+
     if (!report) return;
 
-    // Prepare solution map
     const solutionMap = {};
+
     solutions.forEach((sol) => {
       solutionMap[sol.questionNumber] = sol;
     });
 
-    // Answers from report
     const questionAnswers =
       report.questionAnswers instanceof Map
         ? Object.fromEntries(report.questionAnswers)
         : report.questionAnswers || {};
 
-    // Find wrong question numbers with details
     const wrongQuestions = Object.entries(questionAnswers)
       .filter(([qNum, markedOption]) => {
         const sol = solutionMap[qNum];
+
         if (!sol) return false;
-        if (sol.isGrace) return false; // skip grace
-        return markedOption && !sol.correctOptions.includes(markedOption);
+        if (sol.isGrace) return false;
+
+        return (
+          markedOption && !sol.correctOptions.includes(markedOption.trim())
+        );
       })
       .map(([qNum, markedOption]) => {
         const solution = solutionMap[qNum];
 
         return {
           questionNumber: qNum,
-
-          questionText: solution?.questionText,
-
-          questionImages: solution?.questionImages || [],
-
           markedOption,
-
           correctOptions: solution?.correctOptions || [],
-
-          correctSolution: solution?.correctSolution,
         };
-      });
+      })
+      .sort((a, b) => Number(a.questionNumber) - Number(b.questionNumber));
 
     setModalInfo({
       open: true,
@@ -824,107 +819,107 @@ export default function ReportsByMonth() {
     }
   };
 
-  const exportStudentWrongAnswersToExcel = (
-    studentResult,
-    reports,
-    solutions,
-  ) => {
-    // Find student's report
-    const report = reports.find((r) => r.regNumber === studentResult.regNumber);
+  // const exportStudentWrongAnswersToExcel = (
+  //   studentResult,
+  //   reports,
+  //   solutions,
+  // ) => {
+  //   // Find student's report
+  //   const report = reports.find((r) => r.regNumber === studentResult.regNumber);
 
-    if (!report) {
-      toast.error("Student report not found");
-      return;
-    }
+  //   if (!report) {
+  //     toast.error("Student report not found");
+  //     return;
+  //   }
 
-    // Build solution lookup
-    const solutionMap = {};
+  //   // Build solution lookup
+  //   const solutionMap = {};
 
-    solutions.forEach((sol) => {
-      solutionMap[sol.questionNumber] = sol;
-    });
+  //   solutions.forEach((sol) => {
+  //     solutionMap[sol.questionNumber] = sol;
+  //   });
 
-    // Get student's answers
-    const questionAnswers =
-      report.questionAnswers instanceof Map
-        ? Object.fromEntries(report.questionAnswers)
-        : report.questionAnswers || {};
+  //   // Get student's answers
+  //   const questionAnswers =
+  //     report.questionAnswers instanceof Map
+  //       ? Object.fromEntries(report.questionAnswers)
+  //       : report.questionAnswers || {};
 
-    // Find wrong questions
-    const wrongQuestions = Object.entries(questionAnswers)
-      .filter(([qNum, markedOption]) => {
-        const solution = solutionMap[qNum];
+  //   // Find wrong questions
+  //   const wrongQuestions = Object.entries(questionAnswers)
+  //     .filter(([qNum, markedOption]) => {
+  //       const solution = solutionMap[qNum];
 
-        if (!solution) return false;
+  //       if (!solution) return false;
 
-        // Skip grace questions
-        if (solution.isGrace) return false;
+  //       // Skip grace questions
+  //       if (solution.isGrace) return false;
 
-        return markedOption && !solution.correctOptions?.includes(markedOption);
-      })
-      .map(([qNum, markedOption]) => {
-        const solution = solutionMap[qNum];
+  //       return markedOption && !solution.correctOptions?.includes(markedOption);
+  //     })
+  //     .map(([qNum, markedOption]) => {
+  //       const solution = solutionMap[qNum];
 
-        return {
-          questionNumber: qNum,
-          questionText: solution?.questionText || "",
-          markedOption: markedOption || "",
-          correctOptions: solution?.correctOptions || [],
-          correctSolution: solution?.correctSolution || "",
-        };
-      });
+  //       return {
+  //         questionNumber: qNum,
+  //         questionText: solution?.questionText || "",
+  //         markedOption: markedOption || "",
+  //         correctOptions: solution?.correctOptions || [],
+  //         correctSolution: solution?.correctSolution || "",
+  //       };
+  //     });
 
-    if (wrongQuestions.length === 0) {
-      toast.info("This student has no wrong answers.");
-      return;
-    }
+  //   if (wrongQuestions.length === 0) {
+  //     toast.info("This student has no wrong answers.");
+  //     return;
+  //   }
 
-    // Excel rows
-    const excelData = wrongQuestions.map((q) => ({
-      "Question No.": `Q${q.questionNumber}`,
-      Question: q.questionText,
-      "Student Answer": q.markedOption,
-      "Correct Answer": Array.isArray(q.correctOptions)
-        ? q.correctOptions.join(", ")
-        : q.correctOptions,
-      Solution: q.correctSolution,
-    }));
+  //   // Excel rows
+  //   const excelData = wrongQuestions.map((q) => ({
+  //     "Question No.": `Q${q.questionNumber}`,
+  //     Question: q.questionText,
+  //     "Student Answer": q.markedOption,
+  //     "Correct Answer": Array.isArray(q.correctOptions)
+  //       ? q.correctOptions.join(", ")
+  //       : q.correctOptions,
+  //     Solution: q.correctSolution,
+  //   }));
 
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(excelData);
+  //   // Create worksheet
+  //   const ws = XLSX.utils.json_to_sheet(excelData);
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+  //   // Create workbook
+  //   const wb = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(wb, ws, "Wrong Answers");
+  //   XLSX.utils.book_append_sheet(wb, ws, "Wrong Answers");
 
-    // Column widths
-    ws["!cols"] = [
-      { wch: 15 }, // Question No
-      { wch: 70 }, // Question
-      { wch: 20 }, // Student Answer
-      { wch: 20 }, // Correct Answer
-      { wch: 80 }, // Solution
-    ];
+  //   // Column widths
+  //   ws["!cols"] = [
+  //     { wch: 15 }, // Question No
+  //     { wch: 70 }, // Question
+  //     { wch: 20 }, // Student Answer
+  //     { wch: 20 }, // Correct Answer
+  //     { wch: 80 }, // Solution
+  //   ];
 
-    // Safe filename
-    const regNumber = String(studentResult.regNumber || "student").replace(
-      /[^a-zA-Z0-9-_]/g,
-      "_",
-    );
+  //   // Safe filename
+  //   const regNumber = String(studentResult.regNumber || "student").replace(
+  //     /[^a-zA-Z0-9-_]/g,
+  //     "_",
+  //   );
 
-    const testNameSafe = String(testName || "test").replace(
-      /[^a-zA-Z0-9-_]/g,
-      "_",
-    );
+  //   const testNameSafe = String(testName || "test").replace(
+  //     /[^a-zA-Z0-9-_]/g,
+  //     "_",
+  //   );
 
-    const fileName = `${regNumber}_${testNameSafe}_wrong_answers.xlsx`;
+  //   const fileName = `${regNumber}_${testNameSafe}_wrong_answers.xlsx`;
 
-    // Download
-    XLSX.writeFile(wb, fileName);
+  //   // Download
+  //   XLSX.writeFile(wb, fileName);
 
-    toast.success("Wrong answers Excel downloaded");
-  };
+  //   toast.success("Wrong answers Excel downloaded");
+  // };
 
   const downloadCSV = (date, reports, marksType) => {
     const dateResults = calculateResults(reports, solutions, marksType);
@@ -1118,17 +1113,16 @@ export default function ReportsByMonth() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm bg-white text-red-600 font-bold">
                           <button
                             onClick={() =>
-                              exportStudentWrongAnswersToExcel(
+                              handleShowWrongQuestions(
                                 result,
                                 reports,
                                 solutions,
                               )
                             }
-                            className="inline-flex items-center gap-1 text-red-600 font-bold hover:text-red-800"
-                            title="Download wrong answers"
+                            className="inline-flex items-center gap-1 text-red-600 font-bold hover:text-red-800 hover:underline"
+                            title="View wrong answers"
                           >
                             {result.wrongAnswers}
-                            <span className="text-xs">↓ Excel</span>
                           </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
@@ -1522,25 +1516,36 @@ export default function ReportsByMonth() {
 
         {modalInfo.open && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-40 z-50 flex justify-center items-center"
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
             onClick={() =>
-              setModalInfo({ open: false, student: null, wrongQuestions: [] })
+              setModalInfo({
+                open: false,
+                student: null,
+                wrongQuestions: [],
+              })
             }
           >
             <div
-              className="bg-white rounded-lg shadow-lg p-6 max-w-6xl w-full"
-              style={{ maxHeight: "85vh", overflow: "auto" }}
+              className="bg-white rounded-xl shadow-2xl w-full max-w-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-2">
+              {/* Header */}
+              <div className="flex justify-between items-center px-6 py-4 border-b">
                 <div>
-                  <h3 className="text-xl font-bold">Wrong Question Review</h3>
+                  <h3 className="text-xl font-bold text-gray-800">
+                    Wrong Answer Review
+                  </h3>
 
                   <p className="text-sm text-gray-500 mt-1">
-                    Registration Number: {modalInfo.student.regNumber}•
+                    Registration Number:{" "}
+                    <span className="font-semibold text-gray-700">
+                      {modalInfo.student?.regNumber}
+                    </span>
+                    {" • "}
                     {modalInfo.wrongQuestions.length} Wrong Question(s)
                   </p>
                 </div>
+
                 <button
                   onClick={() =>
                     setModalInfo({
@@ -1549,84 +1554,83 @@ export default function ReportsByMonth() {
                       wrongQuestions: [],
                     })
                   }
-                  className="font-bold text-xl text-gray-500 hover:text-red-500"
+                  className="text-2xl font-bold text-gray-400 hover:text-red-500"
                   aria-label="Close"
                 >
                   &times;
                 </button>
               </div>
-              <div>
+
+              {/* Wrong Answers */}
+              <div className="px-6 py-5">
                 {modalInfo.wrongQuestions.length === 0 ? (
-                  <p className="text-gray-500 text-xs">No wrong questions.</p>
+                  <p className="text-center text-gray-500 py-6">
+                    No wrong questions.
+                  </p>
                 ) : (
-                  <div className="space-y-5">
-                    {modalInfo.wrongQuestions.map((q) => (
-                      <div
-                        key={q.questionNumber}
-                        className="border rounded-xl p-5 bg-white shadow-sm"
-                      >
-                        {/* Header */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                            Question
+                          </th>
 
-                        <div className="flex justify-between items-start">
-                          <h4 className="text-lg font-semibold text-gray-800">
-                            Question {q.questionNumber}
-                          </h4>
+                          <th className="px-4 py-3 text-left font-semibold text-red-600">
+                            Student Answer
+                          </th>
 
-                          <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-semibold">
-                            Incorrect
-                          </span>
-                        </div>
+                          <th className="px-4 py-3 text-left font-semibold text-green-600">
+                            Correct Answer
+                          </th>
+                        </tr>
+                      </thead>
 
-                        {/* Question */}
+                      <tbody className="divide-y divide-gray-200">
+                        {modalInfo.wrongQuestions.map((q) => (
+                          <tr
+                            key={q.questionNumber}
+                            className="hover:bg-gray-50"
+                          >
+                            <td className="px-4 py-3 font-semibold text-gray-800">
+                              Q{q.questionNumber}
+                            </td>
 
-                        {q.questionText && (
-                          <p className="mt-4 text-gray-800 leading-7 whitespace-pre-wrap">
-                            {q.questionText}
-                          </p>
-                        )}
+                            <td className="px-4 py-3">
+                              <span className="inline-block px-3 py-1 rounded-md bg-red-50 text-red-700 font-bold">
+                                {q.markedOption}
+                              </span>
+                            </td>
 
-                        {/* Images */}
-
-                        {q.questionImages?.length > 0 && (
-                          <div className="flex flex-wrap gap-3 mt-4">
-                            {q.questionImages.map((img, index) => (
-                              <img
-                                key={index}
-                                src={img}
-                                alt={`Question ${q.questionNumber}`}
-                                className="rounded-lg border max-h-52"
-                              />
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Answers */}
-
-                        <div className="mt-5 flex flex-wrap gap-6">
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-red-500 font-semibold">
-                              Student Answer
-                            </p>
-
-                            <div className="mt-1 px-4 py-2 rounded bg-red-50 text-red-700 font-bold inline-block">
-                              {q.markedOption || "Not Answered"}
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-green-600 font-semibold">
-                              Correct Answer
-                            </p>
-
-                            <div className="mt-1 px-4 py-2 rounded bg-green-50 text-green-700 font-bold inline-block">
-                              {q.correctOptions.join(", ")}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                            <td className="px-4 py-3">
+                              <span className="inline-block px-3 py-1 rounded-md bg-green-50 text-green-700 font-bold">
+                                {Array.isArray(q.correctOptions)
+                                  ? q.correctOptions.join(", ")
+                                  : q.correctOptions}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end px-6 py-4 border-t bg-gray-50 rounded-b-xl">
+                <button
+                  onClick={() =>
+                    setModalInfo({
+                      open: false,
+                      student: null,
+                      wrongQuestions: [],
+                    })
+                  }
+                  className="px-5 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
