@@ -1516,7 +1516,7 @@ export default function ReportsByMonth() {
 
         {modalInfo.open && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3"
             onClick={() =>
               setModalInfo({
                 open: false,
@@ -1526,23 +1526,25 @@ export default function ReportsByMonth() {
             }
           >
             <div
-              className="bg-white rounded-xl shadow-2xl w-full max-w-2xl"
+              className="bg-white rounded-xl shadow-2xl w-full max-w-5xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex justify-between items-center px-6 py-4 border-b">
+              <div className="flex justify-between items-center px-5 py-3 border-b">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800">
+                  <h3 className="text-lg font-bold text-gray-800">
                     Wrong Answer Review
                   </h3>
 
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     Registration Number:{" "}
                     <span className="font-semibold text-gray-700">
                       {modalInfo.student?.regNumber}
                     </span>
                     {" • "}
-                    {modalInfo.wrongQuestions.length} Wrong Question(s)
+                    <span className="font-semibold text-red-600">
+                      {modalInfo.wrongQuestions.length} Wrong Question(s)
+                    </span>
                   </p>
                 </div>
 
@@ -1554,7 +1556,7 @@ export default function ReportsByMonth() {
                       wrongQuestions: [],
                     })
                   }
-                  className="text-2xl font-bold text-gray-400 hover:text-red-500"
+                  className="text-2xl font-bold text-gray-400 hover:text-red-500 leading-none"
                   aria-label="Close"
                 >
                   &times;
@@ -1562,7 +1564,7 @@ export default function ReportsByMonth() {
               </div>
 
               {/* Wrong Answers */}
-              <div className="px-6 py-5">
+              <div className="px-5 py-3">
                 {modalInfo.wrongQuestions.length === 0 ? (
                   <p className="text-center text-gray-500 py-6">
                     No wrong questions.
@@ -1572,15 +1574,15 @@ export default function ReportsByMonth() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-100">
                         <tr>
-                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                          <th className="px-4 py-2 text-left font-semibold text-gray-700">
                             Question
                           </th>
 
-                          <th className="px-4 py-3 text-left font-semibold text-red-600">
+                          <th className="px-4 py-2 text-left font-semibold text-red-600">
                             Student Answer
                           </th>
 
-                          <th className="px-4 py-3 text-left font-semibold text-green-600">
+                          <th className="px-4 py-2 text-left font-semibold text-green-600">
                             Correct Answer
                           </th>
                         </tr>
@@ -1592,18 +1594,18 @@ export default function ReportsByMonth() {
                             key={q.questionNumber}
                             className="hover:bg-gray-50"
                           >
-                            <td className="px-4 py-3 font-semibold text-gray-800">
+                            <td className="px-4 py-1.5 font-semibold text-gray-800">
                               Q{q.questionNumber}
                             </td>
 
-                            <td className="px-4 py-3">
-                              <span className="inline-block px-3 py-1 rounded-md bg-red-50 text-red-700 font-bold">
+                            <td className="px-4 py-1.5">
+                              <span className="inline-block px-2.5 py-1 rounded-md bg-red-50 text-red-700 font-bold">
                                 {q.markedOption}
                               </span>
                             </td>
 
-                            <td className="px-4 py-3">
-                              <span className="inline-block px-3 py-1 rounded-md bg-green-50 text-green-700 font-bold">
+                            <td className="px-4 py-1.5">
+                              <span className="inline-block px-2.5 py-1 rounded-md bg-green-50 text-green-700 font-bold">
                                 {Array.isArray(q.correctOptions)
                                   ? q.correctOptions.join(", ")
                                   : q.correctOptions}
@@ -1618,7 +1620,7 @@ export default function ReportsByMonth() {
               </div>
 
               {/* Footer */}
-              <div className="flex justify-end px-6 py-4 border-t bg-gray-50 rounded-b-xl">
+              <div className="flex justify-end px-5 py-3 border-t bg-gray-50 rounded-b-xl">
                 <button
                   onClick={() =>
                     setModalInfo({
@@ -1627,7 +1629,7 @@ export default function ReportsByMonth() {
                       wrongQuestions: [],
                     })
                   }
-                  className="px-5 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition"
+                  className="px-5 py-1.5 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-800 transition"
                 >
                   Close
                 </button>
