@@ -18,7 +18,7 @@ import staffIcon from "../assets/staff.png";
 import studentIcon from "../assets/students.png";
 import powerIcon from "../assets/power.png";
 
-import biologyTestPoster from "../assets/biology-test-poster.png";
+import biologyTestPoster from "../assets/biology-test-poster.jpeg";
 
 const getDashboardItems = (role) => {
   const commonItems = [
